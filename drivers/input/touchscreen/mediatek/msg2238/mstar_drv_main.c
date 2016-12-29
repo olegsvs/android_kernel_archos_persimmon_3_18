@@ -3070,7 +3070,8 @@ s32 DrvMainTouchDeviceInitialize(void)
             DBG("call hwmsen_attach() failed = %d\n", nErr);
         }
 #endif
-
+	ps_enable_nodata=msg22xx_pls_enable;
+	ps_get_data=get_msg22xx_data;
 #endif
 #endif //CONFIG_ENABLE_PROXIMITY_DETECTION
     }

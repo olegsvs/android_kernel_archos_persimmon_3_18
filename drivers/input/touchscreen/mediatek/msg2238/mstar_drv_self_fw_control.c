@@ -54,7 +54,7 @@
 /*=============================================================*/
 // EXTERN VARIABLE DECLARATION
 /*=============================================================*/
-
+extern int ps_report_interrupt_data(int);
 extern u32 SLAVE_I2C_ID_DBBUS;
 extern u32 SLAVE_I2C_ID_DWI2C;
 extern struct tpd_device  *tpd;//20160226 liujunting add for hardwareinfo
@@ -1914,7 +1914,10 @@ static s32 _DrvFwCtrlParsePacket(u8 *pPacket, u16 nLength, TouchInfo_t *pInfo)
                    // tSensorData.value_divide = 1;
                     //tSensorData.status = SENSOR_STATUS_ACCURACY_MEDIUM;
                     // let up layer to know
-
+                    if ((nErr =  ps_report_interrupt_data(g_FaceClosingTp)))
+                    {
+                        GSE_LOG("call ps_report_interrupt_data() failed = %d\n", nErr);
+                    }
                     
                     return -1;
                 }

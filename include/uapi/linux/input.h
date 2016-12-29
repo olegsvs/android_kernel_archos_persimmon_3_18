@@ -464,6 +464,27 @@ struct input_keymap_entry {
 #define KEY_UWB			239
 
 #define KEY_UNKNOWN		240
+//dewav smart wake
+#define KEY_SDE_A       249
+#define KEY_SDE_B       250
+#define KEY_SDE_C       251
+#define KEY_SDE_D       252
+#define KEY_SDE_E       253
+#define KEY_SDE_G       254
+#define KEY_SDE_H       256
+#define KEY_SDE_M       257
+#define KEY_SDE_O       258
+#define KEY_SDE_Q       259
+#define KEY_SDE_S       260
+#define KEY_SDE_V       261
+#define KEY_SDE_W       262
+#define KEY_SDE_Y       263
+#define KEY_SDE_Z       264
+#define KEY_SDE_DOWN    265
+#define KEY_SDE_UP      266
+#define KEY_SDE_LEFT    267
+#define KEY_SDE_RIGHT   268
+#define KEY_SDE_ENTER   269
 
 #define KEY_VIDEO_NEXT		241	/* drive next video source */
 #define KEY_VIDEO_PREV		242	/* drive previous video source */

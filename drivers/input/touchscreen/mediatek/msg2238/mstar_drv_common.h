@@ -251,7 +251,7 @@
  * The below compile option is used to enable proximity detection.
  * By default, this compile option is disabled.
  */
-#define CONFIG_ENABLE_PROXIMITY_DETECTION
+//##define CONFIG_ENABLE_PROXIMITY_DETECTION
 
 /*
  * Note.

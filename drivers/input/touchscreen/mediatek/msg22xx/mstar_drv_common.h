@@ -376,13 +376,16 @@
 #define PACKET_TYPE_GESTURE_WAKEUP  (0x50)
 #define PACKET_TYPE_GESTURE_DEBUG  		(0x51)
 #define PACKET_TYPE_GESTURE_INFORMATION	(0x52)
-
+#define TOUCH_SCREEN_X_MAX                              720
+#define TOUCH_SCREEN_Y_MAX                              1280
+/*
 #define TOUCH_SCREEN_X_MIN   (0)
 #define TOUCH_SCREEN_Y_MIN   (0)
 /*
  * Note.
  * Please change the below touch screen resolution according to the touch panel that you are using.
  */
+/*
 #if (defined(WVGA) || defined(CU_WVGA) || defined(CMCC_WVGA) || defined(CMCC_LTE_WVGA))
 
 #define TOUCH_SCREEN_X_MAX				480
@@ -417,10 +420,10 @@
 
 #define TOUCH_SCREEN_X_MAX				540
 #define TOUCH_SCREEN_Y_MAX				960
-
-#else
-#error "LCM resolution can't define!!!!! "
-#endif
+*/
+//#else
+//#error "LCM resolution can't define!!!!! "
+//#endif
 /*
  * Note.
  * Please do not change the below setting.

@@ -184,7 +184,7 @@ static struct i2c_driver tpd_i2c_driver = {
 
 static int tpd_local_init(void)
 {  
- 
+//    TPD_DMESG("TPD init device driver (Built %s @ %s)\n", __DATE__, __TIME__);
 /*
     // Software reset mode will be treated as normal boot
     boot_mode = get_boot_mode();
