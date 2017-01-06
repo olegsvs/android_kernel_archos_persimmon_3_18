@@ -1,5 +1,5 @@
-#ifndef _MT6735_M4U_REG_D1_H__
-#define _MT6735_M4U_REG_D1_H__
+#ifndef _MT6735_M4U_REG_D2_H__
+#define _MT6735_M4U_REG_D2_H__
 
 /* ================================================= */
 /* common macro definitions */
@@ -112,7 +112,7 @@
     #define F_READ_ENTRY_MMx_MAIN(id)       F_BIT_SET(27+id)
     #define F_READ_ENTRY_PFH                F_BIT_SET(26)
     #define F_READ_ENTRY_MAIN_IDX(idx)      F_VAL(idx, 16, 12)
-    #define F_READ_ENTRY_PFH_IDX(idx)       F_VAL(idx, 10, 5)
+    #define F_READ_ENTRY_PFH_IDX(idx)       F_VAL(idx, 9, 5)
     /* #define F_READ_ENTRY_PFH_HI_LO(high)    F_VAL(high, 4,4) */
     /* #define F_READ_ENTRY_PFH_PAGE(page)     F_VAL(page, 3,2) */
     #define F_READ_ENTRY_PFH_PAGE_IDX(idx)    F_VAL(idx, 4, 2)
@@ -122,16 +122,16 @@
 
 #define REG_MMU_PFH_TAG_RDATA    0x108
     #define F_PFH_TAG_VA_GET(mmu, tag)    ((mmu == 0)?F_MMU0_PFH_TAG_VA_GET(tag) : F_MMU1_PFH_TAG_VA_GET(tag))
-    #define F_MMU0_PFH_TAG_VA_GET(tag)    (F_MSK_SHIFT(tag, 14, 4)<<(MMU_SET_MSB_OFFSET(0)+1))
+    #define F_MMU0_PFH_TAG_VA_GET(tag)    (F_MSK_SHIFT(tag, 15, 4)<<(MMU_SET_MSB_OFFSET(0)+1))
     #define F_MMU1_PFH_TAG_VA_GET(tag)    (F_MSK_SHIFT(tag, 15, 4)<<(MMU_SET_MSB_OFFSET(1)+1))
-    #define F_MMU_PFH_TAG_VA_LAYER0_MSK(mmu)  ((mmu = 0)?F_MSK(31, 29):F_MSK(31, 28))
+    #define F_MMU_PFH_TAG_VA_LAYER0_MSK(mmu)  ((mmu = 0)?F_MSK(31, 28):F_MSK(31, 28))
     #define F_PFH_TAG_LAYER_BIT         F_BIT_SET(3)
     #define F_PFH_TAG_16X_BIT           F_BIT_SET(2) /* this bit is always 0 -- cost down. */
     #define F_PFH_TAG_SEC_BIT           F_BIT_SET(1)
     #define F_PFH_TAG_AUTO_PFH          F_BIT_SET(0)
 
 /* tag related macro */
-    #define MMU0_SET_ORDER         6
+    #define MMU0_SET_ORDER         5
     #define MMU1_SET_ORDER         5
     #define MMU_SET_ORDER(mmu)      ((mmu == 0) ? MMU0_SET_ORDER : MMU1_SET_ORDER)
     #define MMU_SET_NR(mmu)    (1<<MMU_SET_ORDER(mmu))
@@ -214,8 +214,8 @@
 
 #define REG_MMU_PFH_VLD_0   (0x180)
 #define REG_MMU_PFH_VLD(mmu, set, way) \
-	(REG_MMU_PFH_VLD_0+(((set)>>5)<<2)+((way)<<((mmu == 0) \
-			? (MMU0_SET_ORDER - 3):(MMU1_SET_ORDER - 3))))
+		(REG_MMU_PFH_VLD_0+(((set)>>5)<<2)+((way)<<((mmu == 0) \
+				? (MMU0_SET_ORDER - 3):(MMU1_SET_ORDER - 3))))
     #define F_MMU_PFH_VLD_BIT(set, way)      F_BIT_SET((set)&0x1f)       /* set%32 */
 
 
@@ -281,16 +281,13 @@
 #define REG_MMU_PFH_DIST1           0xb04
 #define REG_MMU_PFH_DIST2           0xb08
 #define REG_MMU_PFH_DIST3           0xb0c
-#define REG_MMU_PFH_DIST4           0xb10
-#define REG_MMU_PFH_DIST5           0xb14
 #define REG_MMU_PFH_DIST(port)      (REG_MMU_PFH_DIST0+(((port)>>3)<<2))
     #define F_MMU_PFH_DIST_VAL(port, val) ((val&0xf)<<(((port)&0x7)<<2))
     #define F_MMU_PFH_DIST_MASK(port)     F_MMU_PFH_DIST_VAL((port), 0xf)
 #define REG_MMU_PFH_DIST_NR(nr)      (REG_MMU_PFH_DIST0 + ((nr)<<2))
 
 #define REG_MMU_PFH_DIR0         0xd00
-#define REG_MMU_PFH_DIR1         0xd04
-#define REG_MMU_PFH_DIR(port)   (((port) < 32) ? REG_MMU_PFH_DIR0 : REG_MMU_PFH_DIR1)
+#define REG_MMU_PFH_DIR(port)    (REG_MMU_PFH_DIR0)
 #define F_MMU_PFH_DIR(port, val) ((!!(val))<<((port)&0x1f))
 #define REG_MMU_PFH_DIR_NR(nr) (REG_MMU_PFH_DIR0 + ((nr)<<2))
 
@@ -341,10 +338,20 @@ static inline void M4U_WriteReg32(unsigned long M4uBase, unsigned int Offset, un
 	COM_WriteReg32((M4uBase+Offset), Val);
 }
 
+static inline void m4uHw_set_field_by_mask(unsigned long M4UBase, unsigned int reg,
+				      unsigned long mask, unsigned int val)
+{
+	unsigned int regval;
+
+	regval = M4U_ReadReg32(M4UBase, reg);
+	regval = (regval & (~mask))|val;
+	M4U_WriteReg32(M4UBase, reg, regval);
+}
+
 static inline unsigned int m4uHw_get_field_by_mask(unsigned long M4UBase, unsigned int reg,
 				      unsigned int mask)
 {
 	return M4U_ReadReg32(M4UBase, reg)&mask;
 }
 
-#endif /* _MT6735_M4U_REG_D1_H__ */
+#endif /* _MT6735_M4U_REG_D2_H__ */
