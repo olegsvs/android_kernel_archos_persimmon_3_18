@@ -7,7 +7,6 @@
 #include <mt-plat/mt_gpio_core.h>
 #include "6735_gpio.h"
 
-
 void mt_gpio_pin_decrypt(unsigned long *cipher)
 {
 	/* just for debug, find out who used pin number directly */

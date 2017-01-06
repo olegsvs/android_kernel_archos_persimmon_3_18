@@ -33,6 +33,7 @@ obj-$(CONFIG_MTK_MMC328X)	+=  mmc328x/
 obj-$(CONFIG_MTK_MMC328X_AUTO)	+=  mmc328x_auto/
 obj-$(CONFIG_MTK_MMC328XMA)	+=  mmc328xma/
 obj-$(CONFIG_MTK_MMC3416X)	+=  mmc3416x/
+obj-$(CONFIG_MTK_MMC3524X)  +=  mmc3524x/ #add by major for msensor mmc5420p
 obj-$(CONFIG_MTK_QMC5983)	+=  qmc5983/
 obj-$(CONFIG_MTK_S62X)	+=  s62x/
 obj-$(CONFIG_MTK_ST480)	+=  st480/

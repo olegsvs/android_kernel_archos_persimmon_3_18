@@ -167,7 +167,7 @@ static unsigned int charging_hw_init(void *data)
 	pr_notice("[BATTERY:ncp1854] ChargerHwInit_ncp1854\n");
 
 	ncp1854_status = ncp1854_get_chip_status();
-	ncp1854_set_otg_en(0x0);
+	ncp1854_set_otg_en(0x0); //add by darren /copy from other project
 	ncp1854_set_trans_en(0);
 	ncp1854_set_tj_warn_opt(0x0);	/* set at disabled, by MT6325 BATON */
 	/* ncp1854_set_int_mask(0x0); //disable all interrupt */
@@ -176,9 +176,14 @@ static unsigned int charging_hw_init(void *data)
 	ncp1854_set_chgto_dis(0x1);	/* disable charge timer */
 	/* WEAK WAIT, WEAK SAFE, WEAK CHARGE */
 	if ((ncp1854_status == 0x8) || (ncp1854_status == 0x9) || (ncp1854_status == 0xA))
+	{
 		ncp1854_set_ctrl_vbat(0x1C);	/* VCHG = 4.0V */
+	}
+	else{
+        ncp1854_set_ctrl_vbat(0x2C); //VCHG = 4.4V// higt voltage for 4.4v
+	}
 
-	ncp1854_set_ieoc(0x0);
+	ncp1854_set_ieoc(0x2); /* cut off current = 250mA  6-2 by darren*/
 	ncp1854_set_iweak(0x3);	/* weak charge current = 300mA */
 
 	ncp1854_set_aicl_en(0x1);	/* enable AICL as PT team suggest */
@@ -241,7 +246,7 @@ static unsigned int charging_set_cv_voltage(void *data)
 	unsigned int set_chr_cv;
 
 	if (batt_cust_data.high_battery_voltage_support)
-		cv_value = BATTERY_VOLT_04_350000_V;
+		cv_value = BATTERY_VOLT_04_400000_V;
 
 	/* use nearest value */
 	array_size = GETARRAYNUM(VBAT_CV_VTH);
@@ -398,7 +403,9 @@ static unsigned int charging_get_hv_status(void *data)
 static unsigned int charging_get_battery_status(void *data)
 {
 	unsigned int status = STATUS_OK;
+#if !defined(CONFIG_POWER_EXT)
 	unsigned int val = 0;
+#endif
 
 #if defined(CONFIG_POWER_EXT) || defined(CONFIG_MTK_FPGA)
 	*(kal_bool *) (data) = 0;	/* battery exist */
@@ -527,7 +534,7 @@ static unsigned int charging_set_ta_current_pattern(void *data)
 	unsigned int increase = *(unsigned int *) (data);
 
 #if defined(HIGH_BATTERY_VOLTAGE_SUPPORT)
-	BATTERY_VOLTAGE_ENUM cv_voltage = BATTERY_VOLT_04_350000_V;
+	 BATTERY_VOLTAGE_ENUM cv_voltage = BATTERY_VOLT_04_375000_V; //4.35 -> 4.375 modify by darren
 #else
 	BATTERY_VOLTAGE_ENUM cv_voltage = BATTERY_VOLT_04_200000_V;
 #endif

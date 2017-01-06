@@ -59,46 +59,7 @@
 #include "mt_soc_pcm_common.h"
 
 
-static int dummy_codec_startup(struct snd_pcm_substream *substream, struct snd_soc_dai *Daiport)
-{
-	pr_warn("dummy_codec_startup\n");
-	return 0;
-}
 
-static int dummy_codec_prepare(struct snd_pcm_substream *substream, struct snd_soc_dai *Daiport)
-{
-	pr_warn("dummy_codec_prepare\n ");
-	if (substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
-		pr_warn("dummy_codec_prepare set up SNDRV_PCM_STREAM_CAPTURE rate = %d\n",
-		       substream->runtime->rate);
-
-	} else if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
-		pr_warn("dummy_codec_prepare set up SNDRV_PCM_STREAM_PLAYBACK rate = %d\n",
-		       substream->runtime->rate);
-	}
-	return 0;
-}
-
-static int dummy_codec_trigger(struct snd_pcm_substream *substream, int command,
-			       struct snd_soc_dai *Daiport)
-{
-	switch (command) {
-	case SNDRV_PCM_TRIGGER_START:
-	case SNDRV_PCM_TRIGGER_RESUME:
-	case SNDRV_PCM_TRIGGER_STOP:
-	case SNDRV_PCM_TRIGGER_SUSPEND:
-		break;
-	}
-
-	pr_warn("dummy_codec_trigger command = %d\n ", command);
-	return 0;
-}
-
-static const struct snd_soc_dai_ops dummy_aif1_dai_ops = {
-	.startup = dummy_codec_startup,
-	.prepare = dummy_codec_prepare,
-	.trigger = dummy_codec_trigger,
-};
 
 static struct snd_soc_dai_driver dummy_6323_dai_codecs[] = {
 	{

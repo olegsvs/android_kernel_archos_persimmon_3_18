@@ -218,6 +218,9 @@
 #define MT_SOC_FM_I2S_CAPTURE_NAME "mt-soc-fmi2Scapturedai-driver"
 #define MT_SOC_OFFLOAD_GDMA_NAME "mt-soc-offload-gdma-driver"
 
+//ES9018 PORTING add by major 
+#define MT_SOC_DUMMY_I2S_DAI_NAME "mtk-es9018-i2s"
+
 
 /* platform name */
 #define MT_SOC_DL1_PCM   "mt-soc-dl1-pcm"
@@ -254,6 +257,9 @@
 #define MT_SOC_FM_I2S_PCM  "mt-soc-fm-i2s-pcm"
 #define MT_SOC_FM_I2S_AWB_PCM  "mt-soc-fm-i2s-awb-pcm"
 #define MT_SOC_OFFLOAD_GDMA_PCM "mt-soc-offload-gdma-pcm"
+
+//ES9018 PORTING add by major 
+#define MT_SOC_DUMMY_I2S_PCM "mt-soc-dump-i2s-pcm"
 
 
 /* codec dai name */
@@ -329,5 +335,7 @@
 #define MT_SOC_FM_I2S_PLAYBACK_STREAM_NAME "FM_I2S_Playback"
 #define MT_SOC_FM_I2S_CAPTURE_STREAM_NAME "FM_I2S_Capture"
 #define MT_SOC_OFFLOAD_GDMA_STREAM_NAME "OFFLOAD_GDMA_Playback"
+//add by major for bf168 hifi
+#define MT_SOC_DUMMY_I2S_STREAM_PCM "mt-soc-dump-i2s-stream-pcm"
 
 #endif

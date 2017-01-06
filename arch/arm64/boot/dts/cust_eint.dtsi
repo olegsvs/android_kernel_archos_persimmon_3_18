@@ -47,11 +47,11 @@
 		debounce = <10 0>;
 	};
 
-	ALS@65 {
+	ALS@4 {
 		compatible = "mediatek, ALS-eint";
 		interrupt-parent = <&eintc>;
-		interrupts = <65 8>;
-		debounce = <65 0>;
+		interrupts = <4 8>;
+		debounce = <4 0>;
 	};
 
 	GSE_1@66 {

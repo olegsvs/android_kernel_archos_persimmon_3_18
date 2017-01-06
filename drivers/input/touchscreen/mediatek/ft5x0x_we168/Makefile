@@ -1,0 +1,19 @@
+
+# Linux driver folder
+ccflags-y += -I$(srctree)/drivers/input/touchscreen/mediatek/ft5x0x_we168/include/
+ccflags-y += -I$(srctree)/drivers/input/touchscreen/mediatek/
+ccflags-y += -I$(srctree)/drivers/input/touchscreen/mediatek/ft5x0x_we168/include/$(CONFIG_FT5X0X_FIRMWARE)/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include/
+
+ldflags-y += -L$(srctree)/drivers/input/touchscreen/mediatek/ft5x0x_we168/ --whole-archive $(srctree)/drivers/input/touchscreen/mediatek/ft5x0x_we168/ft_gesture_64bit_lib.a  --no-whole-archive
+
+obj-y	+=  focaltech_ctl.o
+obj-y	+=  focaltech_ex_fun.o
+obj-y	+=  focaltech_flash.o
+obj-y	+=  focaltech_Gesture.o
+obj-y	+=  focaltech_core.o
+
+
+
+

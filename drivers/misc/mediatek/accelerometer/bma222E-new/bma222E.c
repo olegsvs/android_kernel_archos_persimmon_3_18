@@ -42,7 +42,7 @@
 /*----------------------------------------------------------------------------*/
 #define I2C_DRIVERID_BMA222 222
 /*----------------------------------------------------------------------------*/
-/*#define DEBUG 1*/
+#define DEBUG 1
 /*----------------------------------------------------------------------------*/
 
 #define SW_CALIBRATION
@@ -177,13 +177,15 @@ static struct acc_init_info bma222_init_info = {
 };
 
 /*----------------------------------------------------------------------------*/
-#define BMA222E_DEBUG 0
+#if 1
 #define GSE_TAG                  "[Gsensor] "
-#define GSE_ERR(fmt, args...)    pr_err(GSE_TAG"%s %d : "fmt, __func__, __LINE__, ##args)
 #define GSE_FUN(f)               pr_debug(GSE_TAG"%s\n", __func__)
-#if BMA222E_DEBUG
+#define GSE_ERR(fmt, args...)    pr_err(GSE_TAG"%s %d : "fmt, __func__, __LINE__, ##args)
 #define GSE_LOG(fmt, args...)    pr_debug(GSE_TAG fmt, ##args)
 #else
+#define GSE_TAG
+#define GSE_FUN(f)
+#define GSE_ERR(fmt, args...)
 #define GSE_LOG(fmt, args...)
 #endif
 
@@ -819,7 +821,9 @@ static int bma222_init_client(struct i2c_client *client, int reset_cali)
 	struct bma222_i2c_data *obj = i2c_get_clientdata(client);
 	int res = 0;
 
-	/*GSE_FUN();*/
+	GSE_FUN();
+
+
 	res = BMA222_CheckDeviceID(client);
 	if (res != BMA222_SUCCESS)
 		return res;
@@ -2068,6 +2072,7 @@ static int gsensor_local_init(void)
 /*----------------------------------------------------------------------------*/
 static int gsensor_remove(void)
 {
+	GSE_FUN();
 	BMA222_power(hw, 0);
 	i2c_del_driver(&bma222_i2c_driver);
 	return 0;
@@ -2088,7 +2093,7 @@ static int __init bma222_init(void)
 /*----------------------------------------------------------------------------*/
 static void __exit bma222_exit(void)
 {
-	/*GSE_FUN();*/
+	GSE_FUN();
 }
 
 /*----------------------------------------------------------------------------*/

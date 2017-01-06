@@ -95,7 +95,10 @@
  /* ============================================================ // */
  /* global variable */
  /* ============================================================ // */
+extern int agingtest_data;
+extern unsigned int mt_get_bl_brightness(void);
 unsigned int g_bcct_flag = 0;
+int g_thermal_current_limit = 0;
 CHR_CURRENT_ENUM g_temp_CC_value = CHARGE_CURRENT_0_00_MA;
 unsigned int g_usb_state = USB_UNCONFIGURED;
 unsigned int charging_full_current;	/* = CHARGING_FULL_CURRENT; *//* mA */
@@ -640,10 +643,8 @@ static BATTERY_VOLTAGE_ENUM select_jeita_cv(void)
 
 PMU_STATUS do_jeita_state_machine(void)
 {
-	int previous_g_temp_status;
 	BATTERY_VOLTAGE_ENUM cv_voltage;
 
-	previous_g_temp_status = g_temp_status;
 	/* JEITA battery temp Standard */
 	if (BMT_status.temperature >= TEMP_POS_60_THRESHOLD) {
 		battery_log(BAT_LOG_CRTI,
@@ -736,15 +737,13 @@ PMU_STATUS do_jeita_state_machine(void)
 		return PMU_STATUS_FAIL;
 	}
 
-	/* set CV after temperature changed */
-	if (g_temp_status != previous_g_temp_status) {
-		cv_voltage = select_jeita_cv();
-		battery_charging_control(CHARGING_CMD_SET_CV_VOLTAGE, &cv_voltage);
+	cv_voltage = select_jeita_cv();
+	battery_charging_control(CHARGING_CMD_SET_CV_VOLTAGE, &cv_voltage);
 
-		#if defined(CONFIG_MTK_HAFG_20)
-		g_cv_voltage = cv_voltage;
-		#endif
-	}
+	#if defined(CONFIG_MTK_HAFG_20)
+	g_cv_voltage = cv_voltage;
+	#endif
+
 
 	return PMU_STATUS_OK;
 }
@@ -782,6 +781,43 @@ void set_usb_current_unlimited(bool enable)
 void select_charging_curret_bcct(void)
 {
 	/* done on set_bat_charging_current_limit */
+		if (g_thermal_current_limit < 70)
+			g_temp_CC_value = CHARGE_CURRENT_0_00_MA;
+		else if (g_thermal_current_limit < 200)
+			g_temp_CC_value = CHARGE_CURRENT_70_00_MA;
+		else if (g_thermal_current_limit < 300)
+			g_temp_CC_value = CHARGE_CURRENT_200_00_MA;
+		else if (g_thermal_current_limit < 400)
+			g_temp_CC_value = CHARGE_CURRENT_300_00_MA;
+		else if (g_thermal_current_limit < 450)
+			g_temp_CC_value = CHARGE_CURRENT_400_00_MA;
+		else if (g_thermal_current_limit < 500)
+			g_temp_CC_value = CHARGE_CURRENT_450_00_MA;
+		if (g_thermal_current_limit < 550)
+			g_temp_CC_value = CHARGE_CURRENT_500_00_MA;
+		else if (g_thermal_current_limit < 600)
+			g_temp_CC_value = CHARGE_CURRENT_550_00_MA;
+		else if (g_thermal_current_limit < 650)
+			g_temp_CC_value = CHARGE_CURRENT_600_00_MA;
+		else if (g_thermal_current_limit < 700)
+			g_temp_CC_value = CHARGE_CURRENT_650_00_MA;
+		else if (g_thermal_current_limit < 750)
+			g_temp_CC_value = CHARGE_CURRENT_700_00_MA;
+		else if (g_thermal_current_limit < 850)
+			g_temp_CC_value = CHARGE_CURRENT_750_00_MA;
+		else if (g_thermal_current_limit < 950)
+			g_temp_CC_value = CHARGE_CURRENT_850_00_MA;
+		else if (g_thermal_current_limit < 1050)
+			g_temp_CC_value = CHARGE_CURRENT_950_00_MA;
+		else if (g_thermal_current_limit < 1150)
+			g_temp_CC_value = CHARGE_CURRENT_1050_00_MA;
+		else if (g_thermal_current_limit < 1250)
+			g_temp_CC_value = CHARGE_CURRENT_1150_00_MA;
+		else if (g_thermal_current_limit == 1250)
+			g_temp_CC_value = CHARGE_CURRENT_1250_00_MA;
+		else
+			g_temp_CC_value = CHARGE_CURRENT_500_00_MA;
+
 }
 
 
@@ -792,7 +828,13 @@ unsigned int set_bat_charging_current_limit(int current_limit)
 
 	if (current_limit != -1) {
 		g_bcct_flag = 1;
-
+        g_thermal_current_limit = current_limit;
+		//jeeray add
+		if((1 == agingtest_data) || (mt_get_bl_brightness() == 0))
+		{
+			return g_bcct_flag; 
+		}
+		//jeeray add
 		if (current_limit < 70)
 			g_temp_CC_value = CHARGE_CURRENT_0_00_MA;
 		else if (current_limit < 200)
@@ -839,15 +881,12 @@ unsigned int set_bat_charging_current_limit(int current_limit)
 		"[BATTERY] set_bat_charging_current_limit over usb spec(%d,%d)\r\n",
 				current_limit * 100, g_temp_CC_value);
 			}
-
-
-
 	} else {
 		/* change to default current setting */
 		g_bcct_flag = 0;
 	}
 
-	wake_up_bat();
+	wake_up_bat3();
 
 	return g_bcct_flag;
 }
@@ -929,9 +968,11 @@ void select_charging_curret(void)
 			}
 #endif
 		} else if (BMT_status.charger_type == NONSTANDARD_CHARGER) {
-			g_temp_CC_value = batt_cust_data.non_std_ac_charger_current;
+			    g_temp_CC_value = batt_cust_data.non_std_ac_charger_current;
+                //printk("jeeray--non->bl ==0 g_temp_CC_value:%d\n", g_temp_CC_value);
 		} else if (BMT_status.charger_type == STANDARD_CHARGER) {
-			g_temp_CC_value = batt_cust_data.ac_charger_current;
+			    g_temp_CC_value = batt_cust_data.ac_charger_current;
+                //printk("jeeray--->bl ==0 g_temp_CC_value:%d\n", g_temp_CC_value);
 #if defined(CONFIG_MTK_PUMP_EXPRESS_SUPPORT)
 			if (is_ta_connect == KAL_TRUE && ta_vchr_tuning == KAL_TRUE)
 				g_temp_CC_value = CHARGE_CURRENT_1500_00_MA;
@@ -1088,13 +1129,14 @@ static void pchr_turn_on_charging(void)
 		battery_pump_express_algorithm_start();
 #endif
 
-		/* Set Charging Current */
+		/* Set Charging Current*/
 		if (get_usb_current_unlimited()) {
-			g_temp_CC_value = batt_cust_data.ac_charger_current;
+			    g_temp_CC_value = batt_cust_data.ac_charger_current;
+                //printk("jeeray--get_usb_current_unlimited->bl ==0 g_temp_CC_value:%d\n", g_temp_CC_value);
 			battery_log(BAT_LOG_FULL,
 				    "USB_CURRENT_UNLIMITED, use AC_CHARGER_CURRENT\n");
 		} else {
-			if (g_bcct_flag == 1) {
+			if ((g_bcct_flag == 1) && (agingtest_data != 1) && (mt_get_bl_brightness() != 0)) {
 				battery_log(BAT_LOG_FULL,
 					    "[BATTERY] select_charging_curret_bcct !\n");
 				select_charging_curret_bcct();
@@ -1103,6 +1145,22 @@ static void pchr_turn_on_charging(void)
 				select_charging_curret();
 			}
 		}
+
+		/* Set Charging Current 
+		if (g_bcct_flag == 1) {
+			battery_log(BAT_LOG_FULL,
+					"[BATTERY] select_charging_curret_bcct !\n");
+			select_charging_curret_bcct();
+		} else {
+			if (get_usb_current_unlimited()) {
+				g_temp_CC_value = batt_cust_data.ac_charger_current;
+				battery_log(BAT_LOG_FULL,
+						"USB_CURRENT_UNLIMITED, use AC_CHARGER_CURRENT\n");
+			} else {
+				battery_log(BAT_LOG_FULL, "[BATTERY] select_charging_current !\n");
+				select_charging_curret();
+			}
+		}*/
 
 		if (g_temp_CC_value == CHARGE_CURRENT_0_00_MA) {
 			charging_enable = KAL_FALSE;

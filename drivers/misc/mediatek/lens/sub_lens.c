@@ -31,7 +31,7 @@
 
 
 #if I2C_CONFIG_SETTING == 1
-#define LENS_I2C_BUSNUM 1
+#define LENS_I2C_BUSNUM 2 //1--2 modiffy by darren
 #define I2C_REGISTER_ID            0x27
 #endif
 

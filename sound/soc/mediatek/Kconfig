@@ -48,6 +48,12 @@ config MTK_NXP_TFA9890
 	help
         If you say Y, enable MTK_NXP_TFA9890 driver.
 
+config MTK_HIFI_ES9018
+    bool "hifi_es9018"
+    default n
+    help
+      If you say Y, enable MTK_HIFI_ES9018.
+
 config SND_SOC_MT8173
     tristate
 
@@ -83,3 +89,14 @@ config MTK_BTCVSD_ALSA
 	default n
 	help
         If you say Y, enable MTK_BTCVSD_ALSA.
+config DW_PROJECT_CF168
+    bool "DW_PROJECT_CF168"
+	default n
+	help
+        If you say Y, enable DW_PROJECT_CF168.
+
+config DW_PROJECT_BF168
+    bool "DW_PROJECT_BF168"
+	default n
+	help
+        If you say Y, enable DW_PROJECT_BF168.

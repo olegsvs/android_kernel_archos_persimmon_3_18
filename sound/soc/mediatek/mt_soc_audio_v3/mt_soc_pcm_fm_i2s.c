@@ -281,7 +281,12 @@ static int mtk_pcm_fm_i2s_prepare(struct snd_pcm_substream *substream)
 			      Soc_Aud_InterConnectionOutput_O03);
 		SetConnection(Soc_Aud_InterCon_Connection, Soc_Aud_InterConnectionInput_I11,
 			      Soc_Aud_InterConnectionOutput_O04);
-
+#if defined (CONFIG_MTK_NXP_TFA9890) || defined (CONFIG_MTK_HIFI_ES9018)
+		//printk("mtkadd+++\n"); //add by major for play fm  use smartpa no sound
+		SetConnection(Soc_Aud_InterCon_Connection, Soc_Aud_InterConnectionInput_I10, Soc_Aud_InterConnectionOutput_O00);
+		SetConnection(Soc_Aud_InterCon_Connection, Soc_Aud_InterConnectionInput_I11, Soc_Aud_InterConnectionOutput_O01);
+		//printk("mtkadd---\n");
+#endif
 		/* Set HW_GAIN */
 		SetHwDigitalGainMode(Soc_Aud_Hw_Digital_Gain_HW_DIGITAL_GAIN1, runtime->rate,
 				     0x40);

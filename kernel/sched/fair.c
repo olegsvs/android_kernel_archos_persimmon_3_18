@@ -2845,7 +2845,7 @@ int group_leader_is_empty(struct task_struct *p)
 static inline void update_tg_info(struct cfs_rq *cfs_rq, struct sched_entity *se, long ratio_delta)
 {
 	struct task_struct *p = task_of(se);
-	struct task_struct *tg = p->group_leader;
+	struct task_struct *tg;
 	int id;
 	unsigned long flags;
 
@@ -2854,6 +2854,8 @@ static inline void update_tg_info(struct cfs_rq *cfs_rq, struct sched_entity *se
 
 	if (group_leader_is_empty(p))
 		return;
+
+	tg = p->group_leader;
 
 	id = arch_get_cluster_id(cpu_of(rq_of(cfs_rq)));
 	if (unlikely(WARN_ON(id < 0)))
@@ -2893,7 +2895,8 @@ static inline void update_entity_load_avg(struct sched_entity *se,
 
 	if (!__update_entity_runnable_avg(now, cpu, &se->avg, se->on_rq, cfs_rq->curr == se)) {
 		/* sched: add trace_sched */
-		trace_sched_task_entity_avg(2, task_of(se), &se->avg);
+		if (entity_is_task(se))
+			trace_sched_task_entity_avg(2, task_of(se), &se->avg);
 		return;
 	}
 
@@ -6560,29 +6563,37 @@ static int cmp_can_migrate_task(struct task_struct *p, struct lb_env *env)
 	if (arch_is_multi_cluster()) {
 		int src_clid, dst_clid;
 		int src_nr_cpus;
-		struct thread_group_info_t *src_tginfo, *dst_tginfo;
 
 		src_clid = arch_get_cluster_id(env->src_cpu);
 		dst_clid = arch_get_cluster_id(env->dst_cpu);
 		BUG_ON(dst_clid == -1 || src_clid == -1);
-		BUG_ON(p == NULL || p->group_leader == NULL);
-		src_tginfo = &p->group_leader->thread_group_info[src_clid];
-		dst_tginfo = &p->group_leader->thread_group_info[dst_clid];
+		BUG_ON(p == NULL);
 		src_nr_cpus = nr_cpus_in_cluster(src_clid, false);
 
-		mt_sched_printf(sched_cmp_info,
-		"check rule0: pid=%d comm=%s load=%ld src:clid=%d tginfo->nr_running=%ld nr_cpus=%d loadwop_avg_contrib=%ld",
-			p->pid, p->comm, p->se.avg.loadwop_avg_contrib,
-			src_clid, src_tginfo->nr_running, src_nr_cpus,
-			src_tginfo->loadwop_avg_contrib);
 #ifdef CONFIG_MTK_SCHED_CMP_TGS_WAKEUP
-		if ((!thread_group_empty(p)) &&
-		    (src_tginfo->nr_running <= src_nr_cpus) &&
-		    (src_tginfo->nr_running > dst_tginfo->nr_running)) {
-			mt_sched_printf(sched_log,
-				"hit ruleA: bypass pid=%d comm=%s src:nr_running=%lu nr_cpus=%d dst:nr_running=%lu",
-				p->pid, p->comm, src_tginfo->nr_running, src_nr_cpus, dst_tginfo->nr_running);
-			return 0;
+		if (!thread_group_empty(p)) {
+			struct thread_group_info_t *src_tginfo, *dst_tginfo;
+
+			if (group_leader_is_empty(p))
+				return 0;
+
+			src_tginfo = &p->group_leader->thread_group_info[src_clid];
+			dst_tginfo = &p->group_leader->thread_group_info[dst_clid];
+
+			mt_sched_printf(sched_cmp_info,
+				"check rule0: pid=%d comm=%s load=%ld src:clid=%d tginfo->nr_running=%ld nr_cpus=%d loadwop_avg_contrib=%ld",
+				p->pid, p->comm, p->se.avg.loadwop_avg_contrib,
+				src_clid, src_tginfo->nr_running, src_nr_cpus,
+				src_tginfo->loadwop_avg_contrib);
+
+			/* # of task in src is larger than # of tasks in dst, don't migration */
+			if ((src_tginfo->nr_running <= src_nr_cpus) &&
+				(src_tginfo->nr_running > dst_tginfo->nr_running)) {
+				mt_sched_printf(sched_log,
+					"hit ruleA: bypass pid=%d comm=%s src:nr_running=%lu nr_cpus=%d dst:nr_running=%lu",
+					p->pid, p->comm, src_tginfo->nr_running, src_nr_cpus, dst_tginfo->nr_running);
+				return 0;
+			}
 		}
 #endif
 	}
@@ -6634,7 +6645,11 @@ static int need_migrate_task_immediately(struct task_struct *p,
 		src_clid = arch_get_cluster_id(env->src_cpu);
 		dst_clid = arch_get_cluster_id(env->dst_cpu);
 		BUG_ON(dst_clid == -1 || src_clid == -1);
-		BUG_ON(p == NULL || p->group_leader == NULL);
+		BUG_ON(p == NULL);
+
+		if (group_leader_is_empty(p))
+			return 0;
+
 		src_tginfo = &p->group_leader->thread_group_info[src_clid];
 		dst_tginfo = &p->group_leader->thread_group_info[dst_clid];
 		src_nr_cpus = nr_cpus_in_cluster(src_clid, false);

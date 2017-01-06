@@ -76,7 +76,6 @@ static const int DCoffsetDefault = 1460;  /* denali: 1460 */
 
 static const int DCoffsetVariance = 200;    /* denali 0.2v */
 
-static const int mDcRangestep = 7;
 static const int HpImpedancePhase1Step = 150;
 static const int HpImpedancePhase2Step = 400;
 static const int HpImpedancePhase1AdcValue = 1200;

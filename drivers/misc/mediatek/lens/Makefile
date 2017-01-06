@@ -30,12 +30,14 @@ subdir-ccflags-$(CONFIG_MTK_LENS_BU63165AF_SUPPORT) += -I$(MTK_CUSTOM_PATH)/lens
 
 obj-y      += main_lens.o
 obj-y      += sub_lens.o
+obj-$(CONFIG_MTK_LENS_DW9800AF_SUPPORT)    += common/dw9800af/
 obj-$(CONFIG_MTK_LENS_FM50AF_SUPPORT)      += common/fm50af/
 obj-$(CONFIG_MTK_LENS_BU6424AF_SUPPORT)    += common/bu6424af/
 obj-$(CONFIG_MTK_LENS_BU6429AF_SUPPORT)    += common/bu6429af/
 obj-$(CONFIG_MTK_LENS_BU63165AF_SUPPORT)  += common/bu63165af/
 obj-$(CONFIG_MTK_LENS_DW9714AF_SUPPORT)    += common/dw9714af/
 obj-$(CONFIG_MTK_LENS_DW9814AF_SUPPORT)    += common/dw9814af/
+obj-$(CONFIG_MTK_LENS_GT9766AF_SUPPORT)    += common/gt9766af/
 obj-$(CONFIG_MTK_LENS_DW9718AF_SUPPORT)    += common/dw9718af/
 obj-$(CONFIG_MTK_LENS_LC898212AF_SUPPORT)  += common/lc898212af/
 obj-$(CONFIG_MTK_LENS_LC898212XDAF_SUPPORT)  += common/lc898212xdaf/

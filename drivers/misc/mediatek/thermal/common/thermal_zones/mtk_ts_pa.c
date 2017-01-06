@@ -375,6 +375,9 @@ static int tspa_sysrst_get_cur_state(struct thermal_cooling_device *cdev, unsign
 
 static int tspa_sysrst_set_cur_state(struct thermal_cooling_device *cdev, unsigned long state)
 {
+#ifdef CONFIG_DW_PROJECT_CF168
+	return 0;
+#endif
 	cl_dev_sysrst_state = state;
 	if (cl_dev_sysrst_state == 1) {
 		pr_debug("Power/PA_Thermal: reset, reset, reset!!!");

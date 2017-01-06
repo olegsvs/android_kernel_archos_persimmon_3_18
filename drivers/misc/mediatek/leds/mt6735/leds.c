@@ -522,7 +522,11 @@ int mt_led_blink_pmic(enum mt65xx_led_pmic pmic_type, struct nled_setting *led)
 	LEDS_DEBUG("led_blink_pmic: pmic_type=%d\n", pmic_type);
 
 	if ((pmic_type != MT65XX_LED_PMIC_NLED_ISINK0
-	     && pmic_type != MT65XX_LED_PMIC_NLED_ISINK1)
+	     && pmic_type != MT65XX_LED_PMIC_NLED_ISINK1
+	     && pmic_type != MT65XX_LED_PMIC_NLED_RED
+	     && pmic_type != MT65XX_LED_PMIC_NLED_GREEN
+	     && pmic_type != MT65XX_LED_PMIC_NLED_BLUE
+		 )
 	    || led->nled_mode != NLED_BLINK) {
 		return -1;
 	}
@@ -543,8 +547,13 @@ int mt_led_blink_pmic(enum mt65xx_led_pmic pmic_type, struct nled_setting *led)
 		pmic_set_register_value(PMIC_RG_DRV_ISINK0_CK_PDN, 0);
 		pmic_set_register_value(PMIC_RG_DRV_ISINK0_CK_CKSEL, 0);
 		pmic_set_register_value(PMIC_ISINK_CH0_MODE, ISINK_PWM_MODE);
+#if defined(CONFIG_DW_PROJECT_AF168) || defined(CONFIG_DW_PROJECT_AF178) || defined(CONFIG_DW_PROJECT_ZE168)
+		pmic_set_register_value(PMIC_ISINK_CH0_STEP, ISINK_0);	/* 4mA */
+		pmic_set_register_value(PMIC_ISINK_DIM0_DUTY, 0);
+#else
 		pmic_set_register_value(PMIC_ISINK_CH0_STEP, ISINK_3);	/* 16mA */
 		pmic_set_register_value(PMIC_ISINK_DIM0_DUTY, duty);
+#endif
 		pmic_set_register_value(PMIC_ISINK_DIM0_FSEL,
 					pmic_freqsel_array[time_index]);
 		pmic_set_register_value(PMIC_ISINK_CH0_EN, NLED_ON);
@@ -559,6 +568,17 @@ int mt_led_blink_pmic(enum mt65xx_led_pmic pmic_type, struct nled_setting *led)
 					pmic_freqsel_array[time_index]);
 		pmic_set_register_value(PMIC_ISINK_CH1_EN, NLED_ON);
 		break;
+#ifdef CONFIG_LED_AW2013 //add by major for bf168 led driver
+		case MT65XX_LED_PMIC_NLED_RED:    //add by major 
+			aw2013_red_breath_mode(led->blink_on_time,led->blink_off_time);
+			break;
+		case MT65XX_LED_PMIC_NLED_GREEN:  //add by major 
+			aw2013_green_breath_mode(led->blink_on_time,led->blink_off_time);
+			break;
+		case MT65XX_LED_PMIC_NLED_BLUE:   //add by major
+			aw2013_blue_breath_mode(led->blink_on_time,led->blink_off_time);
+			break;
+#endif
 	default:
 		break;
 	}
@@ -733,8 +753,13 @@ int mt_brightness_set_pmic(enum mt65xx_led_pmic pmic_type, u32 level, u32 div)
 		pmic_set_register_value(PMIC_RG_DRV_ISINK0_CK_PDN, 0);
 		pmic_set_register_value(PMIC_RG_DRV_ISINK0_CK_CKSEL, 0);
 		pmic_set_register_value(PMIC_ISINK_CH0_MODE, ISINK_PWM_MODE);
+#if defined(CONFIG_DW_PROJECT_AF168) || defined(CONFIG_DW_PROJECT_AF178) || defined(CONFIG_DW_PROJECT_ZE168)
+		pmic_set_register_value(PMIC_ISINK_CH0_STEP, ISINK_0);	/* 16mA */ //ISINK_0->4mA modified by darren
+		pmic_set_register_value(PMIC_ISINK_DIM0_DUTY, 0);
+#else
 		pmic_set_register_value(PMIC_ISINK_CH0_STEP, ISINK_3);	/* 16mA */
 		pmic_set_register_value(PMIC_ISINK_DIM0_DUTY, 15);
+#endif
 		pmic_set_register_value(PMIC_ISINK_DIM0_FSEL, ISINK_1KHZ);	/* 1KHz */
 		if (level)
 			pmic_set_register_value(PMIC_ISINK_CH0_EN, NLED_ON);
@@ -767,11 +792,31 @@ int mt_brightness_set_pmic(enum mt65xx_led_pmic pmic_type, u32 level, u32 div)
 			pmic_set_register_value(PMIC_ISINK_CH1_EN, NLED_ON);
 		else
 			pmic_set_register_value(PMIC_ISINK_CH1_EN, NLED_OFF);
-		mutex_unlock(&leds_pmic_mutex);
-		return 0;
-	}
-	mutex_unlock(&leds_pmic_mutex);
-	return -1;
+			mutex_unlock(&leds_pmic_mutex);
+			return 0;
+		}
+#ifdef CONFIG_LED_AW2013 //add by major for bf168 led driver
+		else if (pmic_type == MT65XX_LED_PMIC_NLED_RED) //add by major for external led IC
+		{
+			aw2013_red_pwm_mode(level); //add by major 
+			mutex_unlock(&leds_pmic_mutex);
+			return 0;
+		}
+		else if (pmic_type == MT65XX_LED_PMIC_NLED_GREEN)
+		{
+			aw2013_green_pwm_mode(level);//add by major 
+			mutex_unlock(&leds_pmic_mutex);
+			return 0;
+		}
+		else if (pmic_type == MT65XX_LED_PMIC_NLED_BLUE) //add end
+		{
+			aw2013_blue_pwm_mode(level);//add by major
+			mutex_unlock(&leds_pmic_mutex);
+			return 0;
+		}
+#endif
+		mutex_unlock(&leds_pmic_mutex);	
+		return -1;
 }
 
 int mt_brightness_set_pmic_duty_store(u32 level, u32 div)
@@ -890,6 +935,11 @@ void mt_mt65xx_led_set(struct led_classdev *led_cdev, enum led_brightness level)
 	/* spin_lock_irqsave(&leds_lock, flags); */
 
 #ifdef CONFIG_MTK_AAL_SUPPORT
+    #if defined(CONFIG_DW_PROJECT_AF178)
+    //printk("Darren AAL led_set brightness is level %d\n" ,level);
+	level = level * 217 / 255; //for intex temperature test
+	//printk("Darren AAL led_set brightness is true level %d\n", level);
+	#endif
 	if (led_data->level != level) {
 		led_data->level = level;
 		if (strcmp(led_data->cust.name, "lcd-backlight") != 0) {
@@ -985,7 +1035,14 @@ int mt_mt65xx_blink_set(struct led_classdev *led_cdev,
 				       || led_data->cust.data ==
 				       MT65XX_LED_PMIC_NLED_ISINK2
 				       || led_data->cust.data ==
-				       MT65XX_LED_PMIC_NLED_ISINK3)) {
+				       MT65XX_LED_PMIC_NLED_ISINK3
+					   || led_data->cust.data ==
+				       MT65XX_LED_PMIC_NLED_RED
+ 					   || led_data->cust.data ==
+				       MT65XX_LED_PMIC_NLED_GREEN
+ 					   || led_data->cust.data ==
+				       MT65XX_LED_PMIC_NLED_BLUE
+					   )) {
 				nled_tmp_setting.nled_mode = NLED_BLINK;
 				nled_tmp_setting.blink_off_time =
 				    led_data->delay_off;
@@ -1013,7 +1070,14 @@ int mt_mt65xx_blink_set(struct led_classdev *led_cdev,
 				       || led_data->cust.data ==
 				       MT65XX_LED_PMIC_NLED_ISINK2
 				       || led_data->cust.data ==
-				       MT65XX_LED_PMIC_NLED_ISINK3)) {
+				       MT65XX_LED_PMIC_NLED_ISINK3
+ 					   || led_data->cust.data ==
+				       MT65XX_LED_PMIC_NLED_RED
+ 					   || led_data->cust.data ==
+				       MT65XX_LED_PMIC_NLED_GREEN
+ 					   || led_data->cust.data ==
+				       MT65XX_LED_PMIC_NLED_BLUE
+					   )) {
 				mt_brightness_set_pmic(led_data->cust.data, 0,
 						       0);
 				return 0;

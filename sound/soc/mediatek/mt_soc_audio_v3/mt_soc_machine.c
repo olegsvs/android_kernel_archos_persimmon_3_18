@@ -842,8 +842,151 @@ static const struct file_operations mtaudio_ana_debug_ops = {
 	.open = mt_soc_ana_debug_open,
 	.read = mt_soc_ana_debug_read,
 };
+#ifdef CONFIG_MTK_HIFI_ES9018 //add by major for bf168 hifi9018
+///add by major for bf168 hifi 
+static const struct snd_soc_dapm_widget es9018_dapm_widgets[] = {
+	SND_SOC_DAPM_HP("Headphone", NULL),
+	SND_SOC_DAPM_MIC("Headset Mic", NULL),
+	SND_SOC_DAPM_MIC("Int Mic", NULL),
+	SND_SOC_DAPM_SPK("Ext Spk", NULL),
+};
+static const struct snd_soc_dapm_route es9018_audio_map[] = {
+	{"Headphone", NULL, "HPOUT1L"},
+	{"Headphone", NULL, "HPOUT1R"},
+	{"Ext Spk", NULL, "SPKOUTLP"},
+	{"Ext Spk", NULL, "SPKOUTLN"},
+	{"Ext Spk", NULL, "SPKOUTRP"},
+	{"Ext Spk", NULL, "SPKOUTRN"},
+	//TODO: Check this mapping
+	{"Headset Mic", NULL, "MICBIAS1"},
+	{"IN1L", NULL, "Headset Mic"},
+	{"Int Mic", NULL, "MICBIAS3"},
+	{"IN3L", NULL, "Int Mic"},
+};
+
+static const struct snd_kcontrol_new es9018_mc_controls[] = {
+	SOC_DAPM_PIN_SWITCH("Headphone"),
+	SOC_DAPM_PIN_SWITCH("Headset Mic"),
+	SOC_DAPM_PIN_SWITCH("Int Mic"),
+	SOC_DAPM_PIN_SWITCH("Ext Spk"),
+};
+
+#if 0
+static int es9018_set_bias_level(struct snd_soc_card *card,
+				struct snd_soc_dapm_context *dapm,
+				enum snd_soc_bias_level level)
+{
+	switch (level) {
+	case SND_SOC_BIAS_ON:
+	case SND_SOC_BIAS_PREPARE:
+	case SND_SOC_BIAS_STANDBY:
+	case SND_SOC_BIAS_OFF:
+		break;
+	default:
+		pr_err("%s: Invalid bias level=%d\n", __func__, level);
+		return -EINVAL;
+	}
+	card->dapm.bias_level = level;
+	pr_debug("card(%s)->bias_level %u\n", card->name,
+		  	card->dapm.bias_level);
+	return 0;
+}
+#endif
+static int es9018_init(struct snd_soc_pcm_runtime *runtime)
+{
+#if 0
+	int ret;
+	struct snd_soc_codec *codec = runtime->codec;
+	struct snd_soc_dapm_context *dapm = &codec->dapm;
+	struct snd_soc_card *card = runtime->card;
+
+	printk("Enter:%s\n", __func__);
+	/* Set codec bias level */
+	es9018_set_bias_level(card, dapm, SND_SOC_BIAS_OFF);
+	card->dapm.idle_bias_off = true;
+
+	ret = snd_soc_add_card_controls(card, es9018_mc_controls,
+					ARRAY_SIZE(es9018_mc_controls));
+	if (ret) {
+		printk("unable to add card controls\n");
+		return ret;
+	}
+
+	snd_soc_dapm_sync(dapm);
+	return ret;
+#endif
+	return 0; //add by major  3G ram reboot 
+}
+
+#if 0
+static int es9018_config_clks(struct snd_soc_codec *es9018_codec, int sr)
+{
+        printk("%s \n",__func__);
+    
+	return 0;
+}
+static unsigned int rates_44100[] = {
+	44100,
+};
+
+static struct snd_pcm_hw_constraint_list constraints_44100 = {
+	.count = ARRAY_SIZE(rates_44100),
+	.list  = rates_44100,
+};
+#endif
+static int es9018_aif1_startup(struct snd_pcm_substream *substream)
+{
+#if 0
+	printk("es9018_aif1_startup enter\n");
+	return snd_pcm_hw_constraint_list(substream->runtime, 0,
+			SNDRV_PCM_HW_PARAM_RATE,
+			&constraints_44100);
+#endif
+	return 0;
+}
+
+static int es9018_aif1_hw_params(struct snd_pcm_substream *substream,
+			     struct snd_pcm_hw_params *params)
+{
+#if 0
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	int ret;
+
+	////i2s config
+	mt_set_gpio_mode((GPIO66|0x80000000), GPIO_MODE_03);
+	mt_set_gpio_mode((GPIO67|0x80000000), GPIO_MODE_03);
+	mt_set_gpio_mode((GPIO68|0x80000000), GPIO_MODE_03);
+
+	////i2s config
 
 
+   	printk("es9018_aif1_hw_params enter\n");		
+	ret = es9018_config_clks(rtd->codec, params_rate(params));
+
+	return ret;
+#endif
+	return 0;
+}
+static int es9018_aif_free(struct snd_pcm_substream *substream) 
+{
+#if 0 
+     ////i2s config
+     mt_set_gpio_mode((GPIO66|0x80000000), GPIO_MODE_00);
+     mt_set_gpio_mode((GPIO67|0x80000000), GPIO_MODE_00);
+     mt_set_gpio_mode((GPIO68|0x80000000), GPIO_MODE_00);
+
+     ////i2s config
+     return 0;
+#endif 
+	 return 0;
+}
+static struct snd_soc_ops byt_aif1_ops = {
+	.startup = es9018_aif1_startup,
+	.hw_params = es9018_aif1_hw_params,
+	.hw_free = es9018_aif_free, 
+};
+//add end by major 
+#endif  //add end by major 
 /* Digital audio interface glue - connects codec <---> CPU */
 static struct snd_soc_dai_link mt_soc_dai_common[] = {
 	/* FrontEnd DAI Links */
@@ -1099,6 +1242,23 @@ static struct snd_soc_dai_link mt_soc_dai_common[] = {
 	 .init = mt_soc_audio_init,
 	 .ops = &mt_machine_audio_ops,
 	 },
+#ifdef CONFIG_MTK_HIFI_ES9018 //add by major for bf168 hifi9018
+    //es9018 dai link
+   {
+        .name = "mtk-es9018-i2s",
+        .stream_name = MT_SOC_DUMMY_I2S_STREAM_PCM,
+        .cpu_dai_name   = MT_SOC_DUMMY_I2S_DAI_NAME,
+       // .platform_name  = MT_SOC_DUMMY_I2S_PCM,
+        .codec_dai_name = "es9018-hifi",
+        .codec_name = "es9018-codec",
+        .dai_fmt	= SND_SOC_DAIFMT_I2S
+			| SND_SOC_DAIFMT_NB_NF
+			| SND_SOC_DAIFMT_CBS_CFS,
+        .init = es9018_init,
+        .ignore_suspend = 1,
+        .ops = &byt_aif1_ops,
+    },
+#endif
 };
 
 static const char const *I2S_low_jittermode[] = { "Off", "On" };

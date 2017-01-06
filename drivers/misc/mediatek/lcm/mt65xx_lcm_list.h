@@ -6,9 +6,6 @@
 #if defined(MTK_LCM_DEVICE_TREE_SUPPORT)
 extern LCM_DRIVER lcm_common_drv;
 #else
-extern LCM_DRIVER hx8394f_hd720_dsi_vdo_txd;
-extern LCM_DRIVER jd9367_6735_dsi_video_lcm_drv;
-extern LCM_DRIVER ili9881c_hd720_cf1_fs650;
 extern LCM_DRIVER otm1282a_hd720_dsi_vdo_60hz_lcm_drv;
 extern LCM_DRIVER otm1282a_hd720_dsi_vdo_lcm_drv;
 extern LCM_DRIVER vvx10f008b00_wuxga_dsi_vdo_lcm_drv;
@@ -95,6 +92,7 @@ extern LCM_DRIVER hx8369a_wvga_dsi_cmd_drv;
 extern LCM_DRIVER hx8369a_wvga_dsi_vdo_drv;
 extern LCM_DRIVER hx8392a_dsi_cmd_lcm_drv;
 extern LCM_DRIVER hx8392a_dsi_cmd_3lane_lcm_drv;
+extern LCM_DRIVER hx8392a_dsi_cmd_3lane_qhd_lcm_drv;
 extern LCM_DRIVER hx8392a_dsi_cmd_wvga_lcm_drv;
 extern LCM_DRIVER hx8392a_dsi_cmd_fwvga_lcm_drv;
 extern LCM_DRIVER hx8392a_dsi_cmd_qhd_lcm_drv;
@@ -194,6 +192,7 @@ extern LCM_DRIVER it6151_lp079qx1_edp_dsi_video_lcm_drv;
 extern LCM_DRIVER RX_498HX_615B_lcm_drv;
 extern LCM_DRIVER RX_498HX_615B_82_lcm_drv;
 extern LCM_DRIVER ili9806c_dsi_vdo_djn_fwvga_lcm_drv;
+extern LCM_DRIVER ili9806c_dsi_vdo_djn_fwvga_txd_lcm_drv;
 extern LCM_DRIVER hx8389b_hd720_dsi_vdo_drv;
 extern LCM_DRIVER r69338_hd720_dsi_vdo_jdi_drv;
 extern LCM_DRIVER r69338_hd720_5in_dsi_vdo_jdi_dw8768_drv;
@@ -237,6 +236,15 @@ extern LCM_DRIVER nt35595_fhd_dsi_cmd_truly_nt50358_extern_lcm_drv;
 extern LCM_DRIVER r69429_wqxga_dsi_vdo_lcm_drv;
 extern LCM_DRIVER hx8394c_wxga_dsi_vdo_lcm_drv;
 extern LCM_DRIVER nt35595_truly_fhd_dsi_vdo_lcm_drv;
+extern LCM_DRIVER b080uan01_2_wuxga_dsi_vdo_lcm_drv;
+extern LCM_DRIVER af168_otm1287a_hd720_dsi_vdo_boyi_lcm_drv; //add by darren for af168 lcm
+extern LCM_DRIVER af168_otm1287a_hd720_dsi_vdo_txd_lcm_drv; //add by darren
+extern LCM_DRIVER we161_otm1287a_hd720_dsi_boyi_auo_lcm_drv;//add by major for we161 lcm
+
+extern LCM_DRIVER ze168_otm1287a_hd720_dsi_vdo_auo_lcm_drv; //add by darren for ze168 lcm
+extern LCM_DRIVER ze168_hx8394d_hd720_dsi_vdo_ofilm_lcm_drv; //add by darren
+extern LCM_DRIVER ze168_hx8394f_hd720_dsi_vdo_tcl_lcm_drv; //add by darren
+extern LCM_DRIVER nt35596_fhd_dsi_vdo_boyi_lcm_drv; //add by major for bf168
 #endif
 
 #ifdef BUILD_LK

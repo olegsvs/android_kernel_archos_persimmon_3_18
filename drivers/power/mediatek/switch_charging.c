@@ -63,6 +63,7 @@
 /* ============================================================ // */
 /* global variable */
 /* ============================================================ // */
+extern int agingtest_data;
 unsigned int g_bcct_flag = 0;
 unsigned int g_bcct_value = 0;
 #ifdef CONFIG_MTK_SWITCH_INPUT_OUTPUT_CURRENT_SUPPORT
@@ -895,6 +896,12 @@ unsigned int set_bat_charging_current_limit(int current_limit)
 	if (current_limit != -1) {
 		g_bcct_flag = 1;
 		g_bcct_value = current_limit;
+		//jeeray add
+		if(1 == agingtest_data)
+		{
+			return g_bcct_flag; 
+		}
+		//jeeray add
 #ifdef CONFIG_MTK_THERMAL_TEST_SUPPORT
 		g_temp_CC_value = current_limit * 100;
 #else
@@ -1096,7 +1103,9 @@ static void pchr_turn_on_charging(void)
 			battery_log(BAT_LOG_FULL,
 				    "USB_CURRENT_UNLIMITED, use batt_cust_data.ac_charger_current\n");
 #ifndef CONFIG_MTK_SWITCH_INPUT_OUTPUT_CURRENT_SUPPORT
-		} else if (g_bcct_flag == 1) {
+		} else if ((g_bcct_flag == 1) && (agingtest_data != 1)) {
+		//jeeray add
+		//} else if (g_bcct_flag == 1) {
 			select_charging_current_bcct();
 
 			battery_log(BAT_LOG_FULL, "[BATTERY] select_charging_current_bcct !\n");

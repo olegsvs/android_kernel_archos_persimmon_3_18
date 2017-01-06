@@ -1,5 +1,6 @@
 #$(call all-subdir-src-or-makefile)
 MTK_PLATFORM := $(subst ",,$(CONFIG_MTK_PLATFORM))
+#subdir-ccflags-y += -Werror
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/hibcore
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/include
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include
@@ -61,7 +62,8 @@ obj-$(CONFIG_MTK_LEDS)	+= leds/
 obj-$(CONFIG_MTK_VIBRATOR)	+= vibrator/
 obj-$(CONFIG_MTK_ACCDET)	+= accdet/
 obj-$(CONFIG_MTK_ECCCI_C2K) += c2k_usb/
-obj-$(CONFIG_MTK_IRTX_SUPPORT) += irtx/
+obj-y += irtx/
+obj-$(CONFIG_MTK_IR_LEARNING_SUPPORT) += ir_learning/
 obj-$(CONFIG_MTK_VIDEOCODEC_DRIVER) += videocodec/
 obj-$(CONFIG_MTK_JPEG)	+= jpeg/
 obj-$(CONFIG_MTK_RTC)	+= rtc/
@@ -100,7 +102,8 @@ obj-$(CONFIG_MTK_SECURITY_SW_SUPPORT) +=masp/
 obj-$(CONFIG_MEDIATEK_SOLUTION)  += sched/
 obj-y += cameraisp/src/
 obj-$(CONFIG_MTK_IMGSENSOR) += imgsensor/src/
-obj-$(CONFIG_MTK_LENS)   += lens/
+obj-$(CONFIG_MTK_LENS)      += lens/
+obj-$(CONFIG_MTK_LASER)     += laser/
 obj-$(CONFIG_MTK_FLASHLIGHT)	+= flashlight/src/
 ifneq ($(wildcard $(srctree)/drivers/misc/mediatek/met/),)
 obj-$(CONFIG_MTK_MET) += met/
@@ -127,6 +130,7 @@ obj-$(CONFIG_MTK_IN_HOUSE_TEE_SUPPORT) += gcpu/
 obj-$(CONFIG_TRUSTONIC_TEE_SUPPORT) += gcpu/
 obj-$(CONFIG_TRUSTONIC_TEE_SUPPORT) += gud/
 obj-$(CONFIG_TRUSTONIC_TEE_SUPPORT) += secmem/
+obj-$(CONFIG_MICROTRUST_TEE_SUPPORT) += teei/
 obj-$(CONFIG_MTK_DEBUG_LATCH)	+= debug_latch/
 obj-$(CONFIG_MTK_WATCHPOINT) += watchpoint/
 obj-$(CONFIG_MTK_SYSTRACKER)   += systracker/

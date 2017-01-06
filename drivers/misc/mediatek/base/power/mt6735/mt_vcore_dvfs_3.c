@@ -22,10 +22,10 @@
 /*
  * Macro and Inline
  */
-#define vcorefs_crit(fmt, args...)	
-#define vcorefs_err(fmt, args...)	
-#define vcorefs_warn(fmt, args...)	
-#define vcorefs_debug(fmt, args...)	
+#define vcorefs_crit(fmt, args...)	pr_err(fmt, ##args)
+#define vcorefs_err(fmt, args...)	pr_err(fmt, ##args)
+#define vcorefs_warn(fmt, args...)	pr_warn(fmt, ##args)
+#define vcorefs_debug(fmt, args...)	pr_debug(fmt, ##args)
 
 /* log_mask[15:0]: show nothing, log_mask[31:16]: show only on MobileLog */
 #define vcorefs_crit_mask(fmt, args...)				\

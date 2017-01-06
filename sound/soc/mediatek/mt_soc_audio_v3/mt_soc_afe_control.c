@@ -185,16 +185,6 @@ static const uint16_t kSideToneCoefficientTable16k[] = {
 };
 
 
-static const uint16_t kSideToneCoefficientTable32k[] = {
-	0xff58, 0x0063, 0x0086, 0x00bf,
-	0x0100, 0x013d, 0x0169, 0x0178,
-	0x0160, 0x011c, 0x00aa, 0x0011,
-	0xff5d, 0xfea1, 0xfdf6, 0xfd75,
-	0xfd39, 0xfd5a, 0xfde8, 0xfeea,
-	0x005f, 0x0237, 0x0458, 0x069f,
-	0x08e2, 0x0af7, 0x0cb2, 0x0df0,
-	0x0e96
-};
 
 
 /*
@@ -2042,12 +2032,10 @@ bool checkDllinkMEMIfStatus(void)
 
 bool checkUplinkMEMIfStatus(void)
 {
-	int i = 0;
-
-	for (i = Soc_Aud_Digital_Block_MEM_VUL; i <= Soc_Aud_Digital_Block_MEM_VUL_DATA2; i++) {
-		if (mAudioMEMIF[i]->mState == true)
-			return true;
-	}
+	if (mAudioMEMIF[Soc_Aud_Digital_Block_MEM_VUL]->mState == true)
+		return true;
+	if (mAudioMEMIF[Soc_Aud_Digital_Block_MEM_VUL_DATA2]->mState == true)
+		return true;
 
 	return false;
 }
@@ -3308,6 +3296,7 @@ void Auddrv_UL1_Interrupt_Handler(void)
 	kal_int32 Hw_Get_bytes = 0;
 	AFE_BLOCK_T *mBlock = NULL;
 	unsigned long flags;
+	struct snd_pcm_substream *temp_substream = NULL;
 
 	if (Mem_Block == NULL) {
 		pr_err("Mem_Block == NULL\n ");
@@ -3363,8 +3352,9 @@ void Auddrv_UL1_Interrupt_Handler(void)
 
 	if (Mem_Block->substreamL != NULL) {
 		if (Mem_Block->substreamL->substream != NULL) {
+			temp_substream = Mem_Block->substreamL->substream;
 			spin_unlock_irqrestore(&Mem_Block->substream_lock, flags);
-			snd_pcm_period_elapsed(Mem_Block->substreamL->substream);
+			snd_pcm_period_elapsed(temp_substream);
 			spin_lock_irqsave(&Mem_Block->substream_lock, flags);
 		}
 	}

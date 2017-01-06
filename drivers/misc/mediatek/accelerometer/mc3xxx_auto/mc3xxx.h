@@ -20,7 +20,7 @@
  * applicable license agreements with mCube Inc.
  *
  * Accelerometer Sensor Driver
- * 
+ *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
  * may be copied, distributed, and modified under those terms.
@@ -33,8 +33,8 @@
  *****************************************************************************/
 
 #ifndef _MC3XXX_H_
-    #define _MC3XXX_H_ 
-	 
+    #define _MC3XXX_H_
+
 #include <linux/ioctl.h>
 
 /***********************************************

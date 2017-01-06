@@ -70,8 +70,9 @@ static int polling_factor1 = 5000;
 static int polling_factor2 = 10000;
 
 int bts_cur_temp = 0;
-
-
+#ifdef CONFIG_DW_PROJECT_BF168
+extern int read_tbf168_pcb_value(void);//add by major for bf168 main board temp
+#endif
 #define MTKTS_BTS_TEMP_CRIT 60000	/* 60.000 degree Celsius */
 
 #define mtkts_bts_dprintk(fmt, args...)   \
@@ -111,11 +112,19 @@ typedef struct {
 #define AUX_IN0_NTC (0)		/* NTC6301 */
 
 #if 1
+#ifdef CONFIG_DW_PROJECT_CF167
 static int g_RAP_pull_up_R = 390000;	/* 390K,pull up resister */
-static int g_TAP_over_critical_low = 4251000;	/* base on 100K NTC temp default value -40 deg */
+static int g_TAP_over_critical_low = 188500;	/* base on 100K NTC temp default value -40 deg */
+static int g_RAP_pull_up_voltage = 1800;	/* 1.8V ,pull up voltage */
+static int g_RAP_ntc_table = 4;	/* default is //NTCG104EF104F(100K) */
+static int g_RAP_ADC_channel = AUX_IN0_NTC;	/* default is 0 */
+#else
+static int g_RAP_pull_up_R = 390000;	/* 390K,pull up resister */
+static int g_TAP_over_critical_low = 425100;	/* base on 100K NTC temp default value -40 deg */
 static int g_RAP_pull_up_voltage = 1800;	/* 1.8V ,pull up voltage */
 static int g_RAP_ntc_table = 6;	/* default is //NTCG104EF104F(100K) */
 static int g_RAP_ADC_channel = AUX_IN0_NTC;	/* default is 0 */
+#endif
 #else
 static int g_RAP_pull_up_R = 39000;	/* 39K,pull up resister */
 static int g_TAP_over_critical_low = 188500;	/* base on 10K NTC temp default value -40 deg */
@@ -498,6 +507,16 @@ static INT16 mtkts_bts_thermistor_conver_temp(INT32 Res)
 	mtkts_bts_dprintk("mtkts_bts_thermistor_conver_temp() : TMP1 = %d\n", TMP1);
 	mtkts_bts_dprintk("mtkts_bts_thermistor_conver_temp() : TMP2 = %d\n", TMP2);
 #endif
+#ifdef CONFIG_DW_PROJECT_CF167
+    if (TAP_Value < 125)
+    {
+        TAP_Value = TAP_Value - 4;
+        if(TAP_Value < -40)
+        {
+            TAP_Value = -40;
+        }
+    }
+#endif
 
 	return TAP_Value;
 }
@@ -541,6 +560,11 @@ static int get_hw_bts_temp(void)
 	int times = 1, Channel = g_RAP_ADC_channel;	/* 6752=0(AUX_IN0_NTC) */
 	static int valid_temp;
 
+//add by major for bf168 main board temp 
+ 	#ifdef CONFIG_DW_PROJECT_BF168
+		return 0;
+	#endif
+//add end
 	if (IMM_IsAdcInitReady() == 0) {
 		pr_debug("[thermal_auxadc_get_data]: AUXADC is not ready\n");
 		return 0;
@@ -580,7 +604,13 @@ int mtkts_bts_get_hw_temp(void)
 
 	/* get HW AP temp (TSAP) */
 	/* cat /sys/class/power_supply/AP/AP_temp */
+	//add by major for bf168 
+#ifdef CONFIG_DW_PROJECT_BF168
+	get_hw_bts_temp();
+	t_ret = read_tbf168_pcb_value();
+#else
 	t_ret = get_hw_bts_temp();
+#endif
 	t_ret = t_ret * 1000;
 
 	mutex_unlock(&BTS_lock);

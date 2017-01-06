@@ -96,7 +96,11 @@
 #include "AudDrv_Common_func.h"
 #include "AudDrv_Gpio.h"
 
-/* #define AW8736_MODE_CTRL // AW8736 PA output power mode control */
+#if defined(CONFIG_DW_PROJECT_CF168)
+#define AW8736_MODE_CTRL // AW8736 PA output power mode control
+#else
+ #define AW8736_MODE_CTRL // AW8736 PA output power mode control 
+#endif
 
 /* static function declaration */
 static bool AudioPreAmp1_Sel(int Mul_Sel);
@@ -147,7 +151,6 @@ static bool mSpeaker_Ocflag;
 #endif
 static int mAdc_Power_Mode;
 static unsigned int dAuxAdcChannel = 16;
-static const int mDcOffsetTrimChannel = 9;
 static bool mInitCodec;
 static uint32 MicbiasRef, GetMicbias;
 
@@ -4527,6 +4530,8 @@ static void mt6331_codec_init_reg(struct snd_soc_codec *codec)
 	/* Disable HeadphoneL/HeadphoneR/voice short circuit protection */
 	Ana_Set_Reg(AUDENC_ANA_CON9, 0x0000, 0x0010);
 	/* power off mic bias1 */
+	Ana_Set_Reg(AFE_PMIC_NEWIF_CFG2, 0x8000, 0x8000);
+	/* Reverse the PMIC clock*/
 }
 
 void InitCodecDefault(void)

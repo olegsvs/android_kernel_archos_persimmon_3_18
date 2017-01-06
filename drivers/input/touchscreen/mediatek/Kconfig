@@ -33,6 +33,29 @@ config TOUCHSCREEN_MTK_GT1151
 	  module will be called.
 
 source "drivers/input/touchscreen/mediatek/GT1151/Kconfig"
+config TOUCHSCREEN_MTK_MSG28XX
+	tristate "MSG28XX Touchscreen"
+	help
+	  Say Y here if you have msg MSG28XX touchscreen,
+	  connected to your system.
+	  If unsure, say N.
+	  To compile this driver as a module, choose M here.
+
+config TOUCHSCREEN_MTK_MSG28XX_V39
+	tristate "MSG28XX Touchscreen"
+	help
+	  Say Y here if you have msg MSG28XX touchscreen,
+	  connected to your system.
+	  If unsure, say N.
+	  To compile this driver as a module, choose M here.
+
+config TOUCHSCREEN_MTK_MSG2238_CF168
+	tristate "MSG2238 Touchscreen"
+	help
+	  Say Y here if you have msg MSG2238 touchscreen,
+	  connected to your system.
+	  If unsure, say N.
+	  To compile this driver as a module, choose M here.
 
 config TOUCHSCREEN_MTK_GT928
 	tristate "GT928 Touchscreen"
@@ -53,6 +76,31 @@ config TOUCHSCREEN_MTK_GT9XXTB_HOTKNOT
 	  module will be called.
 
 source "drivers/input/touchscreen/mediatek/GT9XXTB_hotknot/Kconfig"
+config TOUCHSCREEN_MTK_GT915L
+	bool "GT915L for Mediatek package"
+	default n
+	help
+	  Say Y here if you have GT915L.
+
+	  If unsure, say N.
+
+	  To compile this dirver as a module, choose M here: the
+	  module will be called.
+
+source "drivers/input/touchscreen/mediatek/GT915L/Kconfig"
+
+config TOUCHSCREEN_MTK_GT915L_BF168
+	bool "GT915L for Mediatek package bf168"
+	default n
+	help
+	  Say Y here if you have GT915L.
+
+	  If unsure, say N.
+
+	  To compile this dirver as a module, choose M here: the
+	  module will be called.
+
+source "drivers/input/touchscreen/mediatek/GT915L_BF168/Kconfig"
 
 config TOUCHSCREEN_MTK_SYNAPTICS_I2C_RMI4
 	tristate "Synaptics DSX I2C touchscreen"
@@ -120,15 +168,30 @@ config TOUCHSCREEN_MTK_FT5X0X
 
 source "drivers/input/touchscreen/mediatek/ft5x0x/Kconfig"
 
-config TOUCHSCREEN_AEON_MSTAR_8536
-	bool "aeon_mstar_8536_v3.14 for Eastaeon package"
+config TOUCHSCREEN_MTK_FT5X0X_WE168
+	bool "FT5X0X_WE168 for Mediatek package"
 	default n
 	help
-	  Say Y here if you have mstar touch panel.
+	  Say Y here if you have FT5X0X_WE168 touch panel.
 
 	  If unsure, say N.
 
 	  To compile this dirver as a module, choose M here: the
 	  module will be called.
+
+source "drivers/input/touchscreen/mediatek/ft5x0x_we168/Kconfig"
+
+config TOUCHSCREEN_MTK_FT5X0X_AF168
+	bool "FT5X0X_AF168 for Mediatek package"
+	default n
+	help
+	  Say Y here if you have FT5X0X_AF168 touch panel.
+
+	  If unsure, say N.
+
+	  To compile this dirver as a module, choose M here: the
+	  module will be called.
+
+source "drivers/input/touchscreen/mediatek/ft5x0x_af168/Kconfig"
 
 endif

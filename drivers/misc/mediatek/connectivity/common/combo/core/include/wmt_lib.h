@@ -79,6 +79,8 @@ when mtk_wcn_wmt_func_on is called by wifi through rfkill)
 
 #define MAX_GPIO_CTRL_TIME (2000)	/* [FixMe][GeorgeKuo] a temp value */
 
+#define MAX_PATCH_NUM 10
+
 /*******************************************************************************
 *                    E X T E R N A L   R E F E R E N C E S
 ********************************************************************************
@@ -310,6 +312,7 @@ extern UINT32 wmt_lib_get_drv_status(UINT32 type);
 #endif
 extern INT32 wmt_lib_tm_temp_query(VOID);
 extern INT32 wmt_lib_trigger_reset(VOID);
+extern VOID wmt_lib_read_fw_cpupcr(VOID);
 /*******************************************************************************
 *                              F U N C T I O N S
 ********************************************************************************

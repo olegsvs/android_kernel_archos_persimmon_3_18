@@ -1744,6 +1744,9 @@ kalIndicateStatusAndComplete(IN P_GLUE_INFO_T prGlueInfo, IN WLAN_STATUS eStatus
 		} while (0);
 
 		if (prGlueInfo->fgIsRegistered == TRUE) {
+			struct cfg80211_bss *bss_others = NULL;
+			UINT_8 ucLoopCnt = 15; /* only loop 15 times to avoid dead loop */
+
 			/* retrieve channel */
 			ucChannelNum =
 			    wlanGetChannelNumberByNetwork(prGlueInfo->prAdapter,
@@ -1783,32 +1786,26 @@ kalIndicateStatusAndComplete(IN P_GLUE_INFO_T prGlueInfo, IN WLAN_STATUS eStatus
 								GFP_KERNEL);
 				}
 			}
+			/* remove all bsses that before and only channel different with the current connected one
+				if without this patch, UI will show channel A is connected even if AP has change channel
+				from A to B */
+			while (ucLoopCnt--) {
+				bss_others = cfg80211_get_bss(priv_to_wiphy(prGlueInfo), NULL, arBssid,
+						ssid.aucSsid, ssid.u4SsidLen, WLAN_CAPABILITY_ESS, WLAN_CAPABILITY_ESS);
+				if (bss && bss_others && bss_others != bss) {
+					DBGLOG(SCN, INFO, "remove BSSes that only channel different\n");
+					cfg80211_unlink_bss(priv_to_wiphy(prGlueInfo), bss_others);
+				} else
+					break;
+			}
 
 			/* CFG80211 Indication */
 			if (eStatus == WLAN_STATUS_ROAM_OUT_FIND_BEST) {
-				struct ieee80211_channel *prChannel = NULL;
-				UINT_8 ucChannelNum = wlanGetChannelNumberByNetwork(prGlueInfo->prAdapter,
-										    prGlueInfo->prAdapter->
-										    prAisBssInfo->ucBssIndex);
-
-				if (ucChannelNum <= 14) {
-					prChannel =
-					    ieee80211_get_channel(priv_to_wiphy(prGlueInfo),
-								  ieee80211_channel_to_frequency
-								  (ucChannelNum, IEEE80211_BAND_2GHZ));
-				} else {
-					prChannel =
-					    ieee80211_get_channel(priv_to_wiphy(prGlueInfo),
-								  ieee80211_channel_to_frequency
-								  (ucChannelNum, IEEE80211_BAND_5GHZ));
-				}
-
-				cfg80211_roamed(prGlueInfo->prDevHandler,
-						prChannel,
-						arBssid,
-						prGlueInfo->aucReqIe,
-						prGlueInfo->u4ReqIeLength,
-						prGlueInfo->aucRspIe, prGlueInfo->u4RspIeLength, GFP_KERNEL);
+				cfg80211_roamed_bss(prGlueInfo->prDevHandler,
+						    bss,
+						    prGlueInfo->aucReqIe,
+						    prGlueInfo->u4ReqIeLength,
+						    prGlueInfo->aucRspIe, prGlueInfo->u4RspIeLength, GFP_KERNEL);
 			} else {
 				cfg80211_connect_result(prGlueInfo->prDevHandler, arBssid,
 							prGlueInfo->aucReqIe,
@@ -1837,8 +1834,7 @@ kalIndicateStatusAndComplete(IN P_GLUE_INFO_T prGlueInfo, IN WLAN_STATUS eStatus
 
 		netif_carrier_off(prGlueInfo->prDevHandler);
 
-		if (prGlueInfo->fgIsRegistered == TRUE
-		    && eStatus == WLAN_STATUS_MEDIA_DISCONNECT) {
+		if (prGlueInfo->fgIsRegistered == TRUE) {
 			P_BSS_INFO_T prBssInfo = prGlueInfo->prAdapter->prAisBssInfo;
 			UINT_16 u2DeauthReason = 0;
 
@@ -1856,12 +1852,14 @@ kalIndicateStatusAndComplete(IN P_GLUE_INFO_T prGlueInfo, IN WLAN_STATUS eStatus
 		/* indicate scan complete event */
 		wext_indicate_wext_event(prGlueInfo, SIOCGIWSCAN, NULL, 0);
 
+		DBGLOG(SCN, EVENT, "scan complete, cfg80211 scan request is %p\n", prGlueInfo->prScanRequest);
 		/* 1. reset first for newly incoming request */
 		GLUE_ACQUIRE_SPIN_LOCK(prGlueInfo, SPIN_LOCK_NET_DEV);
 		if (prGlueInfo->prScanRequest != NULL) {
 			prScanRequest = prGlueInfo->prScanRequest;
 			prGlueInfo->prScanRequest = NULL;
-		}
+		} else
+			DBGLOG(SCN, WARN, "scan complete but cfg80211 scan request is NULL\n");
 		GLUE_RELEASE_SPIN_LOCK(prGlueInfo, SPIN_LOCK_NET_DEV);
 
 		/* 2. then CFG80211 Indication */

@@ -67,6 +67,8 @@ KEY_W
 KEY_X
 KEY_Y
 KEY_Z
+KEY_HOMEPAGE
+KEY_APPSWITCH
 
 [Key_code]
 0
@@ -137,7 +139,8 @@ KEY_Z
 45
 21
 44
-
+172
+580
 [Key_code_linux]
 0
 102
@@ -207,7 +210,8 @@ KEY_Z
 45
 21
 44
-
+172
+580
 [Power_Key_definition]
 KEY_POWER
 KEY_ENDCALL

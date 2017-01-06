@@ -50,11 +50,15 @@
 #include <linux/proc_fs.h>
 #include <asm/uaccess.h>
 
+#ifdef CONFIG_MTK_I2C_EXTENSION
+#define TPD_SUPPORT_I2C_DMA         1	/* if gt9l, better enable it if hardware platform supported*/
+#else
 #define TPD_SUPPORT_I2C_DMA         0
+#endif
 
-
+#if defined(CONFIG_MTK_LEGACY)
 #define TPD_POWER_SOURCE_CUSTOM	MT6328_POWER_LDO_VGP1
-
+#endif
 
 #define GTP_GPIO_AS_INT(pin) tpd_gpio_as_int(pin)
 #define GTP_GPIO_OUTPUT(pin, level) tpd_gpio_output(pin, level)

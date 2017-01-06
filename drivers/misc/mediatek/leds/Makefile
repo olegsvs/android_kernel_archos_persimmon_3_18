@@ -5,5 +5,9 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/video/include
 
 obj-$(CONFIG_MTK_LEDS) += leds_drv.o
 
+
+obj-$(CONFIG_LED_AW2013) += led_aw2013/led_aw2013.o
+
+
 obj-y += $(subst ",,$(CONFIG_MTK_PLATFORM))/
 

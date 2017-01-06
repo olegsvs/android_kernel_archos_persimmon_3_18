@@ -366,6 +366,14 @@ static int mtk_pcm_dl2_start(struct snd_pcm_substream *substream)
 	SetConnection(Soc_Aud_InterCon_Connection, Soc_Aud_InterConnectionInput_I08,
 		      Soc_Aud_InterConnectionOutput_O04);
 
+#if defined (CONFIG_MTK_NXP_TFA9890) || defined(CONFIG_MTK_HIFI_ES9018)
+	//mtk add for no sound for short notify
+	SetConnection(Soc_Aud_InterCon_Connection, Soc_Aud_InterConnectionInput_I07,
+					Soc_Aud_InterConnectionOutput_O00);
+	SetConnection(Soc_Aud_InterCon_Connection, Soc_Aud_InterConnectionInput_I08,
+					Soc_Aud_InterConnectionOutput_O01);
+#endif
+	//mtk add end
 #ifdef CONFIG_MTK_FPGA
 	/* set loopback test interconnection */
 	SetConnection(Soc_Aud_InterCon_Connection, Soc_Aud_InterConnectionInput_I07,

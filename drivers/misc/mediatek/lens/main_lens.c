@@ -19,6 +19,14 @@
 #include "lens_info.h"
 #include "lens_list.h"
 
+//#define DARREN_AF_TEST
+#ifdef DARREN_AF_TEST
+#include <linux/regulator/consumer.h>
+static struct regulator *darren_af_ldo;
+static struct regulator *darren_camio_ldo;
+static struct device *darren_af_device = NULL;
+#endif
+
 #define AF_DRVNAME "MAINAF"
 
 #if defined(CONFIG_MTK_LEGACY)
@@ -55,6 +63,9 @@ static struct i2c_board_info kd_lens_dev __initdata = {
 
 
 static stAF_DrvList g_stAF_DrvList[MAX_NUM_OF_LENS] = {
+	#ifdef CONFIG_MTK_LENS_DW9800AF_SUPPORT
+	{1, AFDRV_DW9800AF, DW9800AF_SetI2Cclient, DW9800AF_Ioctl, DW9800AF_Release},
+	#endif
 	#ifdef CONFIG_MTK_LENS_BU6424AF_SUPPORT
 	{1, AFDRV_BU6424AF, BU6424AF_SetI2Cclient, BU6424AF_Ioctl, BU6424AF_Release},
 	#endif
@@ -63,6 +74,9 @@ static stAF_DrvList g_stAF_DrvList[MAX_NUM_OF_LENS] = {
 	#endif
 	#ifdef CONFIG_MTK_LENS_DW9714AF_SUPPORT
 	{1, AFDRV_DW9714AF, DW9714AF_SetI2Cclient, DW9714AF_Ioctl, DW9714AF_Release},
+	#endif
+	#ifdef CONFIG_MTK_LENS_GT9766AF_SUPPORT
+	{1, AFDRV_GT9766AF, GT9766AF_SetI2Cclient, GT9766AF_Ioctl, GT9766AF_Release},
 	#endif
 	#ifdef CONFIG_MTK_LENS_DW9814AF_SUPPORT
 	{1, AFDRV_DW9814AF, DW9814AF_SetI2Cclient, DW9814AF_Ioctl, DW9814AF_Release},
@@ -152,8 +166,23 @@ static long AF_Ioctl(struct file *a_pstFile, unsigned int a_u4Command, unsigned 
 /* CAM_RESET */
 static int AF_Open(struct inode *a_pstInode, struct file *a_pstFile)
 {
+#ifdef DARREN_AF_TEST
+	int ret;
+#endif
 	LOG_INF("Start\n");
 
+#ifdef DARREN_AF_TEST
+	darren_camio_ldo = regulator_get(darren_af_device, "vcamio");
+	regulator_set_voltage(darren_camio_ldo, 1800000, 1800000);
+	ret = regulator_enable(darren_camio_ldo);
+	LOG_INF("regulator vamido enable %d\n", ret);
+	
+	darren_af_ldo = regulator_get(darren_af_device, "vcamaf");
+	regulator_set_voltage(darren_af_ldo, 2800000, 2800000);
+	ret = regulator_enable(darren_af_ldo);
+	LOG_INF("regulator vamaf enable %d\n", ret);
+#endif
+	
 	if (g_s4AF_Opened) {
 		LOG_INF("The device is opened\n");
 		return -EBUSY;
@@ -186,6 +215,11 @@ static int AF_Release(struct inode *a_pstInode, struct file *a_pstFile)
 		spin_unlock(&g_AF_SpinLock);
 	}
 
+#ifdef DARREN_AF_TEST
+	regulator_disable(darren_af_ldo);
+	regulator_disable(darren_camio_ldo);
+#endif
+	
 	LOG_INF("End\n");
 
 	return 0;
@@ -249,7 +283,11 @@ static inline int Register_AF_CharDrv(void)
 
 	if (NULL == vcm_device)
 		return -EIO;
-
+	
+#ifdef DARREN_AF_TEST
+	darren_af_device = vcm_device;
+#endif
+	
 	LOG_INF("End\n");
 	return 0;
 }

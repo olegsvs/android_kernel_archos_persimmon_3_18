@@ -1,15 +1,5 @@
 #include "inc/alsps.h"
 #include "inc/aal_control.h"
-
-/* sanford.lin add on 20160308 for get driver information */
-#ifdef AEON_DEVICE_PROC_MANAGER
-#include <linux/proc_fs.h>
-#define ALPS_PROC_NAME	"AEON_ALPS"
-static struct proc_dir_entry *alsps_proc_entry;
-static char *alsps_name = NULL;
-#endif
-/* sanford.lin end on 20160308 */
-
 struct alsps_context *alsps_context_obj = NULL;
 struct platform_device *pltfm_dev;
 
@@ -675,49 +665,6 @@ static struct platform_driver als_ps_driver = {
 	}
 };
 
-/* sanford.lin add on 20160308 for get driver information */
-#ifdef AEON_DEVICE_PROC_MANAGER
-static ssize_t alsps_proc_oem_read(struct file *file, char *buffer, size_t count, loff_t *ppos)
-{
-	char *page = NULL;
-    char *ptr = NULL;
-	int len, err = -1;
-
-	page = kmalloc(PAGE_SIZE, GFP_KERNEL);
-	if (!page)
-	{
-		kfree(page);
-		return -ENOMEM;
-	}
-	ptr = page;
-
-	ptr += sprintf(ptr, "%s\n", alsps_name);
-
-	len = ptr - page;
-	if(*ppos >= len)
-	{
-		kfree(page);
-		return 0;
-	}
-
-	err = copy_to_user(buffer,(char *)page,len);
-	*ppos += len;
-
-	if(err)
-	{
-		kfree(page);
-		return err;
-	}
-	kfree(page);
-	return len;
-}
-
-static const struct file_operations alsps_proc_fops = { 
-    .read = alsps_proc_oem_read
-};
-#endif
-/* sanford.lin add on 20160308 */
-
 static int alsps_real_driver_init(void)
 {
 	int i = 0;
@@ -731,16 +678,6 @@ static int alsps_real_driver_init(void)
 			err = alsps_init_list[i]->init();
 			if (0 == err) {
 				ALSPS_LOG(" alsps real driver %s probe ok\n", alsps_init_list[i]->name);
-		/* sanford.lin add on 20160308 for get driver information */
-		#ifdef AEON_DEVICE_PROC_MANAGER
-		   alsps_name = alsps_init_list[i]->name;
-		   alsps_proc_entry = proc_create(ALPS_PROC_NAME, 0777, NULL, &alsps_proc_fops);
-		   if (NULL == alsps_proc_entry)
-		   {
-		   	printk("proc_create %s failed\n", ALPS_PROC_NAME);
-		   }
-		#endif
-		/* sanford.lin end on 20160308 */
 				break;
 			}
 		}

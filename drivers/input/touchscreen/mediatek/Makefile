@@ -1,4 +1,4 @@
-# subdir-ccflags-y += -Werror
+#subdir-ccflags-y += -Werror
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/
 ccflags-y += -I$(srctree)/drivers/input/touchscreen/mediatek
 # In case the platform does NOT support this type of sensors
@@ -19,4 +19,11 @@ obj-$(CONFIG_TOUCHSCREEN_MTK_GT928)	+=  GT928/
 obj-$(CONFIG_TOUCHSCREEN_MTK_GT9XX_HOTKNOT_SCP)	+=  GT9XX_hotknot_scp/
 obj-$(CONFIG_TOUCHSCREEN_MTK_GT911)	+=  GT911/
 obj-$(CONFIG_TOUCHSCREEN_MTK_FT5X0X)	+=  ft5x0x/
-obj-$(CONFIG_TOUCHSCREEN_AEON_MSTAR_8536)	+= msg28xx_3.9/
+obj-$(CONFIG_TOUCHSCREEN_MTK_FT5X0X_AF168)	+=  ft5x0x_af168/
+obj-$(CONFIG_TOUCHSCREEN_MTK_FT5X0X_WE168)	+=  ft5x0x_we168/
+obj-$(CONFIG_TOUCHSCREEN_MTK_MSG2238_CF168)   +=  msg2238_cf168/
+obj-$(CONFIG_TOUCHSCREEN_MTK_GT915L_BF168)	+=  GT915L_BF168/
+obj-$(CONFIG_TOUCHSCREEN_MTK_MSG28XX)   +=  msg28xx/
+obj-$(CONFIG_TOUCHSCREEN_MTK_MSG28XX_V39)   +=  msg28xx_3.9/
+obj-$(CONFIG_TOUCHSCREEN_MTK_GT915L)	+=  GT915L/
+

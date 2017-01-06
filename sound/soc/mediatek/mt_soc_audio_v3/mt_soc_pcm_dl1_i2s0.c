@@ -75,7 +75,7 @@ static int mi2s0_sidegen_control;
 static int mi2s0_hdoutput_control;
 static int mi2s0_extcodec_echoref_control;
 static const char const *i2s0_SIDEGEN[] = {
-	"Off", "On48000", "On44100", "On32000", "On16000", "On8000" };
+	"Off", "On48000", "On44100", "On32000", "On16000", "On8000","On192000","On176400","On96000","On88200" };//modify by major for bf168 sample rates up to 192000
 static const char const *i2s0_HD_output[] = {"Off", "On"};
 static const char const *i2s0_ExtCodec_EchoRef[] = {"Off", "On"};
 
@@ -130,8 +130,15 @@ static int Audio_i2s0_SideGen_Set(struct snd_kcontrol *kcontrol,
 			      Soc_Aud_InterConnectionInput_I14, Soc_Aud_InterConnectionOutput_O00);
 		SetConnection(Soc_Aud_InterCon_Connection,
 			      Soc_Aud_InterConnectionInput_I14, Soc_Aud_InterConnectionOutput_O01);
-	}
-
+	} else if (mi2s0_sidegen_control == 6) { //add by major for other samplerate
+		samplerate = 192000;
+	} else if (mi2s0_sidegen_control == 7) {
+		samplerate = 176400;
+	} else if (mi2s0_sidegen_control == 8) {
+		samplerate = 96000;
+	} else if (mi2s0_sidegen_control == 9) {
+		samplerate = 88200;
+	} //add end
 	if (mi2s0_sidegen_control) {
 		AudDrv_Clk_On();
 		EnableALLbySampleRate(samplerate);

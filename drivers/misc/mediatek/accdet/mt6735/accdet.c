@@ -69,7 +69,21 @@ static struct work_struct accdet_eint_work;
 static struct workqueue_struct *accdet_eint_workqueue;
 static inline void accdet_init(void);
 #define MICBIAS_DISABLE_TIMER   (6 * HZ)	/*6 seconds*/
+
+//add by major for headphone pull out by accdet voltage
+#ifdef CONFIG_HEADPHONE_PULL_OUT_CHECK_BY_ACCDET_VOLT
+
+#define PLUG_OUT_CHECK_TIMER   (HZ/2)         //1 seconds 
+#define	PLUG_OUT_RECHCEK_TIMEOUT	msecs_to_jiffies(60) // recheck timer
+struct timer_list plugout_timer; //add by major 
+struct workqueue_struct * plugout_workqueue = NULL;//add by major
+struct work_struct  plugout_check_work; 
+static void plug_out_check(unsigned long a);
+
+#endif
+//add end 
 struct timer_list micbias_timer;
+
 static void disable_micbias(unsigned long a);
 /* Used to let accdet know if the pin has been fully plugged-in */
 #define EINT_PIN_PLUG_IN        (1)
@@ -287,7 +301,46 @@ static inline void disable_accdet(void)
 #endif
 
 }
+//add by major for headphone pull out by accdet voltage
+#ifdef CONFIG_HEADPHONE_PULL_OUT_CHECK_BY_ACCDET_VOLT
 
+static void plugout_work_func(struct work_struct *work)
+{
+	  int cali_volage = 0;
+
+	  cali_volage = Accdet_PMIC_IMM_GetOneChannelValue(1); 
+	  if (cali_volage > 1600)
+	  {
+  	  	  ACCDET_DEBUG("major accdet real plug out =%d!\n", cali_volage);
+	 	   disable_accdet();
+		   headset_plug_out();
+		   return ;
+	  }
+
+  	  ACCDET_DEBUG("major accdet plug out recheckout voltage=%d!\n", cali_volage);
+		mod_timer(&plugout_timer, jiffies + PLUG_OUT_RECHCEK_TIMEOUT); //add by major for recheck every 20ms .if check is failed when plugout enit came. 
+		return ;
+}
+//add by major for plug out timer
+static void plug_out_check(unsigned long a)
+{
+	 queue_work(plugout_workqueue, &plugout_check_work);
+	 //add by major
+	 /*
+	  int cali_volage = 0;
+
+	  cali_volage = Accdet_PMIC_IMM_GetOneChannelValue(1); 
+  	  ACCDET_DEBUG("accdet plug out checkout voltage=%d!\n", cali_volage);
+	  if (cali_volage > 1600)
+	  {
+	 	   disable_accdet();			   
+			headset_plug_out();
+	  }*/
+	 //add end
+     
+}
+#endif
+//add end by major 
 #if defined CONFIG_ACCDET_EINT || defined CONFIG_ACCDET_EINT_IRQ
 static void disable_micbias(unsigned long a)
 {
@@ -300,7 +353,12 @@ static void disable_micbias(unsigned long a)
 
 static void disable_micbias_callback(struct work_struct *work)
 {
+//add by major for headphone pull out by accdet voltage
+#ifdef CONFIG_HEADPHONE_PULL_OUT_CHECK_BY_ACCDET_VOLT
 
+	return;// do noting by major for accdet
+#endif
+//add end
 	if (cable_type == HEADSET_NO_MIC) {
 #ifdef CONFIG_ACCDET_PIN_RECOGNIZATION
 		show_icon_delay = 0;
@@ -393,6 +451,13 @@ static void accdet_eint_work_callback(struct work_struct *work)
 		eint_accdet_sync_flag = 1;
 		mutex_unlock(&accdet_eint_irq_sync_mutex);
 		wake_lock_timeout(&accdet_timer_lock, 7 * HZ);
+
+//add by major for headphone pull out by accdet voltage
+#ifdef CONFIG_HEADPHONE_PULL_OUT_CHECK_BY_ACCDET_VOLT
+		del_timer(&plugout_timer); //add by majorfor plug out check;
+		cancel_work_sync(&plugout_check_work);
+#endif
+		//add end
 #ifdef CONFIG_ACCDET_PIN_SWAP
 		/*pmic_pwrap_write(0x0400, pmic_pwrap_read(0x0400)|(1<<14)); */
 		msleep(800);
@@ -465,8 +530,13 @@ static void accdet_eint_work_callback(struct work_struct *work)
 		ts3a225e_connector_type = TS3A225E_CONNECTOR_NONE;
 #endif
 		/*accdet_auxadc_switch(0);*/
-		disable_accdet();
+//add by major for headphone pull out by accdet voltage
+#ifdef CONFIG_HEADPHONE_PULL_OUT_CHECK_BY_ACCDET_VOLT
+		mod_timer(&plugout_timer, jiffies + PLUG_OUT_CHECK_TIMER); //add by  major for plug out 
+#else
+		disable_accdet();			   
 		headset_plug_out();
+#endif
 	}
 	enable_irq(accdet_irq);
 	ACCDET_DEBUG("[Accdet]enable_irq  !!!!!!\n");
@@ -613,7 +683,7 @@ static int key_check(int b)
 		return DW_KEY;
 	else if ((b < accdet_dts_data.three_key.up_key) && (b >= accdet_dts_data.three_key.mid_key))
 		return UP_KEY;
-	else if ((b < accdet_dts_data.three_key.mid_key) && (b >= 0))
+	else if (b < accdet_dts_data.three_key.mid_key)
 		return MD_KEY;
 	ACCDET_DEBUG("[accdet] leave key_check!!\n");
 	return NO_KEY;
@@ -621,6 +691,11 @@ static int key_check(int b)
 #else
 static int key_check(int b)
 {
+//add by major for factory bug press headphone button loopback dont test
+	if (FACTORY_BOOT == get_boot_mode())
+	{
+	   return MD_KEY;
+	}
 	/* 0.24V ~ */
 	/*ACCDET_DEBUG("[accdet] come in key_check!!\n");*/
 	if ((b < accdet_dts_data.four_key.down_key_four) && (b >= accdet_dts_data.four_key.up_key_four))
@@ -629,7 +704,7 @@ static int key_check(int b)
 		return UP_KEY;
 	else if ((b < accdet_dts_data.four_key.voice_key_four) && (b >= accdet_dts_data.four_key.mid_key_four))
 		return AS_KEY;
-	else if ((b < accdet_dts_data.four_key.mid_key_four) && (b >= 0))
+	else if (b < accdet_dts_data.four_key.mid_key_four)
 		return MD_KEY;
 	ACCDET_DEBUG("[accdet] leave key_check!!\n");
 	return NO_KEY;
@@ -1118,13 +1193,13 @@ void accdet_get_dts_data(void)
 		of_property_read_u32(node, "accdet-mic-mode", &accdet_dts_data.accdet_mic_mode);
 		#ifdef CONFIG_FOUR_KEY_HEADSET
 		of_property_read_u32_array(node, "headset-four-key-threshold", four_key, ARRAY_SIZE(four_key));
-		memcpy(&accdet_dts_data.four_key, four_key+1, sizeof(four_key));
+		memcpy(&accdet_dts_data.four_key, four_key+1, sizeof(struct four_key_threshold));
 		ACCDET_INFO("[Accdet]mid-Key = %d, voice = %d, up_key = %d, down_key = %d\n",
 		     accdet_dts_data.four_key.mid_key_four, accdet_dts_data.four_key.voice_key_four,
 		     accdet_dts_data.four_key.up_key_four, accdet_dts_data.four_key.down_key_four);
 		#else
 		of_property_read_u32_array(node, "headset-three-key-threshold", three_key, ARRAY_SIZE(three_key));
-		memcpy(&accdet_dts_data.three_key, three_key+1, sizeof(three_key));
+		memcpy(&accdet_dts_data.three_key, three_key+1, sizeof(struct three_key_threshold));
 		ACCDET_INFO("[Accdet]mid-Key = %d, up_key = %d, down_key = %d\n",
 		     accdet_dts_data.three_key.mid_key, accdet_dts_data.three_key.up_key,
 		     accdet_dts_data.three_key.down_key);
@@ -1132,6 +1207,12 @@ void accdet_get_dts_data(void)
 
 		memcpy(&accdet_dts_data.headset_debounce, debounce, sizeof(debounce));
 		cust_headset_settings = &accdet_dts_data.headset_debounce;
+		//add by major for headphone pull out by accdet voltage
+		#ifdef CONFIG_HEADPHONE_PULL_OUT_CHECK_BY_ACCDET_VOLT
+		cust_headset_settings->pwm_width= 900;
+		cust_headset_settings->pwm_thresh= 900;
+		ACCDET_INFO("[Accdet] pwm width thersh reset ");
+		#endif
 		ACCDET_INFO("[Accdet]pwm_width = %x, pwm_thresh = %x\n deb0 = %x, deb1 = %x, mic_mode = %d\n",
 		     cust_headset_settings->pwm_width, cust_headset_settings->pwm_thresh,
 		     cust_headset_settings->debounce0, cust_headset_settings->debounce1,
@@ -1517,6 +1598,17 @@ int mt_accdet_probe(struct platform_device *dev)
 	micbias_timer.function = &disable_micbias;
 	micbias_timer.data = ((unsigned long)0);
 
+//add by major for headphone pull out by accdet voltage
+#ifdef CONFIG_HEADPHONE_PULL_OUT_CHECK_BY_ACCDET_VOLT
+
+	plugout_workqueue = create_singlethread_workqueue("accdet_plugout_check_queue");
+
+	INIT_WORK(&plugout_check_work, plugout_work_func);
+	init_timer(&plugout_timer);
+	plugout_timer.expires = jiffies + PLUG_OUT_CHECK_TIMER;
+	plugout_timer.function = &plug_out_check;
+	plugout_timer.data = ((unsigned long) 0 );
+#endif
 	/*define multi-key keycode*/
 	__set_bit(EV_KEY, kpd_accdet_dev->evbit);
 	__set_bit(KEY_PLAYPAUSE, kpd_accdet_dev->keybit);

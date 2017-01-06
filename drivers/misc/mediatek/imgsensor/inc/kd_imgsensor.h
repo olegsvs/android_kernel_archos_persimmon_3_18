@@ -132,10 +132,14 @@ NSFeature :  : RAWSensorInfo < _id >  :  : getFlickerPara \
 #define OV7675_SENSOR_ID                        0x7673
 #define OV5693_SENSOR_ID                        0x5690
 #define OV5670MIPI_SENSOR_ID                    0x5670
+#define OV5670MIPI_WE161_SENSOR_ID              0x5670 // add by major for we161 ov5670
+#define OV5670MIPI_SYX_SENSOR_ID                    (0x5670 + 2)
 #define OV5671MIPI_SENSOR_ID                    0x5671
 #define OV5650_SENSOR_ID                        0x5651
 #define OV5650MIPI_SENSOR_ID                    0x5651
 #define OV5648MIPI_SENSOR_ID                    0x5648
+#define OV5648MIPI_SENSOR_ID_OFG                0x5648
+#define OV5648MIPI_SENSOR_ID_QT                 0x5649
 #define OV5647_SENSOR_ID                        0x5647
 #define OV5647MIPI_SENSOR_ID                    0x5647
 #define OV5645MIPI_SENSOR_ID                    0x5645
@@ -156,6 +160,8 @@ NSFeature :  : RAWSensorInfo < _id >  :  : getFlickerPara \
 #define S5K2X8_SENSOR_ID                        0x2188
 #define S5K2P8_SENSOR_ID                        0x2108
 #define S5K3M2_SENSOR_ID                        0x30D2
+#define S5K3M2_OFG_SENSOR_ID                    (0x30D2 + 0x0A)
+#define S5K3M2_QT_SENSOR_ID                     (0x30D2 + 0x06)
 #define S5K3AAEA_SENSOR_ID                      0x07AC
 #define S5K3BAFB_SENSOR_ID                      0x7070
 #define S5K3H7Y_SENSOR_ID                       0x3087
@@ -169,8 +175,10 @@ NSFeature :  : RAWSensorInfo < _id >  :  : getFlickerPara \
 #define S5K53BEB_SENSOR_ID                      0x87A8
 #define S5K5BAFX_SENSOR_ID                      0x05BA
 #define S5K5E2YA_SENSOR_ID                      0x5e20
+#define S5K3L2_SENSOR_ID						0x30C2  
 #define S5K4H5YX_2LANE_SENSOR_ID                0x485B
 #define S5K4H5YC_SENSOR_ID                      0x485B
+#define S5K4H8_SENSOR_ID                      0x4088
 #define S5K83AFX_SENSOR_ID                      0x01C4
 #define S5K5CAGX_SENSOR_ID                      0x05ca
 #define S5K8AAYX_MIPI_SENSOR_ID                 0x08aa
@@ -214,6 +222,9 @@ NSFeature :  : RAWSensorInfo < _id >  :  : getFlickerPara \
 #define MT9P017MIPI_SENSOR_ID                   0x4800
 #define MT9T113MIPI_SENSOR_ID                   0x4680
 /*GC*/
+#define GC5005_SENSOR_ID                        0x5005
+#define GC2365_SENSOR_ID                        0x2365
+#define GC2365_SYX_SENSOR_ID                       (0x2365 + 1)
 #define GC2355_SENSOR_ID                        0x2355
 #define GC2235_SENSOR_ID                        0x2235
 #define GC2035_SENSOR_ID                        0x2035
@@ -226,6 +237,7 @@ NSFeature :  : RAWSensorInfo < _id >  :  : getFlickerPara \
 /*SP*/
 #define SP0A19_YUV_SENSOR_ID                    0xA6
 #define SP2518_YUV_SENSOR_ID                    0x53
+#define SP2509MIPI_SENSOR_ID                   0x2509 //add by major 
 /*A*/
 #define A5141MIPI_SENSOR_ID                     0x4800
 #define A5142MIPI_SENSOR_ID                     0x4800
@@ -295,12 +307,18 @@ NSFeature :  : RAWSensorInfo < _id >  :  : getFlickerPara \
 #define SENSOR_DRVNAME_OV7675_YUV               "ov7675yuv"
 #define SENSOR_DRVNAME_OV5693_MIPI_RAW          "ov5693mipi"
 #define SENSOR_DRVNAME_OV5670_MIPI_RAW          "ov5670mipiraw"
+#define BF168_SENSOR_DRVNAME_OV5670_MIPI_RAW          "ov5670mipiraw_bf168"   //add by major for bf168 ov5670
+#define WE165_SENSOR_DRVNAME_OV5670_MIPI_RAW          "ov5670mipiraw_we165"   //add by major for we165 ov5670
+#define SENSOR_DRVNAME_OV5670_WE161_MIPI_RAW          "ov5670we161mipiraw" //add by major for we161 ov5670
+#define SENSOR_DRVNAME_OV5670_SYX_MIPI_RAW          "ov5670syxmipiraw"
 #define SENSOR_DRVNAME_OV5671_MIPI_RAW          "ov5671mipiraw"
 #define SENSOR_DRVNAME_OV5647MIPI_RAW           "ov5647mipiraw"
 #define SENSOR_DRVNAME_OV5645_MIPI_YUV          "ov5645_mipi_yuv"
 #define SENSOR_DRVNAME_OV5650MIPI_RAW           "ov5650mipiraw"
 #define SENSOR_DRVNAME_OV5650_RAW               "ov5650raw"
 #define SENSOR_DRVNAME_OV5648_MIPI_RAW          "ov5648mipi"
+#define SENSOR_DRVNAME_OV5648_MIPI_RAW_OFG      "ov5648mipiofg"
+#define SENSOR_DRVNAME_OV5648_MIPI_RAW_QT       "ov5648mipiqt"
 #define SENSOR_DRVNAME_OV5647_RAW               "ov5647"
 #define SENSOR_DRVNAME_OV5642_RAW               "ov5642raw"
 #define SENSOR_DRVNAME_OV5642_MIPI_YUV          "ov5642mipiyuv"
@@ -321,14 +339,20 @@ NSFeature :  : RAWSensorInfo < _id >  :  : getFlickerPara \
 #define SENSOR_DRVNAME_S5K2X8_MIPI_RAW          "s5k2x8mipiraw"
 #define SENSOR_DRVNAME_S5K2P8_MIPI_RAW          "s5k2p8mipiraw"
 #define SENSOR_DRVNAME_S5K3M2_MIPI_RAW          "s5k3m2mipiraw"
+#define SENSOR_DRVNAME_S5K3M2_OFG_MIPI_RAW      "s5k3m2ofgmipiraw"
+#define BF168_SENSOR_DRVNAME_S5K3M2_OFG_MIPI_RAW      "s5k3m2ofgmipiraw_bf168" //add by major for BF168 s5k3m2 ofg
+#define WE165_SENSOR_DRVNAME_S5K3M2_OFG_MIPI_RAW      "s5k3m2ofgmipiraw_we165" //add by major for WE165 s5k3m2 ofg
+#define SENSOR_DRVNAME_S5K3M2_QT_MIPI_RAW       "s5k3m2qtmipiraw"
 #define SENSOR_DRVNAME_S5K3H2YX_MIPI_RAW        "s5k3h2yxmipiraw"
 #define SENSOR_DRVNAME_S5K3H7Y_MIPI_RAW         "s5k3h7ymipiraw"
+#define SENSOR_DRVNAME_S5K4H8_MIPI_RAW        "s5k4h8mipiraw"
 #define SENSOR_DRVNAME_S5K4H5YC_MIPI_RAW        "s5k4h5ycmipiraw"
 #define SENSOR_DRVNAME_S5K4E1GA_MIPI_RAW        "s5k4e1gamipiraw"
 #define SENSOR_DRVNAME_S5K4ECGX_MIPI_YUV        "s5k4ecgxmipiyuv"
 #define SENSOR_DRVNAME_S5K5CAGX_YUV             "s5k5cagxyuv"
 #define SENSOR_DRVNAME_S5K4H5YX_2LANE_MIPI_RAW  "s5k4h5yx2lanemipiraw"
 #define SENSOR_DRVNAME_S5K5E2YA_MIPI_RAW        "s5k5e2yamipiraw"
+#define SENSOR_DRVNAME_S5K3L2_MIPI_RAW        	"s5k3l2mipiraw"
 #define SENSOR_DRVNAME_S5K8AAYX_MIPI_YUV        "s5k8aayxmipiyuv"
 #define SENSOR_DRVNAME_S5K8AAYX_YUV             "s5k8aayxyuv"
 /*HI*/
@@ -354,6 +378,9 @@ NSFeature :  : RAWSensorInfo < _id >  :  : getFlickerPara \
 #define SENSOR_DRVNAME_MT9V113_YUV              "mt9v113yuv"
 #define SENSOR_DRVNAME_MT9T113_MIPI_YUV         "mt9t113mipiyuv"
 /*GC*/
+#define SENSOR_DRVNAME_GC2365_MIPI_RAW          "gc2365mipiraw"
+#define SENSOR_DRVNAME_GC2365_SYX_MIPI_RAW          "gc2365syxmipiraw"
+#define SENSOR_DRVNAME_GC5005_MIPI_RAW          "gc5005mipiraw"
 #define SENSOR_DRVNAME_GC2035_YUV               "gc2035_yuv"
 #define SENSOR_DRVNAME_GC2235_RAW               "gc2235_raw"
 #define SENSOR_DRVNAME_GC2355_MIPI_RAW          "gc2355mipiraw"
@@ -367,6 +394,7 @@ NSFeature :  : RAWSensorInfo < _id >  :  : getFlickerPara \
 /*SP*/
 #define SENSOR_DRVNAME_SP0A19_YUV               "sp0a19yuv"
 #define SENSOR_DRVNAME_SP2518_YUV               "sp2518yuv"
+#define SENSOR_DRVNAME_SP2509_MIPI_RAW          "sp2509mipiraw" 
 /*A*/
 #define SENSOR_DRVNAME_A5141_MIPI_RAW           "a5141mipiraw"
 #define SENSOR_DRVNAME_A5142_MIPI_RAW           "a5142mipiraw"

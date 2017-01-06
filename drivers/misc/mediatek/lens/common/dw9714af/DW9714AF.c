@@ -59,8 +59,14 @@ static int s4AF_WriteReg(u16 a_u2Data)
 {
 	int i4RetValue = 0;
 
+// Gionee <malp> <2015-11-28> modify for CR01596549 begin
+#ifdef ORIGINAL_VERSION
 	char puSendCmd[2] = { (char)(a_u2Data >> 4), (char)((a_u2Data & 0xF) << 4) };
-
+#else
+	char puSendCmd[2] = { (char)(a_u2Data >> 4), (char)(((a_u2Data & 0xF) << 4) + 5) };
+#endif
+//Gionee <malp> <2015-11-28> modify for CR01596549 end
+	LOG_INF("Data is %d\n", (int)a_u2Data);
 	g_pstAF_I2Cclient->addr = AF_I2C_SLAVE_ADDR;
 
 	g_pstAF_I2Cclient->addr = g_pstAF_I2Cclient->addr >> 1;
@@ -96,7 +102,24 @@ static inline int getAFInfo(__user stAF_MotorInfo *pstMotorInfo)
 
 	return 0;
 }
+static int dw9714_init(void)
+{
+#ifdef ORIGINAL_VERSION
+#else
+	int i4RetValue=0;
+	char puSendCmd0[2] = {0xec,0xa3};
+	char puSendCmd1[2] = {0xa1,0x05};
+	char puSendCmd2[2] = {0xf2,0x98};
+	char puSendCmd3[2] = {0xdc,0x51};
 
+	LOG_INF("[DW9714AF] dw9714_init - beg\n");
+	i4RetValue = i2c_master_send(g_pstAF_I2Cclient, puSendCmd0, 2);
+	i4RetValue = i2c_master_send(g_pstAF_I2Cclient, puSendCmd1, 2);
+	i4RetValue = i2c_master_send(g_pstAF_I2Cclient, puSendCmd2, 2);
+	i4RetValue = i2c_master_send(g_pstAF_I2Cclient, puSendCmd3, 2);
+#endif
+	return i4RetValue;
+}
 static inline int moveAF(unsigned long a_u4Position)
 {
 	int ret = 0;
@@ -124,6 +147,7 @@ static inline int moveAF(unsigned long a_u4Position)
 			spin_unlock(g_pAF_SpinLock);
 		}
 
+		dw9714_init();//add by darren
 		spin_lock(g_pAF_SpinLock);
 		*g_pAF_Opened = 2;
 		spin_unlock(g_pAF_SpinLock);
@@ -136,10 +160,11 @@ static inline int moveAF(unsigned long a_u4Position)
 	g_u4TargetPosition = a_u4Position;
 	spin_unlock(g_pAF_SpinLock);
 
-	/* LOG_INF("move [curr] %d [target] %d\n", g_u4CurrPosition, g_u4TargetPosition); */
+	LOG_INF("move [curr] %d [target] %d\n", (int)g_u4CurrPosition, (int)g_u4TargetPosition); 
 
 
-	if (s4AF_WriteReg((unsigned short)g_u4TargetPosition) == 0) {
+		ret = s4AF_WriteReg((unsigned short)g_u4TargetPosition);
+	if (ret == 0) {
 		spin_lock(g_pAF_SpinLock);
 		g_u4CurrPosition = (unsigned long)g_u4TargetPosition;
 		spin_unlock(g_pAF_SpinLock);
@@ -147,7 +172,7 @@ static inline int moveAF(unsigned long a_u4Position)
 		LOG_INF("set I2C failed when moving the motor\n");
 	}
 
-	return 0;
+	return ret;
 }
 
 static inline int setAFInf(unsigned long a_u4Position)
@@ -208,10 +233,16 @@ int DW9714AF_Release(struct inode *a_pstInode, struct file *a_pstFile)
 
 	if (*g_pAF_Opened == 2) {
 		LOG_INF("Wait\n");
-		s4AF_WriteReg(200);
-		msleep(20);
+		s4AF_WriteReg(500);
+		msleep(30);
+		s4AF_WriteReg(300);
+		msleep(30);
+		s4AF_WriteReg(180);
+		msleep(15);
+		s4AF_WriteReg(150);
+		msleep(15);
 		s4AF_WriteReg(100);
-		msleep(20);
+		msleep(15);
 	}
 
 	if (*g_pAF_Opened) {

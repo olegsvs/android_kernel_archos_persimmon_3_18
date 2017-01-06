@@ -212,4 +212,15 @@ bool mtk_is_host_mode(void);
 int mt6332_OpenBoost4Flash(void);
 int mt6332_CloseBoost4Flash(void);
 
+#if defined(CONFIG_DW_PROJECT_AF168) || defined(CONFIG_DW_PROJECT_AF178)
+void flash_gpio_output(int pin, int level); //add by darren
+#endif
+
+#ifdef CONFIG_DW_PROJECT_CF168
+#ifndef CONFIG_DW_PROJECT_CF197
+void flash_gpio_output(int state);
+#else
+void flash_gpio_output(int mode, int level);
+#endif
+#endif
 #endif

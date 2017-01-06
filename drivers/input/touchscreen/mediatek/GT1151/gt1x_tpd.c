@@ -576,6 +576,10 @@ static s32 tpd_i2c_probe(struct i2c_client *client, const struct i2c_device_id *
 	/*int count = 0;*/
 
 	GTP_INFO("tpd_i2c_probe start.");
+#ifdef CONFIG_MTK_BOOT
+	if (RECOVERY_BOOT == get_boot_mode())
+		return 0;
+#endif
 	probe_thread = kthread_run(tpd_registration, (void *)client, "tpd_probe");
 	if (IS_ERR(probe_thread)) {
 		err = PTR_ERR(probe_thread);
@@ -583,7 +587,7 @@ static s32 tpd_i2c_probe(struct i2c_client *client, const struct i2c_device_id *
 		return err;
 	}
 	GTP_INFO("tpd_i2c_probe start.wait_event_interruptible");
-	wait_event_interruptible(init_waiter, check_flag == true);
+	wait_event_interruptible_timeout(init_waiter, check_flag == true, 5 * HZ);
 	GTP_INFO("tpd_i2c_probe end.wait_event_interruptible");
 /*
 	do {
@@ -936,6 +940,7 @@ static int tpd_local_init(void)
 		}
 		memset(gpDMABuf_va, 0, IIC_DMA_MAX_TRANSFER_SIZE);
 #endif
+	spin_lock_init(&irq_flag_lock);
 	if (i2c_add_driver(&tpd_i2c_driver) != 0) {
 		GTP_ERROR("unable to add i2c driver.");
 		return -1;
@@ -970,13 +975,12 @@ static int tpd_local_init(void)
 
 	GTP_INFO("end %s, %d\n", __func__, __LINE__);
 	tpd_type_cap = 1;
-	spin_lock_init(&irq_flag_lock);
 	return 0;
 }
 
 /* Function to manage low power suspend */
 static void tpd_suspend(struct device *h)
-{/*
+{
 	s32 ret = -1;
 #if defined(CONFIG_GTP_HOTKNOT)
 #ifndef CONFIG_HOTKNOT_BLOCK_RW
@@ -1027,9 +1031,9 @@ static void tpd_suspend(struct device *h)
 		gesture_enter_doze();
 	} else
 #endif
-	{*/
+	{
 		gt1x_irq_disable();
-	/*	ret = gt1x_enter_sleep();
+		ret = gt1x_enter_sleep();
 		if (ret < 0)
 			GTP_ERROR("GTP early suspend failed.");
 		else
@@ -1038,13 +1042,12 @@ static void tpd_suspend(struct device *h)
 
 	mutex_unlock(&i2c_access);
 	msleep(58);
-	*/
 }
 
 /* Function to manage power-on resume */
 static void tpd_resume(struct device *h)
 {
-/*	s32 ret = -1;
+	s32 ret = -1;
 
 	GTP_INFO("TPD resume start...");
 	gtp_suspend = false;
@@ -1082,12 +1085,12 @@ static void tpd_resume(struct device *h)
 #endif
 
 	tpd_halt = 0;
-*/	gt1x_irq_enable();
-/*
+	gt1x_irq_enable();
+
 #ifdef CONFIG_GTP_ESD_PROTECT
 	gt1x_esd_switch(SWITCH_ON);
 #endif
-*/
+
 	GTP_DEBUG("tpd resume end.");
 }
 

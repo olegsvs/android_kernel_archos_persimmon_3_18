@@ -28,7 +28,7 @@ static int ncp1854_driver_probe(struct i2c_client *client, const struct i2c_devi
 
 #ifdef CONFIG_OF
 static const struct of_device_id ncp1854_of_match[] = {
-	{.compatible = "ncp1854",},
+	{.compatible = "mediatek,swithing_charger",}, //modify by darren
 	{},
 };
 
@@ -584,7 +584,7 @@ static void ncp1854_parse_customer_setting(void)
 
 	pinctrl_select_state(pinctrl, pinctrl_drvvbus_init);
 	pinctrl_select_state(pinctrl, pinctrl_drvvbus_low);
-
+	devm_pinctrl_put(pinctrl);
 	battery_log(BAT_LOG_FULL, "[%s]pinctrl_select_state success\n", __func__);
 #endif
 }
