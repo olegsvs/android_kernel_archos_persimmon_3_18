@@ -27,6 +27,11 @@ LCM_DRIVER *lcm_driver_list[] = {
 #if defined(AF168_OTM1287A_HD720_DSI_VDO_BOYI)  //add by darren 
 	&af168_otm1287a_hd720_dsi_vdo_boyi_lcm_drv,
 #endif
+
+#if defined(HX8394F_HD720_DSI_VDO_TXD)
+	&hx8394f_hd720_dsi_vdo_txd,
+#endif
+
 #if defined(AF168_OTM1287A_HD720_DSI_VDO_TXD)  //add by darren 
 	&af168_otm1287a_hd720_dsi_vdo_txd_lcm_drv,
 #endif

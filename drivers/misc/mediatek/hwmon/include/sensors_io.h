@@ -51,6 +51,28 @@ struct SENSOR_DATA {
 /* mCube add start */
 /* G-sensor */
 
+#define GSENSOR_IOCTL_GET_DELAY             _IOR(GSENSOR, 0x10, int)
+#define GSENSOR_IOCTL_GET_STATUS            _IOR(GSENSOR, 0x11, int)
+#define GSENSOR_IOCTL_GET_DATA              _IOR(GSENSOR, 0x12, int[3])
+#define GSENSOR_IOCTL_SET_DATA              _IOW(GSENSOR, 0x13, int[3])
+#define GSENSOR_IOCTL_GET_TEMP              _IOR(GSENSOR, 0x14, int)
+#define GSENSOR_IOCTL_GET_LAYOUT            _IOR(GSENSOR, 0x21, int)
+#define GSENSOR_IOCTL_GET_DANT              _IOR(GSENSOR, 0x15, int[4])
+#define GSENSOR_IOCTL_READ_REG              _IOR(GSENSOR, 0x19, int)
+#define GSENSOR_IOCTL_WRITE_REG             _IOW(GSENSOR, 0x1A, int)
+
+#ifdef CONFIG_COMPAT
+#define COMPAT_GSENSOR_IOCTL_GET_DELAY             _IOR(GSENSOR, 0x10, compat_int_t)
+#define COMPAT_GSENSOR_IOCTL_GET_STATUS            _IOR(GSENSOR, 0x11, compat_int_t)
+#define COMPAT_GSENSOR_IOCTL_GET_DATA              _IOR(GSENSOR, 0x12, compat_int_t[3])
+#define COMPAT_GSENSOR_IOCTL_SET_DATA              _IOW(GSENSOR, 0x13, compat_int_t[3])
+#define COMPAT_GSENSOR_IOCTL_GET_TEMP              _IOR(GSENSOR, 0x14, compat_int_t)
+#define COMPAT_GSENSOR_IOCTL_GET_DANT              _IOR(GSENSOR, 0x15, compat_int_t[4])
+#define COMPAT_GSENSOR_IOCTL_READ_REG              _IOR(GSENSOR, 0x19, compat_int_t)
+#define COMPAT_GSENSOR_IOCTL_GET_LAYOUT            		_IOR(GSENSOR, 0x21, compat_int_t)
+#define COMPAT_GSENSOR_IOCTL_WRITE_REG             _IOW(GSENSOR, 0x1A, compat_int_t)
+#endif
+
 #define GSENSOR_MCUBE_IOCTL_READ_RBM_DATA      _IOR(GSENSOR, 0x09, struct SENSOR_DATA)
 #define GSENSOR_MCUBE_IOCTL_SET_RBM_MODE       _IO(GSENSOR, 0x0a)
 #define GSENSOR_MCUBE_IOCTL_CLEAR_RBM_MODE     _IO(GSENSOR, 0x0b)

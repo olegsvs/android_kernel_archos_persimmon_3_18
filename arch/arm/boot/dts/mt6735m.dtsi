@@ -1247,7 +1247,7 @@
 			audmiso-gpio = <144 0>;
 			audmosi-gpio = <145 0>;
 			vowclk-gpio = <148 0>;
-			extspkamp-gpio = <117 0>;
+			extspkamp-gpio = <61 0>;
 			i2s1clk-gpio = <80 0>;
 			i2s1dat-gpio = <78 0>;
 			i2s1mclk-gpio = <9 0>;

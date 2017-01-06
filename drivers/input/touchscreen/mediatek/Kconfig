@@ -194,4 +194,15 @@ config TOUCHSCREEN_MTK_FT5X0X_AF168
 
 source "drivers/input/touchscreen/mediatek/ft5x0x_af168/Kconfig"
 
+config TOUCHSCREEN_AEON_MSTAR_8536
+	bool "aeon_mstar_8536_v3.14 for Eastaeon package"
+	default n
+	help
+	  Say Y here if you have mstar touch panel.
+
+	  If unsure, say N.
+
+	  To compile this dirver as a module, choose M here: the
+	  module will be called.
+
 endif

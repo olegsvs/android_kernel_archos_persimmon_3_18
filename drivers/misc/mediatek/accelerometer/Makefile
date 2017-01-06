@@ -27,3 +27,4 @@ obj-$(CONFIG_MTK_LSM6DS3)   +=  lsm6ds3/
 obj-$(CONFIG_MTK_ICM20645G)   +=  icm20645g/
 obj-$(CONFIG_MTK_MXC6255XU)   +=  mxc6255xu/
 obj-$(CONFIG_MTK_KXTJ2_1009)   +=  KXTJ2_1009/
+obj-$(CONFIG_MTK_MXC400X_NEW)   +=  mxc400x-new/

@@ -47,157 +47,60 @@
  * GNU General Public License for more details.
  *
  */
-#include <linux/gpio.h>
-#include <linux/of_irq.h>
-#include <linux/interrupt.h>
-#include <linux/i2c.h>
-#include <linux/slab.h>
-#include <linux/irq.h>
-#include <linux/miscdevice.h>
-#include <asm/uaccess.h>
-#include <linux/delay.h>
-#include <linux/input.h>
-#include <linux/workqueue.h>
-#include <linux/kobject.h>
-//#include <linux/earlysuspend.h>
+
 #include <linux/platform_device.h>
 #include <asm/atomic.h>
-#include <linux/version.h>
-#include <linux/fs.h>   
-#include <linux/wakelock.h> 
-#include <asm/io.h>
-#include <linux/module.h>
-
-//#include <linux/hwmsen_helper.h>
-//#include <cust_eint.h>
-//#include <linux/hwmsensor.h>
-//#include <linux/sensors_io.h>
-//#include <linux/hwmsen_dev.h>
-//#include <stk_cust_alsps.h>
+#include <linux/version.h> 
+#include <linux/of.h>
+#include <linux/of_address.h>
+#include <linux/of_irq.h>
+#include <linux/gpio.h>
+#include "cust_alsps.h"
 #include "stk3x1x.h"
-#define DRIVER_VERSION          "3.5.2 20150915"
+#include "alsps.h"
+#ifdef CUSTOM_KERNEL_SENSORHUB
+#include <SCP_sensorHub.h>
+#endif
+
+
+#define DRIVER_VERSION          "3.5.2 20151201"
 //#define STK_PS_POLLING_LOG
 //#define STK_PS_DEBUG
 #define STK_TUNE0
 #define CALI_EVERY_TIME
-#define STK_ALS_FIR
+//#define STK_ALS_FIR
 //#define STK_IRS
 //#define STK_CHK_REG
 //#define STK_GES
-
-/////
-#include "cust_alsps.h"  //wangxiqiang
-//extern struct alsps_hw* get_cust_alsps_hw(void);
-
-#include "../inc/alsps.h"
-
-
-#ifdef MT6516
-	#include <mach/mt6516_devs.h>
-	#include <mach/mt6516_typedefs.h>
-	#include <mach/mt6516_gpio.h>
-	#include <mach/mt6516_pll.h>
-#elif defined MT6573
-	#include <mach/mt6573_devs.h>
-	#include <mach/mt6573_typedefs.h>
-	#include <mach/mt6573_gpio.h>
-	#include <mach/mt6573_pll.h>
-//#elif defined MT6575
-	// #include <mach/mt6575_devs.h>
-	// #include <mach/mt6575_typedefs.h>
-	// #include <mach/mt6575_gpio.h>
-	// #include <mach/mt6575_pm_ldo.h>
-#elif defined MT6577
-	#include <mach/mt6577_devs.h>
-	#include <mach/mt6577_typedefs.h>
-	#include <mach/mt6577_gpio.h>
-	#include <mach/mt6577_pm_ldo.h>
-
-//#else
-	//#include <mach/mt_devs.h>
-//	#include <mach/mt_typedefs.h>
-//	#include <mach/mt_gpio.h>
-//	#include <mach/mt_pm_ldo.h>
-#endif
-
-#if ((defined MT6573) || (defined MT6575) || (defined MT6577) || (defined MT6589)  || (defined MT6572))	
-extern void mt65xx_eint_unmask(unsigned int line);
-extern void mt65xx_eint_mask(unsigned int line);
-extern void mt65xx_eint_set_polarity(kal_uint8 eintno, kal_bool ACT_Polarity);
-extern void mt65xx_eint_set_hw_debounce(kal_uint8 eintno, kal_uint32 ms);
-extern kal_uint32 mt65xx_eint_set_sens(kal_uint8 eintno, kal_bool sens);
-extern void mt65xx_eint_registration(kal_uint8 eintno, kal_bool Dbounce_En,
-                                     kal_bool ACT_Polarity, void (EINT_FUNC_PTR)(void),
-                                     kal_bool auto_umask);
-//#else
-//    #include <mach/eint.h>
-	// extern void mt_eint_mask(unsigned int eint_num);
-	// extern void mt_eint_unmask(unsigned int eint_num);
-	// extern void mt_eint_set_hw_debounce(unsigned int eint_num, unsigned int ms);
-	// extern void mt_eint_set_polarity(unsigned int eint_num, unsigned int pol);
-	// extern unsigned int mt_eint_set_sens(unsigned int eint_num, unsigned int sens);
-	// extern void mt_eint_registration(unsigned int eint_num, unsigned int flow, void (EINT_FUNC_PTR)(void), unsigned int is_auto_umask);
-	// extern void mt_eint_print_status(void);
-#endif
-
-
-#ifdef MT6516
-	#define POWER_NONE_MACRO MT6516_POWER_NONE
-//#else
-//	#define POWER_NONE_MACRO MT65XX_POWER_NONE
-#endif
 
 
 /******************************************************************************
  * configuration
 *******************************************************************************/
+#define PSCTRL_VAL	0x31	/* ps_persistance=4, ps_gain=64X, PS_IT=0.391ms */
+#define ALSCTRL_VAL	0x39	/* als_persistance=1, als_gain=64X, ALS_IT=50ms */
+#define LEDCTRL_VAL	0xFF	/* 100mA IRDR, 64/64 LED duty */
+#define WAIT_VAL	0x7		/* 50 ms */
 
 /*----------------------------------------------------------------------------*/
 #define stk3x1x_DEV_NAME     "stk3x1x"
 /*----------------------------------------------------------------------------*/
 #define APS_TAG                  "[ALS/PS] "
-#define APS_FUN(f)               printk(KERN_ERR APS_TAG"%s\n", __FUNCTION__)
-#define APS_ERR(fmt, args...)    printk(KERN_ERR  APS_TAG"%s %d : "fmt, __FUNCTION__, __LINE__, ##args)
-#define APS_LOG(fmt, args...)    printk(KERN_ERR APS_TAG fmt, ##args)
-#define APS_DBG(fmt, args...)    printk(KERN_ERR fmt, ##args)                 
+
+#define APS_FUN(f)               printk(APS_TAG"%s\n", __func__)
+#define APS_ERR(fmt, args...)    printk(APS_TAG"%s %d : "fmt, __func__, __LINE__, ##args)
+#define APS_LOG(fmt, args...)    printk(APS_TAG fmt, ##args)
+#define APS_DBG(fmt, args...)    printk(APS_TAG fmt, ##args)                
 /******************************************************************************
  * extern functions
 *******************************************************************************/
-#ifdef MT6516
-extern void MT6516_EINTIRQUnmask(unsigned int line);
-extern void MT6516_EINTIRQMask(unsigned int line);
-extern void MT6516_EINT_Set_Polarity(kal_uint8 eintno, kal_bool ACT_Polarity);
-extern void MT6516_EINT_Set_HW_Debounce(kal_uint8 eintno, kal_uint32 ms);
-extern kal_uint32 MT6516_EINT_Set_Sensitivity(kal_uint8 eintno, kal_bool sens);
-extern void MT6516_EINT_Registration(kal_uint8 eintno, kal_bool Dbounce_En,
-                                     kal_bool ACT_Polarity, void (EINT_FUNC_PTR)(void),
-                                     kal_bool auto_umask);
-#endif
-/*----------------------------------------------------------------------------*/
-#define mt6516_I2C_DATA_PORT        ((base) + 0x0000)
-#define mt6516_I2C_SLAVE_ADDR       ((base) + 0x0004)
-#define mt6516_I2C_INTR_MASK        ((base) + 0x0008)
-#define mt6516_I2C_INTR_STAT        ((base) + 0x000c)
-#define mt6516_I2C_CONTROL          ((base) + 0x0010)
-#define mt6516_I2C_TRANSFER_LEN     ((base) + 0x0014)
-#define mt6516_I2C_TRANSAC_LEN      ((base) + 0x0018)
-#define mt6516_I2C_DELAY_LEN        ((base) + 0x001c)
-#define mt6516_I2C_TIMING           ((base) + 0x0020)
-#define mt6516_I2C_START            ((base) + 0x0024)
-#define mt6516_I2C_FIFO_STAT        ((base) + 0x0030)
-#define mt6516_I2C_FIFO_THRESH      ((base) + 0x0034)
-#define mt6516_I2C_FIFO_ADDR_CLR    ((base) + 0x0038)
-#define mt6516_I2C_IO_CONFIG        ((base) + 0x0040)
-#define mt6516_I2C_DEBUG            ((base) + 0x0044)
-#define mt6516_I2C_HS               ((base) + 0x0048)
-#define mt6516_I2C_DEBUGSTAT        ((base) + 0x0064)
-#define mt6516_I2C_DEBUGCTRL        ((base) + 0x0068)
-/*----------------------------------------------------------------------------*/
+static DEFINE_MUTEX(stk3x1x_mutex);
 
 #ifdef STK_TUNE0
 	#define STK_MAX_MIN_DIFF	200
-	#define STK_LT_N_CT	70
-	#define STK_HT_N_CT	80
+	#define STK_LT_N_CT	100  //
+	#define STK_HT_N_CT	150 //100
+	
 #endif /* #ifdef STK_TUNE0 */
 
 #define STK_IRC_MAX_ALS_CODE		20000
@@ -219,13 +122,6 @@ extern void MT6516_EINT_Registration(kal_uint8 eintno, kal_bool Dbounce_En,
 static struct i2c_client *stk3x1x_i2c_client = NULL;
 /*----------------------------------------------------------------------------*/
 static const struct i2c_device_id stk3x1x_i2c_id[] = {{stk3x1x_DEV_NAME,0},{}};
-#ifdef CONFIG_OF
-static const struct of_device_id stk3x1x_of_match[] = {
-	{.compatible = "mediatek,alsps"},
-	{},
-};
-#endif
-
 #if (LINUX_VERSION_CODE>=KERNEL_VERSION(3,0,0))	
 //static struct i2c_board_info __initdata i2c_stk3x1x={ I2C_BOARD_INFO("stk3x1x", (0x90>>1))};
 #else
@@ -237,44 +133,38 @@ static struct i2c_client_address_data stk3x1x_addr_data = { .forces = stk3x1x_fo
 /*----------------------------------------------------------------------------*/
 static int stk3x1x_i2c_probe(struct i2c_client *client, const struct i2c_device_id *id); 
 static int stk3x1x_i2c_remove(struct i2c_client *client);
-#if (LINUX_VERSION_CODE<KERNEL_VERSION(3,0,0))	
-static int stk3x1x_i2c_detect(struct i2c_client *client, int kind, struct i2c_board_info *info);
-#else
-	#if !defined(MTK_AUTO_DETECT_ALSPS)
 static int stk3x1x_i2c_detect(struct i2c_client *client, struct i2c_board_info *info);
-	#endif
-#endif
 /*----------------------------------------------------------------------------*/
 static int stk3x1x_i2c_suspend(struct i2c_client *client, pm_message_t msg);
 static int stk3x1x_i2c_resume(struct i2c_client *client);
-
-struct alsps_hw alsps_cust;
-static struct alsps_hw *hw = &alsps_cust;
-struct platform_device *alspsPltFmDev;
-
-/* For alsp driver get cust info */
-struct alsps_hw *get_cust_alsps(void)
-{
-	return &alsps_cust;
-}
-
 static struct stk3x1x_priv *g_stk3x1x_ptr = NULL;
-#if defined(MTK_AUTO_DETECT_ALSPS)
+
 static int	stk3x1x_init_flag = -1;	// 0<==>OK -1 <==> fail
 static int  stk3x1x_local_init(void);
 static int  stk3x1x_local_uninit(void);
-//static struct sensor_init_info stk3x1x_init_info = {
+
+
 static struct alsps_init_info stk3x1x_init_info = {
 		.name = "stk3x1x",
 		.init = stk3x1x_local_init,
 		.uninit = stk3x1x_local_uninit,
 	
 };
-#else
-static struct platform_driver stk3x1x_alsps_driver;
-#endif
+
+struct platform_device *alspsPltFmDev;
+
+static struct stk3x1x_priv *stk3x1x_obj;
+
+static struct alsps_hw alsps_cust;
+static struct alsps_hw *hw = &alsps_cust;
+
+/* For alsp driver get cust info */
+struct alsps_hw *get_cust_alsps(void)
+{
+	return &alsps_cust;
+}
 /*----------------------------------------------------------------------------*/
-typedef enum {
+enum  STK_TRC{
     STK_TRC_ALS_DATA= 0x0001,
     STK_TRC_PS_DATA = 0x0002,
     STK_TRC_EINT    = 0x0004,
@@ -283,12 +173,12 @@ typedef enum {
     STK_TRC_CVT_ALS = 0x0020,
     STK_TRC_CVT_PS  = 0x0040,
     STK_TRC_DEBUG   = 0x8000,
-} STK_TRC;
+} ;
 /*----------------------------------------------------------------------------*/
-typedef enum {
+enum STK_BIT{
     STK_BIT_ALS    = 1,
     STK_BIT_PS     = 2,
-} STK_BIT;
+} ;
 /*----------------------------------------------------------------------------*/
 struct stk3x1x_i2c_addr {    
 /*define a series of i2c slave address*/
@@ -359,7 +249,6 @@ struct stk3x1x_priv {
     struct alsps_hw  *hw;
     struct i2c_client *client;
     struct delayed_work  eint_work;
-
     /*i2c address group*/
     struct stk3x1x_i2c_addr  addr;
     
@@ -375,9 +264,9 @@ struct stk3x1x_priv {
     atomic_t    ps_deb_on;      /*indicates if the debounce is on*/
     atomic_t    ps_deb_end;     /*the jiffies representing the end of debounce*/
     atomic_t    ps_suspend;
-    struct device_node *irq_node;
-    int		irq;
-
+	atomic_t    init_done;
+	struct      device_node *irq_node;
+	int         irq;
 
     /*data*/
     u16         als;
@@ -395,8 +284,8 @@ struct stk3x1x_priv {
 	u8		 	ledctrl_val;
 	u8		 	int_val;
 	
-    atomic_t    ps_high_thd_val;     /*the cmd value can't be read, stored in ram*/
-    atomic_t    ps_low_thd_val;     /*the cmd value can't be read, stored in ram*/
+    atomic_t    ps_threshold_high;     /*the cmd value can't be read, stored in ram*/
+    atomic_t    ps_threshold_low;     /*the cmd value can't be read, stored in ram*/
     ulong       enable;         /*enable mask*/
     ulong       pending_intr;   /*pending interrupt*/
 	atomic_t	recv_reg;
@@ -416,8 +305,9 @@ struct stk3x1x_priv {
 #ifdef CALI_EVERY_TIME
 	uint16_t ps_high_thd_boot;
 	uint16_t ps_low_thd_boot;
-#endif  
+ 
 	uint16_t boot_cali;
+#endif 
 	struct hrtimer ps_tune0_timer;	
 	struct workqueue_struct *stk_ps_tune0_wq;
     struct work_struct stk_ps_tune0_work;
@@ -450,21 +340,26 @@ struct stk3x1x_priv {
 	uint32_t als_code_last;	
 };
 /*----------------------------------------------------------------------------*/
-static struct i2c_driver stk3x1x_i2c_driver = {	
+#ifdef CONFIG_OF
+static const struct of_device_id alsps_of_match[] = {
+	{.compatible = "mediatek,ALSPS"},
+	{},
+};
+#endif
+
+static struct i2c_driver stk3x1x_i2c_driver = {
+    .driver = {
+	     .name           = stk3x1x_DEV_NAME,
+#ifdef CONFIG_OF
+		 .of_match_table = alsps_of_match,
+#endif
+	},
 	.probe      = stk3x1x_i2c_probe,
 	.remove     = stk3x1x_i2c_remove,
-#if !defined(MTK_AUTO_DETECT_ALSPS)
 	.detect     = stk3x1x_i2c_detect,
-#endif	
 	.suspend    = stk3x1x_i2c_suspend,
 	.resume     = stk3x1x_i2c_resume,
 	.id_table   = stk3x1x_i2c_id,
-	.driver = {
-		.name           = stk3x1x_DEV_NAME,
-#ifdef CONFIG_OF
-		.of_match_table = stk3x1x_of_match,
-#endif
-	},
 };
 
 static struct stk3x1x_priv *stk3x1x_obj = NULL;
@@ -518,49 +413,82 @@ int stk3x1x_get_addr(struct alsps_hw *hw, struct stk3x1x_i2c_addr *addr)
 	addr->data1_ir = STK_DATA1_IR_REG;	
 	addr->data2_ir = STK_DATA2_IR_REG;		
 	addr->soft_reset = STK_SW_RESET_REG;	
+	
 	return 0;
 }
 /*----------------------------------------------------------------------------*/
 int stk3x1x_hwmsen_read_block(struct i2c_client *client, u8 addr, u8 *data, u8 len)
 {
-	u8 beg = addr; 
-	struct i2c_msg msgs[2] = 
-	{
-		{
-			.addr = client->addr,	 
-			.flags = 0,
-			.len = 1,				 
-			.buf= &beg
-		},
-		{
-			.addr = client->addr,	 
-			.flags = I2C_M_RD,
-			.len = len, 			 
-			.buf = data,
-		}
-	};
+	u8 beg = addr;
 	int err;
+	struct i2c_msg msgs[2] = {{0}, {0} };
 
-	if (!client)
+	mutex_lock(&stk3x1x_mutex);
+
+	msgs[0].addr = client->addr;
+	msgs[0].flags = 0;
+	msgs[0].len = 1;
+	msgs[0].buf = &beg;
+
+	msgs[1].addr = client->addr;
+	msgs[1].flags = I2C_M_RD;
+	msgs[1].len = len;
+	msgs[1].buf = data;
+
+	if (!client) {
+		mutex_unlock(&stk3x1x_mutex);
 		return -EINVAL;
-	else if (len > C_I2C_FIFO_SIZE) 
-	{		 
+	} else if (len > C_I2C_FIFO_SIZE) {
 		APS_LOG(" length %d exceeds %d\n", len, C_I2C_FIFO_SIZE);
+		mutex_unlock(&stk3x1x_mutex);
 		return -EINVAL;
 	}
-
 	err = i2c_transfer(client->adapter, msgs, sizeof(msgs)/sizeof(msgs[0]));
-	if (err != 2) 
-	{
+	if (err != 2) {
 		APS_LOG("i2c_transfer error: (%d %p %d) %d\n", addr, data, len, err);
 		err = -EIO;
+	} else
+		err = 0;
+
+	mutex_unlock(&stk3x1x_mutex);
+	return err;
+
+}
+
+static int stk3x1x_hwmsen_write_block(struct i2c_client *client, u8 addr, u8 *data, u8 len)
+{   /*because address also occupies one byte, the maximum length for write is 7 bytes*/
+	int err, idx, num;
+	char buf[C_I2C_FIFO_SIZE];
+
+	err = 0;
+	mutex_lock(&stk3x1x_mutex);
+	if (!client) {
+		mutex_unlock(&stk3x1x_mutex);
+		return -EINVAL;
+	} else if (len >= C_I2C_FIFO_SIZE) {
+		APS_LOG(" length %d exceeds %d\n", len, C_I2C_FIFO_SIZE);
+		mutex_unlock(&stk3x1x_mutex);
+		return -EINVAL;
 	}
-	else 
-	{
-		err = 0;/*no error*/
+
+	num = 0;
+	buf[num++] = addr;
+	for (idx = 0; idx < len; idx++)
+		buf[num++] = data[idx];
+
+	err = i2c_master_send(client, buf, num);
+	if (err < 0) {
+		APS_LOG("send command error!!\n");
+		mutex_unlock(&stk3x1x_mutex);
+		return -EFAULT;
 	}
+	err = 0;
+
+	mutex_unlock(&stk3x1x_mutex);
 	return err;
 }
+
+
 /*----------------------------------------------------------------------------*/
 int stk3x1x_get_timing(void)
 {
@@ -611,7 +539,7 @@ int stk3x1x_master_send(struct i2c_client *client, u16 addr, u8 *buf ,int count)
 
 	while(retry++ < max_try)
 	{
-		ret = hwmsen_write_block(client, addr, buf, count);
+		ret = stk3x1x_hwmsen_write_block(client, addr, buf, count);
 		if (ret == 0)
 		    break;
 		udelay(100);
@@ -1337,34 +1265,6 @@ int stk3x1x_write_aoffset(struct i2c_client *client,  u16 ofset)
 /*----------------------------------------------------------------------------*/
 static void stk3x1x_power(struct alsps_hw *hw, unsigned int on) 
 {
-#if 0
-	static unsigned int power_on = 0;
-
-	//APS_LOG("power %s\n", on ? "on" : "off");
-
-	if(hw->power_id != POWER_NONE_MACRO)
-	{
-		if(power_on == on)
-		{
-			APS_LOG("ignore power control: %d\n", on);
-		}
-		else if(on)
-		{
-			if(!hwPowerOn(hw->power_id, hw->power_vol, "stk3x1x")) 
-			{
-				APS_ERR("power on fails!!\n");
-			}
-		}
-		else
-		{
-			if(!hwPowerDown(hw->power_id, "stk3x1x")) 
-			{
-				APS_ERR("power off fail!!\n");   
-			}
-		}
-	}
-	power_on = on;
-#endif
 }
 
 /*----------------------------------------------------------------------------*/
@@ -1436,6 +1336,7 @@ static int stk3x1x_enable_als(struct i2c_client *client, int enable)
 		{
 			//set_bit(STK_BIT_ALS,  &obj->pending_intr);
 			schedule_delayed_work(&obj->eint_work,220*HZ/1000); 
+			
 		}
 	}
 
@@ -1444,7 +1345,7 @@ static int stk3x1x_enable_als(struct i2c_client *client, int enable)
 		APS_LOG("enable als (%d)\n", enable);
 	}
 
-	return err;
+	return 0;
 }
 /*----------------------------------------------------------------------------*/
 static int stk3x1x_enable_ps(struct i2c_client *client, int enable, int validate_reg)
@@ -1457,16 +1358,13 @@ static int stk3x1x_enable_ps(struct i2c_client *client, int enable, int validate
 #ifdef STK_PS_DEBUG
 	if(enable)
 	{
-		APS_LOG("%s: before enable ps, HT=%d, LT=%d\n", __func__, atomic_read(&obj->ps_high_thd_val),  atomic_read(&obj->ps_low_thd_val));
+		APS_LOG("%s: before enable ps, HT=%d, LT=%d\n", __func__, atomic_read(&obj->ps_threshold_high),  atomic_read(&obj->ps_threshold_low));
 		APS_LOG("%s: before enable ps, show all reg\n", __FUNCTION__);
 		show_allreg(); //for debug
 	}
 #endif
 
-	APS_LOG("%s: enable=%d\n", __FUNCTION__, enable);
-	printk("%s:obj->int_val is %d!\n", __FUNCTION__, obj->int_val);
-	if((err = stk3x1x_write_int(obj->client, obj->int_val)))
-		APS_ERR("write int mode error: %d\n", err);	
+	APS_LOG("%s: enable=%d\n", __FUNCTION__, enable);	
 	
 #ifdef STK_GES		
 	
@@ -1562,17 +1460,17 @@ static int stk3x1x_enable_ps(struct i2c_client *client, int enable, int validate
 		if (!(obj->psi_set))
 			hrtimer_start(&obj->ps_tune0_timer, obj->ps_tune0_delay, HRTIMER_MODE_REL);	
 
-		if ((err = stk3x1x_write_ps_high_thd(obj->client, atomic_read(&obj->ps_high_thd_val)))) 
+		if ((err = stk3x1x_write_ps_high_thd(obj->client, atomic_read(&obj->ps_threshold_high)))) 
 		{	APS_LOG("%s: line=%d\n", __FUNCTION__, __LINE__);
 			APS_ERR("write high thd error: %d\n", err);
 			return err;
 		}
-		if ((err = stk3x1x_write_ps_low_thd(obj->client, atomic_read(&obj->ps_low_thd_val))))
+		if ((err = stk3x1x_write_ps_low_thd(obj->client, atomic_read(&obj->ps_threshold_low))))
 		{	APS_LOG("%s: line=%d\n", __FUNCTION__, __LINE__);
 			APS_ERR("write low thd error: %d\n", err);
 			return err;
 		}
-	//	APS_LOG("%s: set HT=%d, LT=%d\n", __func__, atomic_read(&obj->ps_high_thd_val), atomic_read(&obj->ps_low_thd_val));		
+	//	APS_LOG("%s: set HT=%d, LT=%d\n", __func__, atomic_read(&obj->ps_threshold_high), atomic_read(&obj->ps_threshold_low));		
 	#else
 		if(true)
 		{
@@ -1582,32 +1480,32 @@ static int stk3x1x_enable_ps(struct i2c_client *client, int enable, int validate
 			
 			if(obj->boot_cali == 1)
 			{//	APS_LOG("%s: line=%d\n", __FUNCTION__, __LINE__);
-				atomic_set(&obj->ps_high_thd_val, obj->ps_high_thd_boot);
-				atomic_set(&obj->ps_low_thd_val, obj->ps_low_thd_boot);
+				atomic_set(&obj->ps_threshold_high, obj->ps_high_thd_boot);
+				atomic_set(&obj->ps_threshold_low, obj->ps_low_thd_boot);
 			}
 			else
 			{	APS_LOG("%s: line=%d\n", __FUNCTION__, __LINE__);
-			//	atomic_set(&obj->ps_high_thd_val, 0xFFFF);
-			//	atomic_set(&obj->ps_low_thd_val, 0xFFFF);
+			//	atomic_set(&obj->ps_threshold_high, 0xFFFF);
+			//	atomic_set(&obj->ps_threshold_low, 0xFFFF);
 			}
 
-			if ((err = stk3x1x_write_ps_high_thd(obj->client, atomic_read(&obj->ps_high_thd_val)))) 
+			if ((err = stk3x1x_write_ps_high_thd(obj->client, atomic_read(&obj->ps_threshold_high)))) 
 			{	APS_LOG("%s: line=%d\n", __FUNCTION__, __LINE__);
 				APS_ERR("write high thd error: %d\n", err);
 				return err;
 			}
-			if ((err = stk3x1x_write_ps_low_thd(obj->client, atomic_read(&obj->ps_low_thd_val))))
+			if ((err = stk3x1x_write_ps_low_thd(obj->client, atomic_read(&obj->ps_threshold_low))))
 			{	APS_LOG("%s: line=%d\n", __FUNCTION__, __LINE__);
 				APS_ERR("write low thd error: %d\n", err);
 				return err;
 			}
-			APS_LOG("%s: set HT=%d, LT=%d\n", __func__, atomic_read(&obj->ps_high_thd_val), atomic_read(&obj->ps_low_thd_val));
+			APS_LOG("%s: set HT=%d, LT=%d\n", __func__, atomic_read(&obj->ps_threshold_high), atomic_read(&obj->ps_threshold_low));
 			
 			hrtimer_start(&obj->ps_tune0_timer, obj->ps_tune0_delay, HRTIMER_MODE_REL);			
 		}
 	#endif
 #endif		
-		APS_LOG("%s: HT=%d, LT=%d\n", __func__, atomic_read(&obj->ps_high_thd_val), atomic_read(&obj->ps_low_thd_val));	
+		APS_LOG("%s: HT=%d, LT=%d\n", __func__, atomic_read(&obj->ps_threshold_high), atomic_read(&obj->ps_threshold_low));	
 		
 		if(obj->hw->polling_mode_ps)
 		{	APS_LOG("%s: line=%d\n", __FUNCTION__, __LINE__);
@@ -1658,6 +1556,7 @@ static int stk3x1x_enable_ps(struct i2c_client *client, int enable, int validate
 					APS_LOG("%s:ps raw 0x%x -> value 0x%x \n",__FUNCTION__, obj->ps,
 									sensor_data.values[0]);
 					APS_LOG("%s: line=%d\n", __FUNCTION__, __LINE__);
+
 					if(ps_report_interrupt_data(sensor_data.values[0]))
 					{	
 						APS_ERR("call ps_report_interrupt_data fail\n");
@@ -1673,6 +1572,7 @@ static int stk3x1x_enable_ps(struct i2c_client *client, int enable, int validate
 			}
 		}
 	}
+	
 #ifdef STK_GES	
 	else
 	{
@@ -1691,7 +1591,7 @@ static int stk3x1x_enable_ps(struct i2c_client *client, int enable, int validate
 		APS_LOG("enable ps  (%d)\n", enable);
 	}
 
-	return err;
+	return 0;
 }
 /*----------------------------------------------------------------------------*/
 #ifdef STK_GES
@@ -1764,14 +1664,13 @@ static int32_t stk3x1x_enable_ges(struct i2c_client *client, int enable, int mod
 			}
 			else
 			{
-#ifdef MT6516
-				MT6516_EINTIRQUnmask(CUST_EINT_ALS_NUM);      
-
-#elif ((defined MT6573) || (defined MT6575) || (defined MT6577) || (defined MT6589) || (defined MT6572))
-				mt65xx_eint_unmask(CUST_EINT_ALS_NUM);    
-#else				
+#if defined(CONFIG_OF)
+				enable_irq(obj->irq);
+#elif defined(CUST_EINT_ALS_TYPE)
 				mt_eint_unmask(CUST_EINT_ALS_NUM);
-#endif				
+#else
+				mt65xx_eint_unmask(CUST_EINT_ALS_NUM);
+#endif
 			}
 		}			
 	}
@@ -1882,8 +1781,9 @@ static int stk3x1x_ps_calibration(struct i2c_client *client)
 	MT6516_EINTIRQMask(CUST_EINT_ALS_NUM);  
 #elif ((defined MT6573) || (defined MT6575) || (defined MT6577) || (defined MT6589) || (defined MT6572))
 	mt65xx_eint_mask(CUST_EINT_ALS_NUM);    
-//#else				
-//	mt_eint_mask(CUST_EINT_ALS_NUM);
+#else				
+	//mt_eint_mask(CUST_EINT_ALS_NUM);
+	disable_irq(obj->irq);
 #endif	
 
 	
@@ -1907,12 +1807,12 @@ static int stk3x1x_ps_calibration(struct i2c_client *client)
 	obj->ps_cali = (ps_sum / PS_CALI_COUNT);	
 	
 err_out:	
-#ifdef MT6516
-	MT6516_EINTIRQUnmask(CUST_EINT_ALS_NUM);      
-#elif  ((defined MT6573) || (defined MT6575) || (defined MT6577) || (defined MT6589) || (defined MT6572))
-	mt65xx_eint_unmask(CUST_EINT_ALS_NUM);    
-//#else	
-//	mt_eint_unmask(CUST_EINT_ALS_NUM);
+#if defined(CONFIG_OF)
+	enable_irq(obj->irq);
+#elif defined(CUST_EINT_ALS_TYPE)
+	mt_eint_unmask(CUST_EINT_ALS_NUM);
+#else
+	mt65xx_eint_unmask(CUST_EINT_ALS_NUM);
 #endif
 	
 	if(re_en_als) 
@@ -2040,22 +1940,22 @@ static int stk3x1x_chk_reg_valid(struct stk3x1x_priv *obj)
 		APS_ERR("%s: invalid reg 0x05=0x%2x\n", __func__, buf[4]);
 		return 0xFF;
 	}	
-	if(buf[5] != (atomic_read(&obj->ps_high_thd_val) & 0xFF00) >> 8)
+	if(buf[5] != (atomic_read(&obj->ps_threshold_high) & 0xFF00) >> 8)
 	{
 		APS_ERR("%s: invalid reg 0x06=0x%2x\n", __func__, buf[5]);
 		return 0xFF;
 	}	
-	if(buf[6] != (atomic_read(&obj->ps_high_thd_val) & 0x00FF))
+	if(buf[6] != (atomic_read(&obj->ps_threshold_high) & 0x00FF))
 	{
 		APS_ERR("%s: invalid reg 0x07=0x%2x\n", __func__, buf[6]);
 		return 0xFF;
 	}	
-	if(buf[7] != (atomic_read(&obj->ps_low_thd_val) & 0xFF00) >> 8)
+	if(buf[7] != (atomic_read(&obj->ps_threshold_low) & 0xFF00) >> 8)
 	{
 		APS_ERR("%s: invalid reg 0x08=0x%2x\n", __func__, buf[7]);
 		return 0xFF;
 	}	
-	if(buf[8] != (atomic_read(&obj->ps_low_thd_val) & 0x00FF))
+	if(buf[8] != (atomic_read(&obj->ps_threshold_low) & 0x00FF))
 	{
 		APS_ERR("%s: invalid reg 0x09=0x%2x\n", __func__, buf[8]);
 		return 0xFF;
@@ -2082,13 +1982,13 @@ static int stk3x1x_validate_n_handle(struct i2c_client *client)
 		stk3x1x_init_client(obj->client);		
 		//obj->psa = 0;
 		//obj->psi = 0xFFFF;		
-		if((err = stk3x1x_write_ps_high_thd(client, atomic_read(&obj->ps_high_thd_val))))
+		if((err = stk3x1x_write_ps_high_thd(client, atomic_read(&obj->ps_threshold_high))))
 		{
 			APS_ERR("write high thd error: %d\n", err);
 			return err;        
 		}
 		
-		if((err = stk3x1x_write_ps_low_thd(client, atomic_read(&obj->ps_low_thd_val))))
+		if((err = stk3x1x_write_ps_low_thd(client, atomic_read(&obj->ps_threshold_low))))
 		{
 			APS_ERR("write low thd error: %d\n", err);
 			return err;        
@@ -2204,35 +2104,6 @@ static int32_t stk_ges_poll_func(struct stk3x1x_priv *obj)
 #endif
 
 #ifdef STK_TUNE0	
-static int stk_get_offset(struct stk3x1x_priv *obj, uint16_t ct_value)
-{
-	if(ct_value <= 200)
-	{
-	    obj->stk_max_min_diff = 200;
-		obj->stk_ht_n_ct = 70;
-		obj->stk_lt_n_ct = 60;
-	}
-	else if(ct_value <= 300)
-	{
-		obj->stk_max_min_diff = 200;
-		obj->stk_ht_n_ct = 90;
-		obj->stk_lt_n_ct = 80;
-	}
-	else if(ct_value <= 400)
-	{
-		obj->stk_max_min_diff = 200;
-		obj->stk_ht_n_ct = 100;
-		obj->stk_lt_n_ct = 90;
-	}
-	else
-	{
-		obj->stk_max_min_diff = 500;
-		obj->stk_ht_n_ct = 150;
-		obj->stk_lt_n_ct = 100;
-	}
-	printk(KERN_INFO "%s: chenge diff=%d, htnct=%d, ltnct=%d\n", __func__, obj->stk_max_min_diff, obj->stk_ht_n_ct,  obj->stk_lt_n_ct);
-	return 0;
-}
 
 static int stk_ps_tune_zero_final(struct stk3x1x_priv *obj)
 {
@@ -2259,33 +2130,31 @@ static int stk_ps_tune_zero_final(struct stk3x1x_priv *obj)
 	}	
 	
 	obj->psa = obj->ps_stat_data[0];
-	obj->psi = obj->ps_stat_data[2];	
-
-    stk_get_offset( obj, obj->ps_stat_data[1]);	
+	obj->psi = obj->ps_stat_data[2];							
 
 #ifndef CALI_EVERY_TIME
-	atomic_set(&obj->ps_high_thd_val, obj->ps_stat_data[1] + obj->stk_ht_n_ct); 
-	atomic_set(&obj->ps_low_thd_val, obj->ps_stat_data[1] + obj->stk_lt_n_ct); 		
+	atomic_set(&obj->ps_threshold_high, obj->ps_stat_data[1] + obj->stk_ht_n_ct); 
+	atomic_set(&obj->ps_threshold_low, obj->ps_stat_data[1] + obj->stk_lt_n_ct); 		
 #else						
 	obj->ps_high_thd_boot = obj->ps_stat_data[1] + obj->stk_ht_n_ct;
 	obj->ps_low_thd_boot = obj->ps_stat_data[1] + obj->stk_lt_n_ct;
-	atomic_set(&obj->ps_high_thd_val, obj->ps_high_thd_boot); 
-	atomic_set(&obj->ps_low_thd_val, obj->ps_low_thd_boot); 
+	atomic_set(&obj->ps_threshold_high, obj->ps_high_thd_boot); 
+	atomic_set(&obj->ps_threshold_low, obj->ps_low_thd_boot); 
 #endif
 
-	if((err = stk3x1x_write_ps_high_thd(obj->client, atomic_read(&obj->ps_high_thd_val))))
+	if((err = stk3x1x_write_ps_high_thd(obj->client, atomic_read(&obj->ps_threshold_high))))
 	{
 		APS_ERR("write high thd error: %d\n", err);
 		return err;        
 	}	
-	if((err = stk3x1x_write_ps_low_thd(obj->client, atomic_read(&obj->ps_low_thd_val))))
+	if((err = stk3x1x_write_ps_low_thd(obj->client, atomic_read(&obj->ps_threshold_low))))
 	{
 		APS_ERR("write low thd error: %d\n", err);
 		return err;        
 	}
 	obj->boot_cali = 1;
 	
-	APS_LOG("%s: set HT=%d,LT=%d\n", __func__, atomic_read(&obj->ps_high_thd_val),  atomic_read(&obj->ps_low_thd_val));		
+	APS_LOG("%s: set HT=%d,LT=%d\n", __func__, atomic_read(&obj->ps_threshold_high),  atomic_read(&obj->ps_threshold_low));		
 	hrtimer_cancel(&obj->ps_tune0_timer);					
 	return 0;
 }
@@ -2422,9 +2291,7 @@ static int stk_ps_tune_zero_func_fae(struct stk3x1x_priv *obj)
 		}
 		if(word_data < obj->psi)
 		{
-			obj->psi = word_data;
-
-            stk_get_offset( obj, obj->psi);			
+			obj->psi = word_data;	
 			APS_LOG("%s: update psi: psa=%d,psi=%d\n", __func__, obj->psa, obj->psi);	
 		}	
 	}	
@@ -2433,15 +2300,15 @@ static int stk_ps_tune_zero_func_fae(struct stk3x1x_priv *obj)
 	if(diff > obj->stk_max_min_diff)
 	{
 		obj->psi_set = obj->psi;
-		atomic_set(&obj->ps_high_thd_val, obj->psi + obj->stk_ht_n_ct); 
-		atomic_set(&obj->ps_low_thd_val, obj->psi + obj->stk_lt_n_ct); 
+		atomic_set(&obj->ps_threshold_high, obj->psi + obj->stk_ht_n_ct); 
+		atomic_set(&obj->ps_threshold_low, obj->psi + obj->stk_lt_n_ct); 
 		
 #ifdef CALI_EVERY_TIME
-		if( (atomic_read(&obj->ps_high_thd_val) > (obj->ps_high_thd_boot + 500)) && (obj->boot_cali == 1) )
+		if( (atomic_read(&obj->ps_threshold_high) > (obj->ps_high_thd_boot + 500)) && (obj->boot_cali == 1) )
 		{
-			atomic_set(&obj->ps_high_thd_val, obj->ps_high_thd_boot); 
-			atomic_set(&obj->ps_low_thd_val, obj->ps_low_thd_boot); 
-			APS_LOG("%s: change THD to boot HT=%d, LT=%d\n", __func__, atomic_read(&obj->ps_high_thd_val), atomic_read(&obj->ps_low_thd_val));
+			atomic_set(&obj->ps_threshold_high, obj->ps_high_thd_boot); 
+			atomic_set(&obj->ps_threshold_low, obj->ps_low_thd_boot); 
+			APS_LOG("%s: change THD to boot HT=%d, LT=%d\n", __func__, atomic_read(&obj->ps_threshold_high), atomic_read(&obj->ps_threshold_low));
 		}
 		else
 		{
@@ -2449,12 +2316,12 @@ static int stk_ps_tune_zero_func_fae(struct stk3x1x_priv *obj)
 		}
 #endif
 
-		if((ret = stk3x1x_write_ps_high_thd(obj->client, atomic_read(&obj->ps_high_thd_val))))
+		if((ret = stk3x1x_write_ps_high_thd(obj->client, atomic_read(&obj->ps_threshold_high))))
 		{
 			APS_ERR("write high thd error: %d\n", ret);
 			return ret;        
 		}		
-		if((ret = stk3x1x_write_ps_low_thd(obj->client, atomic_read(&obj->ps_low_thd_val))))
+		if((ret = stk3x1x_write_ps_low_thd(obj->client, atomic_read(&obj->ps_threshold_low))))
 		{
 			APS_ERR("write low thd error: %d\n", ret);
 			return ret;        
@@ -2462,7 +2329,7 @@ static int stk_ps_tune_zero_func_fae(struct stk3x1x_priv *obj)
 #ifdef STK_DEBUG_PRINTF				
 		APS_LOG("%s: FAE tune0 psa-psi(%d) > DIFF found\n", __func__, diff);
 #endif					
-		APS_LOG("%s: set HT=%d, LT=%d\n", __func__, atomic_read(&obj->ps_high_thd_val), atomic_read(&obj->ps_low_thd_val));
+		APS_LOG("%s: set HT=%d, LT=%d\n", __func__, atomic_read(&obj->ps_threshold_high), atomic_read(&obj->ps_threshold_low));
 		hrtimer_cancel(&obj->ps_tune0_timer);
 	}
 	
@@ -2493,32 +2360,31 @@ static enum hrtimer_restart stk_ps_tune0_timer_func(struct hrtimer *timer)
 	return HRTIMER_RESTART;	
 }
 /*----------------------------------------------------------------------------*/
-static irqreturn_t stk3x1x_eint_func(int irq, void *desc)
+void stk3x1x_eint_func(void)
 {
-	struct stk3x1x_priv *obj = stk3x1x_obj;
+	struct stk3x1x_priv *obj = g_stk3x1x_ptr;
 	APS_LOG(" interrupt fuc\n");
 	if(!obj)
 	{
-		return -EFAULT;
+		return;
 	}
 	//schedule_work(&obj->eint_work);
-	if(obj->hw->polling_mode_ps == 0 || obj->hw->polling_mode_als == 0) {
+	if(obj->hw->polling_mode_ps == 0 || obj->hw->polling_mode_als == 0)
 		schedule_delayed_work(&obj->eint_work,0);
-	}
-	disable_irq_nosync(stk3x1x_obj->irq);
 	if(atomic_read(&obj->trace) & STK_TRC_EINT)
 	{
 		APS_LOG("eint: als/ps intrs\n");
 	}
-	return IRQ_HANDLED;
 }
 /*----------------------------------------------------------------------------*/
 static void stk3x1x_eint_work(struct work_struct *work)
 {
-	struct stk3x1x_priv *obj = g_stk3x1x_ptr;
+	//int res = 0;
 	int err;
 	struct hwm_sensor_data sensor_data;
 	u8 flag_reg, disable_flag = 0;
+	struct stk3x1x_priv *obj = g_stk3x1x_ptr;
+	
 
 	memset(&sensor_data, 0, sizeof(sensor_data));
 
@@ -2602,68 +2468,71 @@ static void stk3x1x_eint_work(struct work_struct *work)
 	}
 		
 	msleep(1);
-#ifdef MT6516
-	MT6516_EINTIRQUnmask(CUST_EINT_ALS_NUM);      
-#elif  ((defined MT6573) || (defined MT6575) || (defined MT6577) || (defined MT6589) || (defined MT6572))
-	mt65xx_eint_unmask(CUST_EINT_ALS_NUM);    
-//#else	
-//	mt_eint_unmask(CUST_EINT_ALS_NUM);
-#endif	
+#if defined(CONFIG_OF)
+	enable_irq(obj->irq);
+#endif
 
-		enable_irq(obj->irq);
 	return;
 	
 err_i2c_rw:	
 	msleep(30);
-#ifdef MT6516
-	MT6516_EINTIRQUnmask(CUST_EINT_ALS_NUM);      
-#elif  ((defined MT6573) || (defined MT6575) || (defined MT6577) || (defined MT6589) || (defined MT6572))
-	mt65xx_eint_unmask(CUST_EINT_ALS_NUM);    
-//#else	
-//	mt_eint_unmask(CUST_EINT_ALS_NUM);
-#endif	
+#if defined(CONFIG_OF)
+	enable_irq(obj->irq);
+#endif
 	return;
 }
+
+
+#if defined(CONFIG_OF)
+static irqreturn_t stk3x1x_eint_handler(int irq, void *desc)
+{
+	stk3x1x_eint_func();
+	disable_irq_nosync(stk3x1x_obj->irq);
+
+	return IRQ_HANDLED;
+}
+#endif
+
 /*----------------------------------------------------------------------------*/
 int stk3x1x_setup_eint(struct i2c_client *client)
 {
 	int ret;
-	struct pinctrl *pinctrl;
-	struct pinctrl_state *pins_default, *pins_cfg;
 	u32 ints[2] = {0, 0};
+	struct pinctrl *pinctrl;
+	struct pinctrl_state *pins_default;
+	struct pinctrl_state *pins_cfg;
+	//struct stk3x1x_priv *obj = i2c_get_clientdata(client);        
 
-	struct stk3x1x_priv *obj = i2c_get_clientdata(client);
-	g_stk3x1x_ptr = obj;
+	
+	/*configure to GPIO function, external interrupt*/
 
-	alspsPltFmDev = get_alsps_platformdev();
-	stk3x1x_obj->irq_node = of_find_compatible_node(NULL, NULL, "mediatek, ALS-eint");
-
-	/* gpio setting */
+   alspsPltFmDev = get_alsps_platformdev();
+/* gpio setting */
 	pinctrl = devm_pinctrl_get(&alspsPltFmDev->dev);
 	if (IS_ERR(pinctrl)) {
 		ret = PTR_ERR(pinctrl);
-		APS_ERR("cannot find alsps pinctrl!\n");
+		APS_ERR("Cannot find alsps pinctrl!\n");
 	}
 	pins_default = pinctrl_lookup_state(pinctrl, "pin_default");
 	if (IS_ERR(pins_default)) {
 		ret = PTR_ERR(pins_default);
-		APS_ERR("cannot find alsps pinctrl default!\n");
+		APS_ERR("Cannot find alsps pinctrl default!\n");
+
 	}
+
 	pins_cfg = pinctrl_lookup_state(pinctrl, "pin_cfg");
 	if (IS_ERR(pins_cfg)) {
 		ret = PTR_ERR(pins_cfg);
-		APS_ERR("cannot find alsps pinctrl pin_cfg!\n");
-	}
-	ret = pinctrl_select_state(pinctrl, pins_cfg);
-	if (ret != 0)
-		APS_ERR("set alsps pinctrl pin_cfg error!\n");
+		APS_ERR("Cannot find alsps pinctrl pin_cfg!\n");
 
-	/* eint request */
+	}
+/* eint request */
 	if (stk3x1x_obj->irq_node) {
 		of_property_read_u32_array(stk3x1x_obj->irq_node, "debounce", ints, ARRAY_SIZE(ints));
-		ret = gpio_request(ints[0], "p-sensor");
+		gpio_request(ints[0], "p-sensor");
 		gpio_set_debounce(ints[0], ints[1]);
-		APS_LOG("ints[0]=%d, ints[1]=%d!\n", ints[0], ints[1]);
+		pinctrl_select_state(pinctrl, pins_cfg);
+		APS_LOG("ints[0] = %d, ints[1] = %d!!\n", ints[0], ints[1]);
 
 		stk3x1x_obj->irq = irq_of_parse_and_map(stk3x1x_obj->irq_node, 0);
 		APS_LOG("stk3x1x_obj->irq = %d\n", stk3x1x_obj->irq);
@@ -2671,8 +2540,8 @@ int stk3x1x_setup_eint(struct i2c_client *client)
 			APS_ERR("irq_of_parse_and_map fail!!\n");
 			return -EINVAL;
 		}
-		if (request_irq(stk3x1x_obj->irq, stk3x1x_eint_func, IRQF_TRIGGER_NONE, "ALS-eint", NULL)) {
-			APS_ERR("IRQ LINE NOT AVAILABLE!\n");
+		if (request_irq(stk3x1x_obj->irq, stk3x1x_eint_handler, IRQF_TRIGGER_NONE, "ALS-eint", NULL)) {
+			APS_ERR("IRQ LINE NOT AVAILABLE!!\n");
 			return -EINVAL;
 		}
 		enable_irq(stk3x1x_obj->irq);
@@ -2680,6 +2549,8 @@ int stk3x1x_setup_eint(struct i2c_client *client)
 		APS_ERR("null irq node!!\n");
 		return -EINVAL;
 	}
+
+
 	return 0;
 }
 /*----------------------------------------------------------------------------*/
@@ -2688,8 +2559,7 @@ static int stk3x1x_init_client(struct i2c_client *client)
 	struct stk3x1x_priv *obj = i2c_get_clientdata(client);
 	int err;
 	int ps_ctrl;
-	//u8 int_status;
-	
+
 	if((err = stk3x1x_write_sw_reset(client)))
 	{
 		APS_ERR("software reset error, err=%d", err);
@@ -2760,13 +2630,13 @@ static int stk3x1x_init_client(struct i2c_client *client)
 		return err;
 	}	
 #ifndef STK_TUNE0	
-	if((err = stk3x1x_write_ps_high_thd(client, atomic_read(&obj->ps_high_thd_val))))
+	if((err = stk3x1x_write_ps_high_thd(client, atomic_read(&obj->ps_threshold_high))))
 	{
 		APS_ERR("write high thd error: %d\n", err);
 		return err;        
 	}
 	
-	if((err = stk3x1x_write_ps_low_thd(client, atomic_read(&obj->ps_low_thd_val))))
+	if((err = stk3x1x_write_ps_low_thd(client, atomic_read(&obj->ps_threshold_low))))
 	{
 		APS_ERR("write low thd error: %d\n", err);
 		return err;        
@@ -2778,16 +2648,6 @@ static int stk3x1x_init_client(struct i2c_client *client)
 		return err;        
 	}		
 	
-	/*
-	u8 data;
-	data = 0x60;
-    err = stk3x1x_master_send(client, 0x87, &data, 1);
-	if (err < 0)
-	{
-		APS_ERR("write 0x87 = %d\n", err);
-		return -EFAULT;
-	} 
-	*/
 #ifdef STK_ALS_FIR
 	memset(&obj->fir, 0x00, sizeof(obj->fir));  
 #endif
@@ -2822,7 +2682,7 @@ static ssize_t stk3x1x_show_config(struct device_driver *ddri, char *buf)
 	
 	res = scnprintf(buf, PAGE_SIZE, "(%d %d %d %d %d %d)\n", 
 		atomic_read(&stk3x1x_obj->i2c_retry), atomic_read(&stk3x1x_obj->als_debounce), 
-		atomic_read(&stk3x1x_obj->ps_mask), atomic_read(&stk3x1x_obj->ps_high_thd_val),atomic_read(&stk3x1x_obj->ps_low_thd_val), atomic_read(&stk3x1x_obj->ps_debounce));     
+		atomic_read(&stk3x1x_obj->ps_mask), atomic_read(&stk3x1x_obj->ps_threshold_high),atomic_read(&stk3x1x_obj->ps_threshold_low), atomic_read(&stk3x1x_obj->ps_debounce));     
 	return res;    
 }
 /*----------------------------------------------------------------------------*/
@@ -2842,17 +2702,17 @@ static ssize_t stk3x1x_store_config(struct device_driver *ddri, const char *buf,
 		atomic_set(&stk3x1x_obj->i2c_retry, retry);
 		atomic_set(&stk3x1x_obj->als_debounce, als_deb);
 		atomic_set(&stk3x1x_obj->ps_mask, mask);
-		atomic_set(&stk3x1x_obj->ps_high_thd_val, hthres);    
-		atomic_set(&stk3x1x_obj->ps_low_thd_val, lthres);        
+		atomic_set(&stk3x1x_obj->ps_threshold_high, hthres);    
+		atomic_set(&stk3x1x_obj->ps_threshold_low, lthres);        
 		atomic_set(&stk3x1x_obj->ps_debounce, ps_deb);
 
-		if((err = stk3x1x_write_ps_high_thd(client, atomic_read(&stk3x1x_obj->ps_high_thd_val))))
+		if((err = stk3x1x_write_ps_high_thd(client, atomic_read(&stk3x1x_obj->ps_threshold_high))))
 		{
 			APS_ERR("write high thd error: %d\n", err);
 			return err;        
 		}
 		
-		if((err = stk3x1x_write_ps_low_thd(client, atomic_read(&stk3x1x_obj->ps_low_thd_val))))
+		if((err = stk3x1x_write_ps_low_thd(client, atomic_read(&stk3x1x_obj->ps_threshold_low))))
 		{
 			APS_ERR("write low thd error: %d\n", err);
 			return err;        
@@ -2973,8 +2833,8 @@ static ssize_t stk3x1x_show_reg(struct device_driver *ddri, char *buf)
 	/*write*/
 	stk3x1x_write_als(stk3x1x_obj->client, atomic_read(&stk3x1x_obj->alsctrl_val));
 	stk3x1x_write_ps(stk3x1x_obj->client, atomic_read(&stk3x1x_obj->psctrl_val)); 
-	stk3x1x_write_ps_high_thd(stk3x1x_obj->client, atomic_read(&stk3x1x_obj->ps_high_thd_val));
-	stk3x1x_write_ps_low_thd(stk3x1x_obj->client, atomic_read(&stk3x1x_obj->ps_low_thd_val));
+	stk3x1x_write_ps_high_thd(stk3x1x_obj->client, atomic_read(&stk3x1x_obj->ps_threshold_high));
+	stk3x1x_write_ps_low_thd(stk3x1x_obj->client, atomic_read(&stk3x1x_obj->ps_threshold_low));
 	return 0;
 }
 /*----------------------------------------------------------------------------*/
@@ -3194,7 +3054,7 @@ static ssize_t stk3x1x_show_status(struct device_driver *ddri, char *buf)
 	len += scnprintf(buf+len, PAGE_SIZE-len, "REGS: %02X %02X %02X %02X %02X %02X %02X %02X %02lX %02lX\n", 
 				atomic_read(&stk3x1x_obj->state_val), atomic_read(&stk3x1x_obj->psctrl_val), atomic_read(&stk3x1x_obj->alsctrl_val), 
 				stk3x1x_obj->ledctrl_val, stk3x1x_obj->int_val, stk3x1x_obj->wait_val, 
-				atomic_read(&stk3x1x_obj->ps_high_thd_val), atomic_read(&stk3x1x_obj->ps_low_thd_val),stk3x1x_obj->enable, stk3x1x_obj->pending_intr);
+				atomic_read(&stk3x1x_obj->ps_threshold_high), atomic_read(&stk3x1x_obj->ps_threshold_low),stk3x1x_obj->enable, stk3x1x_obj->pending_intr);
 #ifdef MT6516
 	len += scnprintf(buf+len, PAGE_SIZE-len, "EINT: %d (%d %d %d %d)\n", mt_get_gpio_in(GPIO_ALS_EINT_PIN),
 				CUST_EINT_ALS_NUM, CUST_EINT_ALS_POLARITY, CUST_EINT_ALS_DEBOUNCE_EN, CUST_EINT_ALS_DEBOUNCE_CN);
@@ -3389,7 +3249,7 @@ static ssize_t stk3x1x_ps_maxdiff_store(struct device_driver *ddri, const char *
 	
 	if((ret = kstrtoul(buf, 10, &value)) < 0)
 	{
-		printk(KERN_ERR "%s:kstrtoul failed, ret=0x%x\n", __func__, ret);
+	//	printk(KERN_ERR "%s:kstrtoul failed, ret=0x%x\n", __func__, ret);
 		return ret;	
 	}
 	stk3x1x_obj->stk_max_min_diff = (int) value;
@@ -3415,7 +3275,7 @@ static ssize_t stk3x1x_ps_ltnct_store(struct device_driver *ddri, const char *bu
 	
 	if((ret = kstrtoul(buf, 10, &value)) < 0)
 	{
-		printk(KERN_ERR "%s:kstrtoul failed, ret=0x%x\n", __func__, ret);
+	//	printk(KERN_ERR "%s:kstrtoul failed, ret=0x%x\n", __func__, ret);
 		return ret;	
 	}
 	stk3x1x_obj->stk_lt_n_ct = (int) value;
@@ -3439,7 +3299,7 @@ static ssize_t stk3x1x_ps_htnct_store(struct device_driver *ddri, const char *bu
 	
 	if((ret = kstrtoul(buf, 10, &value)) < 0)
 	{
-		printk(KERN_ERR "%s:kstrtoul failed, ret=0x%x\n", __func__, ret);
+	//	printk(KERN_ERR "%s:kstrtoul failed, ret=0x%x\n", __func__, ret);
 		return ret;	
 	}
 	stk3x1x_obj->stk_ht_n_ct = (int) value;
@@ -3623,7 +3483,7 @@ static ssize_t stk_ges_poll_store(struct device *dev, struct device_attribute *a
 		token = strsep((char **)&buf, " ");
 		if((ret = kstrtoul(token, 16, &value)) < 0)
 		{
-			printk(KERN_ERR "%s:kstrtoul failed, ret=0x%x\n", __func__, ret);
+		//	printk(KERN_ERR "%s:kstrtoul failed, ret=0x%x\n", __func__, ret);
 			return ret;	
 		}
 		
@@ -3647,7 +3507,7 @@ static ssize_t stk_ges_poll_store(struct device *dev, struct device_attribute *a
 	}
 	if(i != 5)
 	{
-		printk(KERN_ERR "%s: invalid length(%d)\n", __func__, i);
+	//	printk(KERN_ERR "%s: invalid length(%d)\n", __func__, i);
 		memset(&(stk_ges_op[index]), 0, sizeof(union stk_ges_operation));				
 	}
 	return size;
@@ -4398,8 +4258,8 @@ static int stk3x1x_ioctl(struct inode *inode, struct file *file, unsigned int cm
 			break;
 		
 		case ALSPS_GET_PS_THRESHOLD_HIGH:
-			dat = atomic_read(&obj->ps_high_thd_val);
-			APS_LOG("%s:ps_high_thd_val:%d\n",__func__,dat);
+			dat = atomic_read(&obj->ps_threshold_high);
+			APS_LOG("%s:ps_threshold_high:%d\n",__func__,dat);
 			if(copy_to_user(ptr, &dat, sizeof(dat)))
 			{
 				err = -EFAULT;
@@ -4407,8 +4267,8 @@ static int stk3x1x_ioctl(struct inode *inode, struct file *file, unsigned int cm
 			}
 			break;
 		case ALSPS_GET_PS_THRESHOLD_LOW:
-			dat = atomic_read(&obj->ps_low_thd_val);
-			APS_LOG("%s:ps_low_thd_val:%d\n",__func__,dat);			
+			dat = atomic_read(&obj->ps_threshold_low);
+			APS_LOG("%s:ps_threshold_low:%d\n",__func__,dat);			
 			if(copy_to_user(ptr, &dat, sizeof(dat)))
 			{
 				err = -EFAULT;
@@ -4422,7 +4282,7 @@ static int stk3x1x_ioctl(struct inode *inode, struct file *file, unsigned int cm
 				goto err_out;
 			}
 
-			if(obj->ps > atomic_read(&obj->ps_high_thd_val))
+			if(obj->ps > atomic_read(&obj->ps_threshold_high))
 				ps_result = 0;
 			else	
 				ps_result = 1;
@@ -4441,11 +4301,11 @@ static int stk3x1x_ioctl(struct inode *inode, struct file *file, unsigned int cm
 				goto err_out; 
 			} 
 			obj->ps_cali = 0; 
-			atomic_set(&obj->ps_high_thd_val,  obj->hw->ps_threshold_high); 
-			atomic_set(&obj->ps_low_thd_val,  obj->hw->ps_threshold_low);  //obj->hw->ps_low_thd_val
+			atomic_set(&obj->ps_threshold_high,  obj->hw->ps_threshold_high); 
+			atomic_set(&obj->ps_threshold_low,  obj->hw->ps_threshold_low);  //obj->hw->ps_threshold_low
 			APS_LOG("ALSPS_IOCTL_CLR_CALI : obj->ps_cali:%d high:%d low:%d\n", obj->ps_cali, 
-													atomic_read(&obj->ps_high_thd_val), 
-													atomic_read(&obj->ps_low_thd_val)); 			
+													atomic_read(&obj->ps_threshold_high), 
+													atomic_read(&obj->ps_threshold_low)); 			
 			break;
 			
 		case ALSPS_IOCTL_GET_CALI: 
@@ -4468,16 +4328,16 @@ static int stk3x1x_ioctl(struct inode *inode, struct file *file, unsigned int cm
 				goto err_out; 
 			} 
 			obj->ps_cali = ps_cali_result; 
-			atomic_set(&obj->ps_high_thd_val, obj->ps_cali + obj->stk_ht_n_ct); 
-			atomic_set(&obj->ps_low_thd_val,  obj->ps_cali + obj->stk_lt_n_ct); 
-			if((err = stk3x1x_write_ps_high_thd(obj->client, atomic_read(&obj->ps_high_thd_val))))
+			atomic_set(&obj->ps_threshold_high, obj->ps_cali + obj->stk_ht_n_ct); 
+			atomic_set(&obj->ps_threshold_low,  obj->ps_cali + obj->stk_lt_n_ct); 
+			if((err = stk3x1x_write_ps_high_thd(obj->client, atomic_read(&obj->ps_threshold_high))))
 				goto err_out;       
-			if((err = stk3x1x_write_ps_low_thd(obj->client, atomic_read(&obj->ps_low_thd_val))))
+			if((err = stk3x1x_write_ps_low_thd(obj->client, atomic_read(&obj->ps_threshold_low))))
 				goto err_out;    
 			APS_LOG("ALSPS_IOCTL_SET_CALI : ps_cali_result = %d\n",ps_cali_result); 
 			APS_LOG("ALSPS_IOCTL_SET_CALI : obj->ps_cali:%d high:%d low:%d\n", obj->ps_cali, 
-													atomic_read(&obj->ps_high_thd_val), 
-													atomic_read(&obj->ps_low_thd_val)); 
+													atomic_read(&obj->ps_threshold_high), 
+													atomic_read(&obj->ps_threshold_low)); 
 			break;					
 			
 		default:
@@ -4511,41 +4371,29 @@ static struct miscdevice stk3x1x_device = {
 };
 /*----------------------------------------------------------------------------*/
 static int stk3x1x_i2c_suspend(struct i2c_client *client, pm_message_t msg) 
-{
-	APS_FUN();    
-/*
-	if(msg.event == PM_EVENT_SUSPEND)
-	{   
-		if(!obj)
-		{
-			APS_ERR("null pointer!!\n");
-			return -EINVAL;
-		}
-		
-		atomic_set(&obj->als_suspend, 1);
-		if((err = stk3x1x_enable_als(client, 0)))
-		{
-			APS_ERR("disable als: %d\n", err);
-			return err;
-		}
-
-		atomic_set(&obj->ps_suspend, 1);
-		if((err = stk3x1x_enable_ps(client, 0, 1)))
-		{
-			APS_ERR("disable ps:  %d\n", err);
-			return err;
-		}
-		
-		stk3x1x_power(obj->hw, 0);
-	}
+{  
+	int err;
+	struct stk3x1x_priv *obj = i2c_get_clientdata(client);
 	
-*/
+
+	APS_LOG("stk3x1x_i2c_suspend\n");
+
+	if (!obj) {
+		APS_ERR("null pointer!!\n");
+		return 0;
+	}
+
+	atomic_set(&obj->als_suspend, 1);
+	err = stk3x1x_enable_als(obj->client, 0);
+	if (err)
+		APS_ERR("disable als fail: %d\n", err);
+
 	return 0;
 }
 /*----------------------------------------------------------------------------*/
 static int stk3x1x_i2c_resume(struct i2c_client *client)
 {
-	APS_FUN();
+	
 /*
 	if(!obj)
 	{
@@ -4576,11 +4424,28 @@ static int stk3x1x_i2c_resume(struct i2c_client *client)
 		}
 	}
 */
+	int err;
+   	struct stk3x1x_priv *obj = i2c_get_clientdata(client);
+	
+	struct hwm_sensor_data sensor_data;
+	memset(&sensor_data, 0, sizeof(sensor_data));
+	APS_LOG("stk3x1x_i2c_resume\n");
+	if (!obj) {
+		APS_ERR("null pointer!!\n");
+		return 0;
+	}
+
+	atomic_set(&obj->als_suspend, 0);
+	if (test_bit(STK_BIT_ALS, &obj->enable)) {
+		err = stk3x1x_enable_als(obj->client, 1);
+		if (err)
+			APS_ERR("enable als fail: %d\n", err);
+	}
+
 	return 0;
 }
-
-#if 0
 /*----------------------------------------------------------------------------*/
+#if defined(CONFIG_HAS_EARLYSUSPEND)
 static void stk3x1x_early_suspend(struct early_suspend *h) 
 {   /*early_suspend is only applied for ALS*/
 	int err;
@@ -4681,6 +4546,7 @@ static void stk3x1x_late_resume(struct early_suspend *h)
 	}
 }
 #endif
+
 int stk3x1x_ps_operate(void* self, uint32_t command, void* buff_in, int size_in,
 		void* buff_out, int size_out, int* actualout)
 {
@@ -4886,17 +4752,12 @@ int stk3x1x_als_operate(void* self, uint32_t command, void* buff_in, int size_in
 
 
 /*----------------------------------------------------------------------------*/
-#if !defined(MTK_AUTO_DETECT_ALSPS)
-	#if (LINUX_VERSION_CODE<KERNEL_VERSION(2,6,32))	
-static int stk3x1x_i2c_detect(struct i2c_client *client, int kind, struct i2c_board_info *info) 
-	#else
 static int stk3x1x_i2c_detect(struct i2c_client *client, struct i2c_board_info *info) 
-	#endif
 {    
 	strcpy(info->type, stk3x1x_DEV_NAME);
 	return 0;
 }
-#endif
+
 /*----------------------------------------------------------------------------*/
 #ifdef STK_GES
 static int stk3x1x_set_input_device(struct stk3x1x_priv *obj)
@@ -4970,7 +4831,15 @@ static int als_enable_nodata(int en)
 		APS_ERR("stk3x1x_obj is null!!\n");
 		return -1;
 	}
-	res=	stk3x1x_enable_als(stk3x1x_obj->client, en);
+
+	mutex_lock(&stk3x1x_mutex);
+	if (en)
+		set_bit(STK_BIT_ALS, &stk3x1x_obj->enable);
+	else
+		clear_bit(STK_BIT_ALS, &stk3x1x_obj->enable);
+	mutex_unlock(&stk3x1x_mutex);
+	
+	res= stk3x1x_enable_als(stk3x1x_obj->client, en);
 #endif //#ifdef CUSTOM_KERNEL_SENSORHUB
 	if(res){
 		APS_ERR("als_enable_nodata is failed!!\n");
@@ -5080,11 +4949,19 @@ static int ps_enable_nodata(int en)
 		APS_ERR("stk3x1x_obj is null!!\n");
 		return -1;
 	}
-	res=	stk3x1x_enable_ps(stk3x1x_obj->client, en,1);
+
+	mutex_lock(&stk3x1x_mutex);
+	if (en)
+		set_bit(STK_BIT_PS, &stk3x1x_obj->enable);
+	else
+		clear_bit(STK_BIT_PS, &stk3x1x_obj->enable);
+	mutex_unlock(&stk3x1x_mutex);
+	
+	res= stk3x1x_enable_ps(stk3x1x_obj->client, en,1);
 #endif //#ifdef CUSTOM_KERNEL_SENSORHUB
     
 	if(res){
-		APS_ERR("als_enable_nodata is failed!!\n");
+		APS_ERR("ps_enable_nodata is failed!!\n");
 		return -1;
 	}
 	return 0;
@@ -5158,15 +5035,18 @@ static int stk3x1x_i2c_probe(struct i2c_client *client, const struct i2c_device_
 	struct ps_data_path ps_data={0};
 
 	APS_LOG("%s: driver version: %s\n", __FUNCTION__, DRIVER_VERSION);
-
 	if(!(obj = kzalloc(sizeof(*obj), GFP_KERNEL)))
 	{
 		err = -ENOMEM;
 		goto exit;
 	}
 	memset(obj, 0, sizeof(*obj));
+
+	obj->hw = hw;
 	stk3x1x_obj = obj;
-	obj->hw = hw;//get_cust_alsps_hw();
+	g_stk3x1x_ptr = obj;
+//	obj->hw = get_cust_alsps_hw();
+	
 	stk3x1x_get_addr(obj->hw, &obj->addr);
 
 	INIT_DELAYED_WORK(&obj->eint_work, stk3x1x_eint_work);
@@ -5181,21 +5061,25 @@ static int stk3x1x_i2c_probe(struct i2c_client *client, const struct i2c_device_
 	atomic_set(&obj->ps_mask, 0);
 	atomic_set(&obj->trace, 0x00);
 	atomic_set(&obj->als_suspend, 0);
-
+	atomic_set(&obj->init_done, 0);
+	
+   
 	atomic_set(&obj->state_val, 0x0);
-	atomic_set(&obj->psctrl_val, 0x31);
-	atomic_set(&obj->alsctrl_val, 0x2A);
-	obj->ledctrl_val = 0xFF;	
-	obj->wait_val = 0x7;
+	atomic_set(&obj->psctrl_val, PSCTRL_VAL);
+	atomic_set(&obj->alsctrl_val, ALSCTRL_VAL);
+	obj->ledctrl_val = LEDCTRL_VAL;
+	obj->wait_val = WAIT_VAL;
 	obj->int_val = 0;
 	obj->first_boot = true;			 
 	obj->als_correct_factor = 1000;
-	atomic_set(&obj->ps_high_thd_val, obj->hw->ps_threshold_high);//  obj->hw->ps_high_thd_val
-	atomic_set(&obj->ps_low_thd_val, obj->hw->ps_threshold_low);	
+	atomic_set(&obj->ps_threshold_high, obj->hw->ps_threshold_high);//  obj->hw->ps_threshold_high
+	atomic_set(&obj->ps_threshold_low, obj->hw->ps_threshold_low);	
 	atomic_set(&obj->recv_reg, 0);  
 #ifdef STK_ALS_FIR	
 	atomic_set(&obj->firlength, STK_FIR_LEN);	
 #endif	
+
+	obj->irq_node = of_find_compatible_node(NULL, NULL, "mediatek, als-eint");
 
 #ifdef STK_TUNE0
 	obj->stk_max_min_diff = STK_MAX_MIN_DIFF;
@@ -5214,8 +5098,8 @@ static int stk3x1x_i2c_probe(struct i2c_client *client, const struct i2c_device_
 	  APS_LOG("%s: enable ALS interrupt\n", __FUNCTION__);
 	}	
 
-	APS_LOG("%s: state_val=0x%x, psctrl_val=0x%x, alsctrl_val=0x%x, ledctrl_val=0x%x, wait_val=0x%x, int_val=0x%x\n", 
-		__FUNCTION__, atomic_read(&obj->state_val), atomic_read(&obj->psctrl_val), atomic_read(&obj->alsctrl_val), 
+	APS_LOG("%s:als_debounce=0x%x, state_val=0x%x, psctrl_val=0x%x, alsctrl_val=0x%x, ledctrl_val=0x%x, wait_val=0x%x, int_val=0x%x\n", 
+		__FUNCTION__,atomic_read(&obj->als_debounce), atomic_read(&obj->state_val), atomic_read(&obj->psctrl_val), atomic_read(&obj->alsctrl_val), 
 		obj->ledctrl_val, obj->wait_val, obj->int_val);
 	
 	APS_LOG("stk3x1x_i2c_probe() OK!\n");
@@ -5237,6 +5121,7 @@ static int stk3x1x_i2c_probe(struct i2c_client *client, const struct i2c_device_
 	{
 		set_bit(STK_BIT_PS, &obj->enable);
 	}
+	
 	stk3x1x_i2c_client = client;
 
 	obj->stk_ps_tune0_wq = create_singlethread_workqueue("stk_ps_tune0_wq");
@@ -5264,46 +5149,6 @@ static int stk3x1x_i2c_probe(struct i2c_client *client, const struct i2c_device_
 		goto exit_create_attr_failed;
 	}
 	
-	/*
-	obj_ps.self = stk3x1x_obj;
-	if(1 == obj->hw->polling_mode_ps)
-	{
-		obj_ps.polling = 1;
-		wake_lock_init(&ps_lock,WAKE_LOCK_SUSPEND,"ps wakelock");
-	}
-	else
-	{
-	  obj_ps.polling = 0;//PS interrupt mode
-	}
-	
-	obj_ps.sensor_operate = stk3x1x_ps_operate;
-	if((err = hwmsen_attach(ID_PROXIMITY, &obj_ps)))
-	{
-		APS_ERR("attach fail = %d\n", err);
-		goto exit_create_attr_failed;
-	}
-	
-	obj_als.self = stk3x1x_obj;
-	if(1 == obj->hw->polling_mode_als)
-	{
-	  obj_als.polling = 1;
-	}
-	else
-	{
-	  obj_als.polling = 0;//ALS interrupt mode
-	}
-	obj_als.sensor_operate = stk3x1x_als_operate;
-	if((err = hwmsen_attach(ID_LIGHT, &obj_als)))
-	{
-		APS_ERR("attach fail = %d\n", err);
-		goto exit_create_attr_failed;
-	}*/
-	if(1 == obj->hw->polling_mode_ps)
-	{
-		wake_lock_init(&ps_lock,WAKE_LOCK_SUSPEND,"ps wakelock");
-	}
-	als_ctl.is_use_common_factory = false;
-	ps_ctl.is_use_common_factory = false;
 	als_ctl.open_report_data= als_open_report_data;
 	als_ctl.enable_nodata = als_enable_nodata;
 	als_ctl.set_delay  = als_set_delay;
@@ -5334,13 +5179,24 @@ static int stk3x1x_i2c_probe(struct i2c_client *client, const struct i2c_device_
 	ps_ctl.open_report_data= ps_open_report_data;
 	ps_ctl.enable_nodata = ps_enable_nodata;
 	ps_ctl.set_delay  = ps_set_delay;
-	ps_ctl.is_report_input_direct = false;
-	ps_ctl.is_polling_mode = obj->hw->polling_mode_ps;
+//	ps_ctl.is_report_input_direct = true;
 #ifdef CUSTOM_KERNEL_SENSORHUB
 	ps_ctl.is_support_batch = obj->hw->is_batch_supported_ps;
 #else
     ps_ctl.is_support_batch = false;
 #endif
+
+	if(1 == obj->hw->polling_mode_ps)
+	{
+		wake_lock_init(&ps_lock,WAKE_LOCK_SUSPEND,"ps wakelock");
+		ps_ctl.is_polling_mode = 1;
+		ps_ctl.is_report_input_direct = false;
+	}
+	else
+	{
+		ps_ctl.is_polling_mode = 0;//PS interrupt mode
+		ps_ctl.is_report_input_direct = true;
+	}
 	
 	err = ps_register_control_path(&ps_ctl);
 	if(err)
@@ -5383,9 +5239,8 @@ static int stk3x1x_i2c_probe(struct i2c_client *client, const struct i2c_device_
 	register_early_suspend(&obj->early_drv);
 #endif
 
-#if defined(MTK_AUTO_DETECT_ALSPS)
     stk3x1x_init_flag = 0;
-#endif
+
 	APS_LOG("%s: OK\n", __FUNCTION__);
 
 	return 0;
@@ -5405,12 +5260,9 @@ static int stk3x1x_i2c_probe(struct i2c_client *client, const struct i2c_device_
 	kfree(obj);
 	exit:
 	stk3x1x_i2c_client = NULL;           
-	#ifdef MT6516        
-	MT6516_EINTIRQMask(CUST_EINT_ALS_NUM);  /*mask interrupt if fail*/
-	#endif
-#if defined(MTK_AUTO_DETECT_ALSPS)
+
     stk3x1x_init_flag = -1;
-#endif	
+
 	APS_ERR("%s: err = %d\n", __FUNCTION__, err);
 	return err;
 }
@@ -5444,7 +5296,6 @@ static int stk3x1x_i2c_remove(struct i2c_client *client)
 	return 0;
 }
 
-#if defined(MTK_AUTO_DETECT_ALSPS)
 static int  stk3x1x_local_uninit(void)
 {
 //	struct alsps_hw *hw = get_cust_alsps_hw();
@@ -5460,11 +5311,8 @@ static int  stk3x1x_local_uninit(void)
 static int stk3x1x_local_init(void) 
 {
 //	struct alsps_hw *hw = get_cust_alsps_hw();
-
-	
 	struct stk3x1x_i2c_addr addr;
-
-	APS_FUN();
+  
 	stk3x1x_power(hw, 1);    
 	stk3x1x_get_addr(hw, &addr);
 	#if (LINUX_VERSION_CODE<KERNEL_VERSION(3,0,0))	
@@ -5484,96 +5332,20 @@ static int stk3x1x_local_init(void)
 	return 0;
 }
 
-#else
-/*----------------------------------------------------------------------------*/
-static int stk3x1x_probe(struct platform_device *pdev) 
-{
-//	struct alsps_hw *hw = get_cust_alsps_hw();
-	struct stk3x1x_i2c_addr addr;
-
-	stk3x1x_power(hw, 1);    
-	stk3x1x_get_addr(hw, &addr);
-	#if (LINUX_VERSION_CODE<KERNEL_VERSION(3,0,0))	
-	stk3x1x_force[0] = hw->i2c_num;
-	stk3x1x_force[1] = hw->i2c_addr[0];
-	#endif
-	if(i2c_add_driver(&stk3x1x_i2c_driver))
-	{
-		APS_ERR("add driver error\n");
-		return -1;
-	} 
-
-	return 0;
-}
-/*----------------------------------------------------------------------------*/
-static int stk3x1x_remove(struct platform_device *pdev)
-{
-//	struct alsps_hw *hw = get_cust_alsps_hw();
-	APS_FUN();    
-	stk3x1x_power(hw, 0);    
-	i2c_del_driver(&stk3x1x_i2c_driver);
-	return 0;
-}
-/*----------------------------------------------------------------------------*/
-#ifdef CONFIG_OF
-static const struct of_device_id alsps_of_match[] = {
-	{ .compatible = "mediatek,als_ps", },
-	{},
-};
-#endif
-
-static struct platform_driver stk3x1x_alsps_driver = {
-	.probe      = stk3x1x_probe,
-	.remove     = stk3x1x_remove,    
-	.driver     = {
-		.name  = "als_ps",
-	#if (LINUX_VERSION_CODE<KERNEL_VERSION(3,0,0))	
-		.owner = THIS_MODULE,
-	#endif	
-	#ifdef CONFIG_OF
-		.of_match_table = alsps_of_match,
-	#endif		
-	}
-};
-#endif
-
-
 /*----------------------------------------------------------------------------*/
 static int __init stk3x1x_init(void)
 {
-	const char *name = "mediatek,stk3x1x-new";
-#if !defined(MTK_AUTO_DETECT_ALSPS)
-	int retval;	
-#endif	
-
-#if 0//(LINUX_VERSION_CODE>=KERNEL_VERSION(3,0,0))	
-	struct alsps_hw *hw = get_cust_alsps_hw();
-	APS_LOG("%s: i2c_number=%d\n", __func__,hw->i2c_num); 
-	i2c_register_board_info(hw->i2c_num, &i2c_stk3x1x, 1);	
-#endif
-	APS_FUN();
-	
-
-	hw =   get_alsps_dts_func(name, hw);
-	
-#if defined(MTK_AUTO_DETECT_ALSPS)	
-   	alsps_driver_add(&stk3x1x_init_info);// hwmsen_alsps_add(&stk3x1x_init_info);
-#else	
-	if((retval = platform_driver_register(&stk3x1x_alsps_driver)))
-	{
-		APS_ERR("%s: failed to register driver, err = %d\n", __func__, retval);	
-		return -ENODEV;
-	}
-#endif	
-	return 0;
+	const char *name = "mediatek,stk3x1x";
+	hw = get_alsps_dts_func(name, hw);
+    if (!hw)
+		APS_ERR("get dts info fail\n");
+	alsps_driver_add(&stk3x1x_init_info);
+	return 0; 
 }
 /*----------------------------------------------------------------------------*/
 static void __exit stk3x1x_exit(void)
 {
 	APS_FUN();
-#if !defined(MTK_AUTO_DETECT_ALSPS)
-	platform_driver_unregister(&stk3x1x_alsps_driver);
-#endif	
 }
 /*----------------------------------------------------------------------------*/
 module_init(stk3x1x_init);

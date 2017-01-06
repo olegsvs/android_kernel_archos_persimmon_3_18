@@ -11,11 +11,12 @@ mkdir tools/tools
 
 echo "Export toolchains >>>"
 
-export ARCH=arm64 CROSS_COMPILE=../*linaro*/bin/aarch64-linux-gnu-
-
+#export ARCH=arm CROSS_COMPILE=../*linaro*/bin/arm-linux-gnu-
+export ARCH=arm CROSS_COMPILE=../*5.2*/bin/arm-cortex-linux-gnueabi-
 echo "Make defconfig >>>"
 
-make dw6735_65u_s_m0_defconfig
+make persimmon_defconfig
+
 echo "Start build >>>"
 
 	time make -j16

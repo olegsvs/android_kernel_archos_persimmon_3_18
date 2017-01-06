@@ -6,6 +6,7 @@
 #if defined(MTK_LCM_DEVICE_TREE_SUPPORT)
 extern LCM_DRIVER lcm_common_drv;
 #else
+extern LCM_DRIVER hx8394f_hd720_dsi_vdo_txd;
 extern LCM_DRIVER otm1282a_hd720_dsi_vdo_60hz_lcm_drv;
 extern LCM_DRIVER otm1282a_hd720_dsi_vdo_lcm_drv;
 extern LCM_DRIVER vvx10f008b00_wuxga_dsi_vdo_lcm_drv;
