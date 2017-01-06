@@ -440,30 +440,33 @@
 };
 /* FLASHLIGHT GPIO end */
 
-/* AUDIO GPIO standardization */
+/* AUDIO GPIO standardization ,yangliang add for 4605 extpa enable 20160201*/
+
 &audgpio {
 	pinctrl-names = "default", "extamp-pullhigh", "extamp-pulllow";
 	pinctrl-0 = <&AUD_pins_default>;
-	pinctrl-1 = <&AUD_pins_extamp_high>;
-	pinctrl-2 = <&AUD_pins_extamp_low>;
+	pinctrl-1 = <&AUD_pins_extamp_pullhigh>;
+	pinctrl-2 = <&AUD_pins_extamp_pulllow>;
+	gpio_extspkamp = <&pio 61 0>;//yangliang add for ext pa mode-2;
 	status = "okay";
 };
 &pio {
 	AUD_pins_default: audiodefault {
 	};
-	AUD_pins_extamp_high: audexamphigh {
-		pins_cmd_dat {
-			pins = <PINMUX_GPIO4__FUNC_GPIO4>;
-				slew-rate = <1>;
-				output-high;
+	AUD_pins_extamp_pullhigh: extamppullhigh {
+	    pins_cmd_dat {
+			pins = <PINMUX_GPIO61__FUNC_GPIO61>;//GPIO_extamp_PIN
+			slew-rate = <1>;
+			output-high;
 		};
 	};
-	AUD_pins_extamp_low: audexamplow {
-		pins_cmd_dat {
-			pins = <PINMUX_GPIO4__FUNC_GPIO4>;
-				slew-rate = <1>;
-				output-low;
+	AUD_pins_extamp_pulllow: extamppulllow {
+	    pins_cmd_dat {
+			pins = <PINMUX_GPIO61__FUNC_GPIO61>;//GPIO_extamp_PIN
+			slew-rate = <1>;
+			output-low;
 		};
 	};
 };
+
 /* AUDIO end */

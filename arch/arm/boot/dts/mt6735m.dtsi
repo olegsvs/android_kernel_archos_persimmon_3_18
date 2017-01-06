@@ -1245,19 +1245,19 @@
 			interrupts = <GIC_SPI 144 IRQ_TYPE_LEVEL_LOW>;
 		};
 
-		audgpio:mt_soc_dl1_pcm@11220000 {
-			compatible = "mediatek,mt-soc-dl1-pcm";
-			reg = <0x11220000 0x1000>;
-			interrupts = <GIC_SPI 144 IRQ_TYPE_LEVEL_LOW>;
-			audclk-gpio = <143 0>;
-			audmiso-gpio = <144 0>;
-			audmosi-gpio = <145 0>;
-			vowclk-gpio = <148 0>;
-			extspkamp-gpio = <80 0>;
-			i2s1clk-gpio = <80 0>;
-			i2s1dat-gpio = <78 0>;
-			i2s1mclk-gpio = <9 0>;
-			i2s1ws-gpio = <79 0>;
+                audgpio:mt_soc_dl1_pcm@11220000 {
+                        compatible = "mediatek,mt-soc-dl1-pcm";
+                        reg = <0x11220000 0x1000>;
+                        interrupts = <0x0 0x90 0x8>;
+                        audclk-gpio = <0x8f 0x0>;
+                        audmiso-gpio = <0x90 0x0>;
+                        audmosi-gpio = <0x91 0x0>;
+                        vowclk-gpio = <0x94 0x0>;
+                        extspkamp-gpio = <61 0>;
+			i2s1clk-gpio = <0x87 0x0>;
+			i2s1dat-gpio = <0x89 0x0>;
+			i2s1mclk-gpio = <0x86 0x0>;
+			i2s1ws-gpio = <0x88 0x0>;
 		};
 
 		mt_soc_ul1_pcm@11220000 {
