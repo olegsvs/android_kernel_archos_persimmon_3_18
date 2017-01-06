@@ -28,17 +28,17 @@
 
 
 #include	<linux/ioctl.h>	/* For IOCTL macros */
-#include	<linux/input.h>
 
 
 
 /************************************************/
 /* 	Accelerometer defines section	 	*/
 /************************************************/
-#define MXC400X_DEV_NAME		"MXC400X"
+#define MXC400X_DEV_NAME		"mxc400x"
+extern struct acc_hw* mxc400x_get_cust_acc_hw(void);
 
 #define MXC400X_I2C_ADDR     	0x15
-#define MXC400X_ID				0x02
+#define MXC400X_ID				0x02 //0x02	
 
 /* MXC400X register address */
 #define MXC400X_REG_X			0x03
@@ -47,16 +47,16 @@
 #define MXC400X_REG_TEMP        0x09
 #define MXC400X_REG_CTRL		0x0D
 #define MXC400X_REG_ID          0x0E
-/*//#define MXC400X_REG_FAC         0x0E*/
-/*//#define MXC400X_REG_FSRE        0x17*/
+//#define MXC400X_REG_FAC         0x0E
+//#define MXC400X_REG_FSRE        0x17
 #define MXC400X_REG_TEST1        0x13
 #define MXC400X_REG_TEST2        0x14
-#define MXC400X_REG_TEST3        0x15
+#define MXC400X_REG_TEST3        0x15 
 
 
 /*para setting*/
-/*//#define MXC400X_PASSWORD        0x93*/
-/*//#define MXC400X_RANGE_8G        0x5B    /*full scale range +/-8g*/*/
+//#define MXC400X_PASSWORD        0x93
+//#define MXC400X_RANGE_8G        0x5B    /*full scale range +/-8g*/
 #define MXC400X_AWAKE		0x40	/* power on */
 #define MXC400X_SLEEP		0x01	/* power donw */
 

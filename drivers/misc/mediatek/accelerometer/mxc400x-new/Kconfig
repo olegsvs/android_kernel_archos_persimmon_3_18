@@ -1,4 +1,8 @@
-
 config MTK_MXC400X_NEW
-	bool "MTK_MXC400X_NEW for MediaTek package"
+	bool "MXC400X for MediaTek package"
 	default n
+	help
+	  It support different accelerometer sensor.
+          If this option is set,
+	  it will support
+          MXC400X Accelerometer.

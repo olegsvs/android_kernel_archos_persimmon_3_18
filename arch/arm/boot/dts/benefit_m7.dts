@@ -28,10 +28,10 @@
 	};
  /* sensor standardization */
 		cust_accel@0 {
-			compatible 				= "mediatek,kxtj2_1009_new";
+			compatible 				= "mediatek,mxc400x";
 			i2c_num 				= <2>;
 			i2c_addr				= <0x15 0 0 0>;
-			direction 				= <3>;
+			direction 				= <0>;
 			power_id 				= <0xffff>;
 			power_vol				= <0>;
 			firlen 					= <0>;
