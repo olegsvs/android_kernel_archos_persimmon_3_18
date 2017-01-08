@@ -1,1604 +1,990 @@
-*.~
-*~
-*.old
-*.bak
-*.orig
-
-*.o
-*.o.*
-
-modules.builtin
-
-*.elf
-*.bin
-*.gz
-*.bz2
-*.lzma
-*.xz
-*.lzo
-*.patch
-*.gcno
-*.modules.order
-
-arch/arm64/include/generated/asm/bug.h
-arch/arm64/include/generated/asm/bugs.h
-arch/arm64/include/generated/asm/checksum.h
-arch/arm64/include/generated/asm/clkdev.h
-arch/arm64/include/generated/asm/cputime.h
-arch/arm64/include/generated/asm/current.h
-arch/arm64/include/generated/asm/delay.h
-arch/arm64/include/generated/asm/div64.h
-arch/arm64/include/generated/asm/dma.h
-arch/arm64/include/generated/asm/emergency-restart.h
-arch/arm64/include/generated/asm/errno.h
-arch/arm64/include/generated/asm/ftrace.h
-arch/arm64/include/generated/asm/hw_irq.h
-arch/arm64/include/generated/asm/ioctl.h
-arch/arm64/include/generated/asm/ioctls.h
-arch/arm64/include/generated/asm/ipcbuf.h
-arch/arm64/include/generated/asm/irq_regs.h
-arch/arm64/include/generated/asm/kdebug.h
-arch/arm64/include/generated/asm/kmap_types.h
-arch/arm64/include/generated/asm/kvm_para.h
-arch/arm64/include/generated/asm/local.h
-arch/arm64/include/generated/asm/local64.h
-arch/arm64/include/generated/asm/mman.h
-arch/arm64/include/generated/asm/msgbuf.h
-arch/arm64/include/generated/asm/mutex.h
-arch/arm64/include/generated/asm/pci.h
-arch/arm64/include/generated/asm/poll.h
-arch/arm64/include/generated/asm/posix_types.h
-arch/arm64/include/generated/asm/resource.h
-arch/arm64/include/generated/asm/scatterlist.h
-arch/arm64/include/generated/asm/sections.h
-arch/arm64/include/generated/asm/segment.h
-arch/arm64/include/generated/asm/sembuf.h
-arch/arm64/include/generated/asm/serial.h
-arch/arm64/include/generated/asm/shmbuf.h
-arch/arm64/include/generated/asm/simd.h
-arch/arm64/include/generated/asm/sizes.h
-arch/arm64/include/generated/asm/socket.h
-arch/arm64/include/generated/asm/sockios.h
-arch/arm64/include/generated/asm/swab.h
-arch/arm64/include/generated/asm/switch_to.h
-arch/arm64/include/generated/asm/termbits.h
-arch/arm64/include/generated/asm/termios.h
-arch/arm64/include/generated/asm/topology.h
-arch/arm64/include/generated/asm/trace_clock.h
-arch/arm64/include/generated/asm/types.h
-arch/arm64/include/generated/asm/unaligned.h
-arch/arm64/include/generated/asm/user.h
-arch/arm64/include/generated/asm/vga.h
-arch/arm64/include/generated/asm/xor.h
-arch/arm64/include/generated/uapi/asm/kvm_para.h
-arch/arm64/kernel/asm-offsets.s
-arch/arm64/kernel/modules.order
-arch/arm64/kernel/vdso/modules.order
-arch/arm64/kernel/vdso/vdso.so
-arch/arm64/kernel/vdso/vdso.so.dbg
-arch/arm64/lib/lib.a
-arch/arm64/lib/modules.order
-arch/arm64/mm/modules.order
-block/modules.order
-block/partitions/modules.order
-crypto/modules.order
-drivers/amba/modules.order
-drivers/android/modules.order
-drivers/auxdisplay/modules.order
-drivers/base/modules.order
-drivers/base/power/modules.order
-drivers/base/regmap/modules.order
-drivers/block/modules.order
-drivers/bus/modules.order
-drivers/cdrom/modules.order
-drivers/char/modules.order
-drivers/clk/modules.order
-drivers/clocksource/modules.order
-drivers/cpufreq/modules.order
-drivers/crypto/modules.order
-drivers/firewire/modules.order
-drivers/firmware/modules.order
-drivers/gpio/modules.order
-drivers/gpu/drm/i2c/modules.order
-drivers/gpu/drm/modules.order
-drivers/gpu/modules.order
-drivers/gpu/vga/modules.order
-drivers/hid/modules.order
-drivers/hid/usbhid/modules.order
-drivers/hsi/clients/modules.order
-drivers/hsi/modules.order
-drivers/i2c/algos/modules.order
-drivers/i2c/busses/modules.order
-drivers/i2c/modules.order
-drivers/i2c/muxes/modules.order
-drivers/idle/modules.order
-drivers/input/misc/modules.order
-drivers/input/modules.order
-drivers/input/touchscreen/mediatek/GT915_HD/modules.order
-drivers/input/touchscreen/mediatek/modules.order
-drivers/input/touchscreen/modules.order
-drivers/iommu/modules.order
-drivers/irqchip/modules.order
-drivers/leds/modules.order
-drivers/leds/trigger/modules.order
-drivers/lguest/modules.order
-drivers/macintosh/modules.order
-drivers/md/modules.order
-drivers/media/common/b2c2/modules.order
-drivers/media/common/modules.order
-drivers/media/common/saa7146/modules.order
-drivers/media/common/siano/modules.order
-drivers/media/firewire/modules.order
-drivers/media/i2c/modules.order
-drivers/media/i2c/soc_camera/modules.order
-drivers/media/mmc/modules.order
-drivers/media/mmc/siano/modules.order
-drivers/media/modules.order
-drivers/media/parport/modules.order
-drivers/media/pci/b2c2/modules.order
-drivers/media/pci/ddbridge/modules.order
-drivers/media/pci/dm1105/modules.order
-drivers/media/pci/mantis/modules.order
-drivers/media/pci/modules.order
-drivers/media/pci/ngene/modules.order
-drivers/media/pci/pluto2/modules.order
-drivers/media/pci/pt1/modules.order
-drivers/media/pci/saa7146/modules.order
-drivers/media/pci/ttpci/modules.order
-drivers/media/platform/davinci/modules.order
-drivers/media/platform/modules.order
-drivers/media/rc/keymaps/modules.order
-drivers/media/rc/modules.order
-drivers/media/tuners/modules.order
-drivers/media/usb/b2c2/modules.order
-drivers/media/usb/dvb-usb-v2/modules.order
-drivers/media/usb/dvb-usb/modules.order
-drivers/media/usb/modules.order
-drivers/media/usb/s2255/modules.order
-drivers/media/usb/siano/modules.order
-drivers/media/usb/stkwebcam/modules.order
-drivers/media/usb/ttusb-budget/modules.order
-drivers/media/usb/ttusb-dec/modules.order
-drivers/media/usb/zr364xx/modules.order
-drivers/mfd/modules.order
-drivers/misc/carma/modules.order
-drivers/misc/cb710/modules.order
-drivers/misc/eeprom/modules.order
-drivers/misc/lis3lv02d/modules.order
-drivers/misc/mediatek/accdet/modules.order
-drivers/misc/mediatek/accdet/mt6735/modules.order
-drivers/misc/mediatek/accelerometer/mc3xxx_auto/modules.order
-drivers/misc/mediatek/accelerometer/modules.order
-drivers/misc/mediatek/aee/aed/modules.order
-drivers/misc/mediatek/aee/common/modules.order
-drivers/misc/mediatek/aee/ipanic/modules.order
-drivers/misc/mediatek/aee/modules.order
-drivers/misc/mediatek/aee/mrdump/modules.order
-drivers/misc/mediatek/alsps/modules.order
-drivers/misc/mediatek/alsps/stk3x1x-new/modules.order
-drivers/misc/mediatek/atf_log/modules.order
-drivers/misc/mediatek/auxadc/modules.order
-drivers/misc/mediatek/auxadc/mt6735/modules.order
-drivers/misc/mediatek/boot/modules.order
-drivers/misc/mediatek/boot/mt6735/modules.order
-drivers/misc/mediatek/boot_reason/modules.order
-drivers/misc/mediatek/btcvsd/modules.order
-drivers/misc/mediatek/btcvsd/mt6735/modules.order
-drivers/misc/mediatek/btif/modules.order
-drivers/misc/mediatek/btif/mt6735/modules.order
-drivers/misc/mediatek/ccci_util/modules.order
-drivers/misc/mediatek/ccci_util/mt6735/modules.order
-drivers/misc/mediatek/ccmni/modules.order
-drivers/misc/mediatek/chip/modules.order
-drivers/misc/mediatek/chip/mt6735/modules.order
-drivers/misc/mediatek/cirq/modules.order
-drivers/misc/mediatek/cmdq/modules.order
-drivers/misc/mediatek/cmdq/mt6735/modules.order
-drivers/misc/mediatek/conn_md/modules.order
-drivers/misc/mediatek/connectivity/common_detect/drv_init/modules.order
-drivers/misc/mediatek/connectivity/common_detect/modules.order
-drivers/misc/mediatek/connectivity/conn_soc/common/core/modules.order
-drivers/misc/mediatek/connectivity/conn_soc/common/linux/modules.order
-drivers/misc/mediatek/connectivity/conn_soc/common/linux/pri/modules.order
-drivers/misc/mediatek/connectivity/conn_soc/common/linux/pub/modules.order
-drivers/misc/mediatek/connectivity/conn_soc/common/modules.order
-drivers/misc/mediatek/connectivity/conn_soc/common/mt6735/modules.order
-drivers/misc/mediatek/connectivity/conn_soc/drv_wlan/modules.order
-drivers/misc/mediatek/connectivity/conn_soc/drv_wlan/mt_wifi/modules.order
-drivers/misc/mediatek/connectivity/conn_soc/drv_wlan/mt_wifi/wlan/modules.order
-drivers/misc/mediatek/connectivity/conn_soc/modules.order
-drivers/misc/mediatek/connectivity/modules.order
-drivers/misc/mediatek/custeint/modules.order
-drivers/misc/mediatek/devapc/modules.order
-drivers/misc/mediatek/devapc/mt6735/modules.order
-drivers/misc/mediatek/devinfo/modules.order
-drivers/misc/mediatek/devinfo/mt6735/modules.order
-drivers/misc/mediatek/dispsys/modules.order
-drivers/misc/mediatek/dispsys/mt6735/modules.order
-drivers/misc/mediatek/dispsys/mt6735/mt6735m/modules.order
-drivers/misc/mediatek/dramc/modules.order
-drivers/misc/mediatek/dramc/mt6735/modules.order
-drivers/misc/mediatek/eccci/modules.order
-drivers/misc/mediatek/eccci/mt6735/modules.order
-drivers/misc/mediatek/eint/modules.order
-drivers/misc/mediatek/emi_bwl/modules.order
-drivers/misc/mediatek/emi_bwl/mt6735/modules.order
-drivers/misc/mediatek/emi_mpu/modules.order
-drivers/misc/mediatek/emi_mpu/mt6735/modules.order
-drivers/misc/mediatek/fingerprint/modules.order
-drivers/misc/mediatek/flashlight/src/modules.order
-drivers/misc/mediatek/flashlight/src/mt6735/constant_flashlight/modules.order
-drivers/misc/mediatek/flashlight/src/mt6735/modules.order
-drivers/misc/mediatek/fmradio/modules.order
-drivers/misc/mediatek/freqhopping/modules.order
-drivers/misc/mediatek/gcpu/modules.order
-drivers/misc/mediatek/gcpu/mt6735/modules.order
-drivers/misc/mediatek/gpio/modules.order
-drivers/misc/mediatek/gpio/mt6735/modules.order
-drivers/misc/mediatek/gps/modules.order
-drivers/misc/mediatek/gpu/ged/modules.order
-drivers/misc/mediatek/gpu/hal/modules.order
-drivers/misc/mediatek/gpu/modules.order
-drivers/misc/mediatek/gpu/mt6735/mali-EAC/drivers/gpu/arm/midgard/modules.order
-drivers/misc/mediatek/gpu/mt6735/mali-EAC/drivers/gpu/arm/modules.order
-drivers/misc/mediatek/gpu/mt6735/mali-EAC/drivers/gpu/modules.order
-drivers/misc/mediatek/gpu/mt6735/mali-EAC/drivers/modules.order
-drivers/misc/mediatek/gpu/mt6735/modules.order
-drivers/misc/mediatek/gyroscope/modules.order
-drivers/misc/mediatek/hibcore/modules.order
-drivers/misc/mediatek/hwmon/batchsen/modules.order
-drivers/misc/mediatek/hwmon/hwmsen/modules.order
-drivers/misc/mediatek/hwmon/modules.order
-drivers/misc/mediatek/hwmon/sensor_dts/modules.order
-drivers/misc/mediatek/i2c/modules.order
-drivers/misc/mediatek/i2c/mt6735/modules.order
-drivers/misc/mediatek/imgsensor/src/modules.order
-drivers/misc/mediatek/imgsensor/src/mt6735m/gc0310_mipi_yuv/modules.order
-drivers/misc/mediatek/imgsensor/src/mt6735m/gc2145_mipi_yuv/modules.order
-drivers/misc/mediatek/imgsensor/src/mt6735m/gc2355_mipi_raw/modules.order
-drivers/misc/mediatek/imgsensor/src/mt6735m/imx219_mipi_raw/modules.order
-drivers/misc/mediatek/imgsensor/src/mt6735m/modules.order
-drivers/misc/mediatek/jpeg/modules.order
-drivers/misc/mediatek/jpeg/mt6735/modules.order
-drivers/misc/mediatek/kernel/modules.order
-drivers/misc/mediatek/kernel/sched/modules.order
-drivers/misc/mediatek/keypad/modules.order
-drivers/misc/mediatek/keypad/mt6735/modules.order
-drivers/misc/mediatek/lastpc/modules.order
-drivers/misc/mediatek/lastpc/mt6735/modules.order
-drivers/misc/mediatek/lcm/jd9365_6735_dsi_video/modules.order
-drivers/misc/mediatek/lcm/jd9367_6735_dsi_video/modules.order
-drivers/misc/mediatek/lcm/modules.order
-drivers/misc/mediatek/lcm/rm68200_6735_dsi_video/modules.order
-drivers/misc/mediatek/leds/modules.order
-drivers/misc/mediatek/leds/mt6735/modules.order
-drivers/misc/mediatek/lens/modules.order
-drivers/misc/mediatek/lens/mt6735/dw9714af/modules.order
-drivers/misc/mediatek/lens/mt6735/fm50af/modules.order
-drivers/misc/mediatek/m4u/modules.order
-drivers/misc/mediatek/m4u/mt6735/modules.order
-drivers/misc/mediatek/m4u/mt6735/mt6735m/modules.order
-drivers/misc/mediatek/mach/modules.order
-drivers/misc/mediatek/mach/mt6735/benefit_m7/accdet/modules.order
-drivers/misc/mediatek/mach/mt6735/benefit_m7/accelerometer/mc3xxx_auto/modules.order
-drivers/misc/mediatek/mach/mt6735/benefit_m7/alsps/stk3x1x-new/modules.order
-drivers/misc/mediatek/mach/mt6735/benefit_m7/camera/camera/modules.order
-drivers/misc/mediatek/mach/mt6735/benefit_m7/core/modules.order
-drivers/misc/mediatek/mach/mt6735/benefit_m7/dct/dct/modules.order
-drivers/misc/mediatek/mach/mt6735/benefit_m7/leds/modules.order
-drivers/misc/mediatek/mach/mt6735/benefit_m7/leds/mt65xx/modules.order
-drivers/misc/mediatek/mach/mt6735/benefit_m7/magnetometer/mmc3416x/modules.order
-drivers/misc/mediatek/mach/mt6735/benefit_m7/modules.order
-drivers/misc/mediatek/mach/mt6735/benefit_m7/vibrator/modules.order
-drivers/misc/mediatek/mach/mt6735/fliper/modules.order
-drivers/misc/mediatek/mach/mt6735/modules.order
-drivers/misc/mediatek/magnetometer/mmc3416x/modules.order
-drivers/misc/mediatek/magnetometer/modules.order
-drivers/misc/mediatek/masp/modules.order
-drivers/misc/mediatek/mlog/modules.order
-drivers/misc/mediatek/mmc-host/modules.order
-drivers/misc/mediatek/mmc-host/mt6735/modules.order
-drivers/misc/mediatek/mmp/dummy/modules.order
-drivers/misc/mediatek/mmp/modules.order
-drivers/misc/mediatek/modules.order
-drivers/misc/mediatek/mt_logger/modules.order
-drivers/misc/mediatek/mtprof/modules.order
-drivers/misc/mediatek/partition/modules.order
-drivers/misc/mediatek/partition/mt6735/modules.order
-drivers/misc/mediatek/pmic_wrap/modules.order
-drivers/misc/mediatek/pmic_wrap/mt6735/modules.order
-drivers/misc/mediatek/pmt/modules.order
-drivers/misc/mediatek/power/modules.order
-drivers/misc/mediatek/power/mt6735/modules.order
-drivers/misc/mediatek/power_gs/modules.order
-drivers/misc/mediatek/power_gs/mt6735/modules.order
-drivers/misc/mediatek/pwm/modules.order
-drivers/misc/mediatek/pwm/mt6735/modules.order
-drivers/misc/mediatek/ram_console/modules.order
-drivers/misc/mediatek/rtc/modules.order
-drivers/misc/mediatek/rtc/mt6735/modules.order
-drivers/misc/mediatek/sched/modules.order
-drivers/misc/mediatek/selinux_warning/modules.order
-drivers/misc/mediatek/smi/modules.order
-drivers/misc/mediatek/smi/mt6735/modules.order
-drivers/misc/mediatek/spi/modules.order
-drivers/misc/mediatek/spi/mt6735/modules.order
-drivers/misc/mediatek/spm/modules.order
-drivers/misc/mediatek/spm/mt6735/modules.order
-drivers/misc/mediatek/ssw/modules.order
-drivers/misc/mediatek/ssw/ssw_single_v2/modules.order
-drivers/misc/mediatek/sync/modules.order
-drivers/misc/mediatek/sysenv/modules.order
-drivers/misc/mediatek/sysenv/mt6735/modules.order
-drivers/misc/mediatek/systracker/modules.order
-drivers/misc/mediatek/systracker/mt6735/modules.order
-drivers/misc/mediatek/thermal/modules.order
-drivers/misc/mediatek/thermal/mt6735/modules.order
-drivers/misc/mediatek/uart/modules.order
-drivers/misc/mediatek/uart/mt6735/modules.order
-drivers/misc/mediatek/usb20/modules.order
-drivers/misc/mediatek/usb20/mt6735/modules.order
-drivers/misc/mediatek/vcorefs/modules.order
-drivers/misc/mediatek/vcorefs/mt6735/modules.order
-drivers/misc/mediatek/vibrator/modules.order
-drivers/misc/mediatek/vibrator/mt6735/modules.order
-drivers/misc/mediatek/videocodec/modules.order
-drivers/misc/mediatek/videocodec/mt6735/modules.order
-drivers/misc/mediatek/videox/modules.order
-drivers/misc/mediatek/videox/mt6735/modules.order
-drivers/misc/mediatek/watchpoint/modules.order
-drivers/misc/mediatek/watchpoint/mt6735/aarch64/modules.order
-drivers/misc/mediatek/watchpoint/mt6735/modules.order
-drivers/misc/mediatek/wdk/modules.order
-drivers/misc/mediatek/wdt/modules.order
-drivers/misc/mediatek/wdt/mt6735/modules.order
-drivers/misc/mediatek/xlog/modules.order
-drivers/misc/modules.order
-drivers/misc/ti-st/modules.order
-drivers/mmc/card/modules.order
-drivers/mmc/core/modules.order
-drivers/mmc/host/modules.order
-drivers/mmc/modules.order
-drivers/modules.order
-drivers/mtd/chips/modules.order
-drivers/mtd/devices/modules.order
-drivers/mtd/lpddr/modules.order
-drivers/mtd/maps/modules.order
-drivers/mtd/modules.order
-drivers/mtd/nand/modules.order
-drivers/mtd/onenand/modules.order
-drivers/mtd/tests/modules.order
-drivers/net/modules.order
-drivers/net/ppp/modules.order
-drivers/net/slip/modules.order
-drivers/net/wireless/modules.order
-drivers/nfc/modules.order
-drivers/of/modules.order
-drivers/pinctrl/modules.order
-drivers/platform/modules.order
-drivers/power/mediatek/modules.order
-drivers/power/modules.order
-drivers/power/reset/modules.order
-drivers/pwm/modules.order
-drivers/regulator/modules.order
-drivers/rtc/modules.order
-drivers/scsi/modules.order
-drivers/spi/modules.order
-drivers/staging/android/ion/modules.order
-drivers/staging/android/ion/mtk/modules.order
-drivers/staging/android/modules.order
-drivers/staging/media/modules.order
-drivers/staging/modules.order
-drivers/staging/zram/modules.order
-drivers/staging/zsmalloc/modules.order
-drivers/switch/modules.order
-drivers/thermal/modules.order
-drivers/tty/ipwireless/modules.order
-drivers/tty/modules.order
-drivers/tty/serial/modules.order
-drivers/tty/vt/modules.order
-drivers/usb/core/modules.order
-drivers/usb/gadget/modules.order
-drivers/usb/misc/modules.order
-drivers/usb/modules.order
-drivers/usb/phy/modules.order
-drivers/usb/storage/modules.order
-drivers/video/backlight/modules.order
-drivers/video/console/modules.order
-drivers/video/logo/modules.order
-drivers/video/modules.order
-drivers/video/omap2/displays/modules.order
-drivers/video/omap2/modules.order
-firmware/modules.order
-fs/configfs/modules.order
-fs/debugfs/modules.order
-fs/devpts/modules.order
-fs/exofs/modules.order
-fs/ext3/modules.order
-fs/ext4/modules.order
-fs/fat/modules.order
-fs/fuse/modules.order
-fs/isofs/modules.order
-fs/jbd/modules.order
-fs/jbd2/modules.order
-fs/modules.order
-fs/nls/modules.order
-fs/notify/dnotify/modules.order
-fs/notify/fanotify/modules.order
-fs/notify/inotify/modules.order
-fs/notify/modules.order
-fs/proc/modules.order
-fs/quota/modules.order
-fs/ramfs/modules.order
-fs/sysfs/modules.order
-include/config/64bit.h
-include/config/aio.h
-include/config/ampc/cdev/num.h
-include/config/android.h
-include/config/android/binder/ipc.h
-include/config/android/intf/alarm/dev.h
-include/config/android/logger.h
-include/config/android/low/memory/killer.h
-include/config/android/low/memory/killer/autodetect/oom/adj/values.h
-include/config/android/paranoid/network.h
-include/config/android/timed/output.h
-include/config/anon/inodes.h
-include/config/arch/dma/addr/t/64bit.h
-include/config/arch/has/atomic64/dec/if/positive.h
-include/config/arch/has/cpufreq.h
-include/config/arch/has/holes/memorymodel.h
-include/config/arch/hibernation/possible.h
-include/config/arch/mt6735m.h
-include/config/arch/mtk/project.h
-include/config/arch/phys/addr/t/64bit.h
-include/config/arch/select/memory/model.h
-include/config/arch/sparsemem/default.h
-include/config/arch/sparsemem/enable.h
-include/config/arch/supports/atomic/rmw.h
-include/config/arch/suspend/possible.h
-include/config/arch/want/compat/ipc/parse/version.h
-include/config/arch/want/frame/pointers.h
-include/config/arch/want/optional/gpiolib.h
-include/config/arm/amba.h
-include/config/arm/arch/timer.h
-include/config/arm/cpu/topology.h
-include/config/arm/gic.h
-include/config/arm/has/sg/chain.h
-include/config/arm64.h
-include/config/arm64/cpu/suspend.h
-include/config/arm64/crypto.h
-include/config/arm64/erratum/845719.h
-include/config/armv7/compat.h
-include/config/armv7/compat/cpuinfo.h
-include/config/arpd.h
-include/config/ashmem.h
-include/config/async/fsync.h
-include/config/audit.h
-include/config/audit/generic.h
-include/config/auto.conf
-include/config/auto.conf.cmd
-include/config/backward/compatible.h
-include/config/base/full.h
-include/config/base/small.h
-include/config/bcma/possible.h
-include/config/binary/printf.h
-include/config/binfmt/elf.h
-include/config/binfmt/script.h
-include/config/bitreverse.h
-include/config/blk/dev.h
-include/config/blk/dev/dm.h
-include/config/blk/dev/dm/builtin.h
-include/config/blk/dev/initrd.h
-include/config/blk/dev/loop.h
-include/config/blk/dev/loop/min/count.h
-include/config/blk/dev/sd.h
-include/config/block.h
-include/config/block/compat.h
-include/config/bounce.h
-include/config/bql.h
-include/config/branch/profile/none.h
-include/config/bridge.h
-include/config/bridge/igmp/snooping.h
-include/config/bridge/netfilter.h
-include/config/bug.h
-include/config/build/arm64/appended/dtb/image.h
-include/config/build/arm64/appended/dtb/image/names.h
-include/config/cfg80211.h
-include/config/cfg80211/allow/reconnect.h
-include/config/cfg80211/developer/warnings.h
-include/config/cfg80211/internal/regdb.h
-include/config/cfg80211/wext.h
-include/config/cgroup/cpuacct.h
-include/config/cgroup/sched.h
-include/config/cgroups.h
-include/config/clkdev/lookup.h
-include/config/clksrc/of.h
-include/config/clone/backwards.h
-include/config/cls/u32/mark.h
-include/config/cls/u32/perf.h
-include/config/cmdline.h
-include/config/cmdline/from/bootloader.h
-include/config/common/clk.h
-include/config/compaction.h
-include/config/compat.h
-include/config/compat/binfmt/elf.h
-include/config/compat/brk.h
-include/config/compat/netlink/messages.h
-include/config/compat/old/sigaction.h
-include/config/configfs/fs.h
-include/config/context/switch/tracer.h
-include/config/coredump.h
-include/config/cpu/freq.h
-include/config/cpu/freq/default/gov/wheatley.h
-include/config/cpu/freq/gov/common.h
-include/config/cpu/freq/gov/intelliactive.h
-include/config/cpu/freq/gov/interactive.h
-include/config/cpu/freq/gov/ondemand.h
-include/config/cpu/freq/gov/performance.h
-include/config/cpu/freq/gov/powersave.h
-include/config/cpu/freq/gov/userspace.h
-include/config/cpu/freq/gov/wheatley.h
-include/config/cpu/freq/stat.h
-include/config/cpu/freq/stat/details.h
-include/config/cpu/freq/table.h
-include/config/cpu/rmap.h
-include/config/crc/ccitt.h
-include/config/crc16.h
-include/config/crc32.h
-include/config/crc32/sliceby8.h
-include/config/cross/compile.h
-include/config/cross/memory/attach.h
-include/config/crypto.h
-include/config/crypto/ablk/helper.h
-include/config/crypto/aead.h
-include/config/crypto/aead2.h
-include/config/crypto/aes.h
-include/config/crypto/aes/arm64/ce.h
-include/config/crypto/aes/arm64/ce/blk.h
-include/config/crypto/algapi.h
-include/config/crypto/algapi2.h
-include/config/crypto/arc4.h
-include/config/crypto/authenc.h
-include/config/crypto/blkcipher.h
-include/config/crypto/blkcipher2.h
-include/config/crypto/cbc.h
-include/config/crypto/crc32c.h
-include/config/crypto/cryptd.h
-include/config/crypto/deflate.h
-include/config/crypto/des.h
-include/config/crypto/ecb.h
-include/config/crypto/hash.h
-include/config/crypto/hash2.h
-include/config/crypto/hmac.h
-include/config/crypto/lzo.h
-include/config/crypto/manager.h
-include/config/crypto/manager/disable/tests.h
-include/config/crypto/manager2.h
-include/config/crypto/md5.h
-include/config/crypto/pcomp2.h
-include/config/crypto/rng2.h
-include/config/crypto/sha1.h
-include/config/crypto/sha2/arm64/ce.h
-include/config/crypto/sha256.h
-include/config/crypto/twofish.h
-include/config/crypto/twofish/common.h
-include/config/crypto/workqueue.h
-include/config/custom/kernel/accelerometer.h
-include/config/custom/kernel/activity/sensor.h
-include/config/custom/kernel/alsps.h
-include/config/custom/kernel/cam/cal/drv.h
-include/config/custom/kernel/extmd.h
-include/config/custom/kernel/face/down/sensor.h
-include/config/custom/kernel/flashlight.h
-include/config/custom/kernel/glance/gesture/sensor.h
-include/config/custom/kernel/gyroscope.h
-include/config/custom/kernel/hdmi.h
-include/config/custom/kernel/heart/rate/sensor.h
-include/config/custom/kernel/imgsensor.h
-include/config/custom/kernel/in/pocket/sensor.h
-include/config/custom/kernel/lcm.h
-include/config/custom/kernel/magnetometer.h
-include/config/custom/kernel/pedometer.h
-include/config/custom/kernel/pick/up/sensor.h
-include/config/custom/kernel/sensorhub.h
-include/config/custom/kernel/shake/sensor.h
-include/config/custom/kernel/significant/motion/sensor.h
-include/config/custom/kernel/ssw.h
-include/config/custom/kernel/step/counter.h
-include/config/custom/kernel/tilt/detector/sensor.h
-include/config/custom/kernel/wake/gesture/sensor.h
-include/config/custom/lcm/x.h
-include/config/custom/lcm/y.h
-include/config/debug/fs.h
-include/config/debug/kernel.h
-include/config/decompress/gzip.h
-include/config/default/hostname.h
-include/config/default/iosched.h
-include/config/default/message/loglevel.h
-include/config/default/mmap/min/addr.h
-include/config/default/security.h
-include/config/default/security/selinux.h
-include/config/default/sio.h
-include/config/default/tcp/cong.h
-include/config/defconfig/list.h
-include/config/dm/crypt.h
-include/config/dm/uevent.h
-include/config/dma/shared/buffer.h
-include/config/dnotify.h
-include/config/dql.h
-include/config/dtc.h
-include/config/dynamic/fsync.h
-include/config/early/printk.h
-include/config/earlysuspend.h
-include/config/efi/partition.h
-include/config/elf/core.h
-include/config/embedded.h
-include/config/enable/default/tracers.h
-include/config/enable/must/check.h
-include/config/enable/warn/deprecated.h
-include/config/epoll.h
-include/config/event/tracing.h
-include/config/eventfd.h
-include/config/expert.h
-include/config/ext3/fs.h
-include/config/ext3/fs/posix/acl.h
-include/config/ext3/fs/xattr.h
-include/config/ext4/fs.h
-include/config/ext4/fs/security.h
-include/config/ext4/use/for/ext23.h
-include/config/extra/firmware.h
-include/config/fair/group/sched.h
-include/config/fat/default/codepage.h
-include/config/fat/default/iocharset.h
-include/config/fat/fs.h
-include/config/fault/injection.h
-include/config/fb.h
-include/config/fb/cfb/copyarea.h
-include/config/fb/cfb/fillrect.h
-include/config/fb/cfb/imageblit.h
-include/config/fb/earlysuspend.h
-include/config/fb/mode/helpers.h
-include/config/fb/tileblitting.h
-include/config/fib/rules.h
-include/config/file/locking.h
-include/config/firmware/in/kernel.h
-include/config/font/8x16.h
-include/config/frame/pointer.h
-include/config/frame/warn.h
-include/config/freezer.h
-include/config/fs/mbcache.h
-include/config/fs/posix/acl.h
-include/config/fsnotify.h
-include/config/ftrace.h
-include/config/fuse/fs.h
-include/config/futex.h
-include/config/fw/loader.h
-include/config/fw/loader/user/helper.h
-include/config/gator/driver.h
-include/config/generic/allocator.h
-include/config/generic/calibrate/delay.h
-include/config/generic/clockevents.h
-include/config/generic/clockevents/broadcast.h
-include/config/generic/clockevents/build.h
-include/config/generic/cpu/autoprobe.h
-include/config/generic/csum.h
-include/config/generic/hardirqs.h
-include/config/generic/hweight.h
-include/config/generic/io.h
-include/config/generic/iomap.h
-include/config/generic/irq/probe.h
-include/config/generic/irq/show.h
-include/config/generic/lockbreak.h
-include/config/generic/pci/iomap.h
-include/config/generic/sched/clock.h
-include/config/generic/smp/idle/thread.h
-include/config/generic/time/vsyscall.h
-include/config/gpio/devres.h
-include/config/gpiolib.h
-include/config/gps.h
-include/config/hardirqs/sw/resend.h
-include/config/has/dma.h
-include/config/has/earlysuspend.h
-include/config/has/iomem.h
-include/config/has/sbsuspend.h
-include/config/has/wakelock.h
-include/config/have/64bit/aligned/access.h
-include/config/have/aee/feature.h
-include/config/have/arch/jump/label.h
-include/config/have/arch/kgdb.h
-include/config/have/arch/pfn/valid.h
-include/config/have/arch/seccomp/filter.h
-include/config/have/arch/tracehook.h
-include/config/have/c/recordmcount.h
-include/config/have/clk.h
-include/config/have/clk/prepare.h
-include/config/have/cpu/autoprobe.h
-include/config/have/debug/bugverbose.h
-include/config/have/debug/kmemleak.h
-include/config/have/dma/api/debug.h
-include/config/have/dma/attrs.h
-include/config/have/dma/contiguous.h
-include/config/have/dynamic/ftrace.h
-include/config/have/ftrace/mcount/record.h
-include/config/have/function/graph/tracer.h
-include/config/have/function/tracer.h
-include/config/have/generic/dma/coherent.h
-include/config/have/generic/hardirqs.h
-include/config/have/hw/breakpoint.h
-include/config/have/memblock.h
-include/config/have/memory/present.h
-include/config/have/net/dsa.h
-include/config/have/perf/events.h
-include/config/have/syscall/tracepoints.h
-include/config/have/uid16.h
-include/config/have/xlog/feature.h
-include/config/hibernate/callbacks.h
-include/config/hibernation.h
-include/config/hid.h
-include/config/hid/a4tech.h
-include/config/hid/apple.h
-include/config/hid/belkin.h
-include/config/hid/cherry.h
-include/config/hid/chicony.h
-include/config/hid/cypress.h
-include/config/hid/dragonrise.h
-include/config/hid/ezkey.h
-include/config/hid/generic.h
-include/config/hid/greenasia.h
-include/config/hid/gyration.h
-include/config/hid/kensington.h
-include/config/hid/kye.h
-include/config/hid/logitech.h
-include/config/hid/magicmouse.h
-include/config/hid/microsoft.h
-include/config/hid/monterey.h
-include/config/hid/pantherlord.h
-include/config/hid/petalynx.h
-include/config/hid/samsung.h
-include/config/hid/smartjoyplus.h
-include/config/hid/sunplus.h
-include/config/hid/thrustmaster.h
-include/config/hid/topseed.h
-include/config/hid/twinhan.h
-include/config/hid/zeroplus.h
-include/config/hidraw.h
-include/config/high/res/timers.h
-include/config/hotplug.h
-include/config/hotplug/cpu.h
-include/config/hw/perf/events.h
-include/config/hz.h
-include/config/i2c.h
-include/config/i2c/boardinfo.h
-include/config/i2c/compat.h
-include/config/i2c/helper/auto.h
-include/config/ifb.h
-include/config/illegal/pointer/value.h
-include/config/inet.h
-include/config/inet/ah.h
-include/config/inet/diag.h
-include/config/inet/esp.h
-include/config/inet/ipcomp.h
-include/config/inet/tcp/diag.h
-include/config/inet/tunnel.h
-include/config/inet/xfrm/mode/beet.h
-include/config/inet/xfrm/mode/transport.h
-include/config/inet/xfrm/mode/tunnel.h
-include/config/inet/xfrm/tunnel.h
-include/config/inet6/ah.h
-include/config/inet6/esp.h
-include/config/inet6/ipcomp.h
-include/config/inet6/tunnel.h
-include/config/inet6/xfrm/mode/beet.h
-include/config/inet6/xfrm/mode/routeoptimization.h
-include/config/inet6/xfrm/mode/transport.h
-include/config/inet6/xfrm/mode/tunnel.h
-include/config/inet6/xfrm/tunnel.h
-include/config/init/env/arg/limit.h
-include/config/initramfs/source.h
-include/config/inotify/user.h
-include/config/input.h
-include/config/input/evdev.h
-include/config/input/misc.h
-include/config/input/touchscreen.h
-include/config/input/uinput.h
-include/config/iommu/helper.h
-include/config/iommu/support.h
-include/config/ion.h
-include/config/ion/mtk.h
-include/config/ion/mtk/fb/heap/support.h
-include/config/iosched/cfq.h
-include/config/iosched/deadline.h
-include/config/iosched/noop.h
-include/config/iosched/row.h
-include/config/iosched/sio.h
-include/config/ip/advanced/router.h
-include/config/ip/mroute.h
-include/config/ip/mroute/multiple/tables.h
-include/config/ip/multicast.h
-include/config/ip/multiple/tables.h
-include/config/ip/nf/arptables.h
-include/config/ip/nf/filter.h
-include/config/ip/nf/iptables.h
-include/config/ip/nf/mangle.h
-include/config/ip/nf/raw.h
-include/config/ip/nf/target/masquerade.h
-include/config/ip/nf/target/netmap.h
-include/config/ip/nf/target/redirect.h
-include/config/ip/nf/target/reject.h
-include/config/ip/pimsm/v1.h
-include/config/ip/pimsm/v2.h
-include/config/ip/pnp.h
-include/config/ip/pnp/bootp.h
-include/config/ip/pnp/dhcp.h
-include/config/ip/route/classid.h
-include/config/ip6/nf/filter.h
-include/config/ip6/nf/iptables.h
-include/config/ip6/nf/mangle.h
-include/config/ip6/nf/match/frag.h
-include/config/ip6/nf/match/ipv6header.h
-include/config/ip6/nf/raw.h
-include/config/ip6/nf/target/hl.h
-include/config/ip6/nf/target/reject.h
-include/config/ip6/nf/target/reject/skerr.h
-include/config/ipv6.h
-include/config/ipv6/mip6.h
-include/config/ipv6/mroute.h
-include/config/ipv6/multiple/tables.h
-include/config/ipv6/ndisc/nodetype.h
-include/config/ipv6/optimistic/dad.h
-include/config/ipv6/pimsm/v2.h
-include/config/ipv6/privacy.h
-include/config/ipv6/route/info.h
-include/config/ipv6/router/pref.h
-include/config/ipv6/sit.h
-include/config/ipv6/sit/6rd.h
-include/config/ipv6/subtrees.h
-include/config/ipv6/tunnel.h
-include/config/irq/domain.h
-include/config/irq/domain/debug.h
-include/config/irq/work.h
-include/config/irqchip.h
-include/config/iso9660/fs.h
-include/config/jbd.h
-include/config/jbd2.h
-include/config/joliet.h
-include/config/kallsyms.h
-include/config/kernel.release
-include/config/kernel/mode/neon.h
-include/config/kpd/pmic/lprst/td.h
-include/config/ksm.h
-include/config/lcm/height.h
-include/config/lcm/width.h
-include/config/leds/class.h
-include/config/leds/trigger/timer.h
-include/config/leds/triggers.h
-include/config/legacy/pty/count.h
-include/config/legacy/ptys.h
-include/config/libcrc32c.h
-include/config/lightness/mapping/value.h
-include/config/llc.h
-include/config/localversion.h
-include/config/lockdep/support.h
-include/config/log/buf/shift.h
-include/config/logo.h
-include/config/logo/linux/clut224.h
-include/config/logo/linux/mono.h
-include/config/logo/linux/vga16.h
-include/config/lsm/mmap/min/addr.h
-include/config/lzo/compress.h
-include/config/lzo/decompress.h
-include/config/magic/sysrq.h
-include/config/max/dram/size/support.h
-include/config/md.h
-include/config/md1/size.h
-include/config/md1/smem/size.h
-include/config/mediatek/solution.h
-include/config/migration.h
-include/config/misc/filesystems.h
-include/config/mmc.h
-include/config/mmc/block.h
-include/config/mmc/block/bounce.h
-include/config/mmc/block/minors.h
-include/config/mmc/unsafe/resume.h
-include/config/mmprofile.h
-include/config/mmu.h
-include/config/modules/use/elf/rela.h
-include/config/msdos/fs.h
-include/config/msdos/partition.h
-include/config/mt/load/balance/enhancement.h
-include/config/mt/sched.h
-include/config/mt/sched/interop.h
-include/config/mt/snd/soc/v3.h
-include/config/mtd.h
-include/config/mtd/blkdevs.h
-include/config/mtd/block.h
-include/config/mtd/cfi/i1.h
-include/config/mtd/cfi/i2.h
-include/config/mtd/map/bank/width/1.h
-include/config/mtd/map/bank/width/2.h
-include/config/mtd/map/bank/width/4.h
-include/config/mtd/nand/ids.h
-include/config/mtd/of/parts.h
-include/config/mtk/accdet.h
-include/config/mtk/aee/aed.h
-include/config/mtk/aee/feature.h
-include/config/mtk/aee/ipanic.h
-include/config/mtk/auto/detect/accelerometer.h
-include/config/mtk/bicr/support.h
-include/config/mtk/bt/support.h
-include/config/mtk/btcvsd.h
-include/config/mtk/btif.h
-include/config/mtk/ccci/devices.h
-include/config/mtk/cirq.h
-include/config/mtk/cmdq.h
-include/config/mtk/combo.h
-include/config/mtk/combo/bt.h
-include/config/mtk/combo/chip.h
-include/config/mtk/combo/chip/consys/6735.h
-include/config/mtk/combo/gps.h
-include/config/mtk/combo/plat/path.h
-include/config/mtk/combo/wifi.h
-include/config/mtk/compat.h
-include/config/mtk/conn/lte/idc/support.h
-include/config/mtk/conn/md.h
-include/config/mtk/cpu/topology.h
-include/config/mtk/dhcpv6c/wifi.h
-include/config/mtk/dithering/support.h
-include/config/mtk/eccci/cldma.h
-include/config/mtk/eccci/driver.h
-include/config/mtk/eic.h
-include/config/mtk/emi/bwl.h
-include/config/mtk/emi/mpu.h
-include/config/mtk/emmc/cache.h
-include/config/mtk/emmc/support.h
-include/config/mtk/enable/md1.h
-include/config/mtk/evb/board.h
-include/config/mtk/external/modem/slot.h
-include/config/mtk/fb.h
-include/config/mtk/fb/support/assertion/layer.h
-include/config/mtk/fm.h
-include/config/mtk/fm/chip.h
-include/config/mtk/fm/support.h
-include/config/mtk/fmradio.h
-include/config/mtk/g2d.h
-include/config/mtk/gic.h
-include/config/mtk/gps.h
-include/config/mtk/gps/support.h
-include/config/mtk/gpt/scheme/support.h
-include/config/mtk/gpu/support.h
-include/config/mtk/gt915/hd.h
-include/config/mtk/h264/dec/driver.h
-include/config/mtk/hibernation.h
-include/config/mtk/hwmon.h
-include/config/mtk/i2c.h
-include/config/mtk/jpeg.h
-include/config/mtk/kernel/power/off/charging.h
-include/config/mtk/keypad.h
-include/config/mtk/lastpc.h
-include/config/mtk/lcm/physical/rotation.h
-include/config/mtk/leds.h
-include/config/mtk/legacy.h
-include/config/mtk/lens.h
-include/config/mtk/lens/dw9714af/support.h
-include/config/mtk/lens/fm50af/support.h
-include/config/mtk/mc3xxx/auto.h
-include/config/mtk/md/sbp/custom/value.h
-include/config/mtk/md1/support.h
-include/config/mtk/md2/sbp/custom/value.h
-include/config/mtk/met.h
-include/config/mtk/met/plf.h
-include/config/mtk/mflexvideo/driver.h
-include/config/mtk/mmc.h
-include/config/mtk/mmc3416x.h
-include/config/mtk/mpeg4/dec/driver.h
-include/config/mtk/mpeg4/enc/driver.h
-include/config/mtk/mt/logger.h
-include/config/mtk/multi/storage/support.h
-include/config/mtk/mutation.h
-include/config/mtk/net/ccmni.h
-include/config/mtk/new/combo/emmc/support.h
-include/config/mtk/passpoint/r1/support.h
-include/config/mtk/platform.h
-include/config/mtk/pmic.h
-include/config/mtk/pmic/wrap.h
-include/config/mtk/power/gs.h
-include/config/mtk/psci.h
-include/config/mtk/ram/console.h
-include/config/mtk/ram/console/addr.h
-include/config/mtk/ram/console/dram/addr.h
-include/config/mtk/ram/console/dram/size.h
-include/config/mtk/ram/console/size.h
-include/config/mtk/ram/console/using/dram.h
-include/config/mtk/rtc.h
-include/config/mtk/sched/rqavg/ks.h
-include/config/mtk/sched/rqavg/us.h
-include/config/mtk/sec/modem/nvram/anti/clone.h
-include/config/mtk/security/sw/support.h
-include/config/mtk/sensor/support.h
-include/config/mtk/serial.h
-include/config/mtk/serial/console.h
-include/config/mtk/shared/sdcard.h
-include/config/mtk/sim1/socket/type.h
-include/config/mtk/sim2.h
-include/config/mtk/sim2/socket/type.h
-include/config/mtk/smart/battery.h
-include/config/mtk/smi.h
-include/config/mtk/spi.h
-include/config/mtk/stk3x1x/new.h
-include/config/mtk/storage/pid/logger.h
-include/config/mtk/sys/cirq.h
-include/config/mtk/sysenv.h
-include/config/mtk/systracker.h
-include/config/mtk/tetheringipv6/support.h
-include/config/mtk/thermal/pa/via/atcmd.h
-include/config/mtk/touchpanel.h
-include/config/mtk/umts/tdd128/mode.h
-include/config/mtk/usb/gadget.h
-include/config/mtk/vcorefs.h
-include/config/mtk/vibrator.h
-include/config/mtk/videocodec/driver.h
-include/config/mtk/videox.h
-include/config/mtk/wapi/support.h
-include/config/mtk/wd/kicker.h
-include/config/mtk/wifi/mcc/support.h
-include/config/mtprof/cputime.h
-include/config/mutex/spin/on/owner.h
-include/config/need/dma/map/state.h
-include/config/need/sg/dma/length.h
-include/config/net.h
-include/config/net/act/ipt.h
-include/config/net/act/mirred.h
-include/config/net/act/police.h
-include/config/net/activity/stats.h
-include/config/net/cls.h
-include/config/net/cls/act.h
-include/config/net/cls/flow.h
-include/config/net/cls/fw.h
-include/config/net/cls/ind.h
-include/config/net/cls/u32.h
-include/config/net/core.h
-include/config/net/drop/monitor.h
-include/config/net/ip/tunnel.h
-include/config/net/ipip.h
-include/config/net/key.h
-include/config/net/sch/fifo.h
-include/config/net/sch/htb.h
-include/config/net/sch/ingress.h
-include/config/net/sched.h
-include/config/netdevices.h
-include/config/netfilter.h
-include/config/netfilter/advanced.h
-include/config/netfilter/netlink.h
-include/config/netfilter/netlink/log.h
-include/config/netfilter/netlink/queue.h
-include/config/netfilter/tproxy.h
-include/config/netfilter/xt/connmark.h
-include/config/netfilter/xt/mark.h
-include/config/netfilter/xt/match/connbytes.h
-include/config/netfilter/xt/match/iprange.h
-include/config/netfilter/xt/match/length.h
-include/config/netfilter/xt/match/limit.h
-include/config/netfilter/xt/match/mac.h
-include/config/netfilter/xt/match/mark.h
-include/config/netfilter/xt/match/multiport.h
-include/config/netfilter/xt/match/physdev.h
-include/config/netfilter/xt/match/policy.h
-include/config/netfilter/xt/match/qtaguid.h
-include/config/netfilter/xt/match/quota.h
-include/config/netfilter/xt/match/quota2.h
-include/config/netfilter/xt/match/quota2/log.h
-include/config/netfilter/xt/match/realm.h
-include/config/netfilter/xt/match/recent.h
-include/config/netfilter/xt/match/socket.h
-include/config/netfilter/xt/match/state.h
-include/config/netfilter/xt/match/statistic.h
-include/config/netfilter/xt/match/string.h
-include/config/netfilter/xt/match/tcpmss.h
-include/config/netfilter/xt/match/time.h
-include/config/netfilter/xt/match/u32.h
-include/config/netfilter/xt/target/classify.h
-include/config/netfilter/xt/target/hl.h
-include/config/netfilter/xt/target/idletimer.h
-include/config/netfilter/xt/target/mark.h
-include/config/netfilter/xt/target/netmap.h
-include/config/netfilter/xt/target/nflog.h
-include/config/netfilter/xt/target/nfqueue.h
-include/config/netfilter/xt/target/redirect.h
-include/config/netfilter/xt/target/tcpmss.h
-include/config/netfilter/xtables.h
-include/config/network/secmark.h
-include/config/new/leds.h
-include/config/nf/conntrack.h
-include/config/nf/conntrack/events.h
-include/config/nf/conntrack/ftp.h
-include/config/nf/conntrack/ipv4.h
-include/config/nf/conntrack/ipv6.h
-include/config/nf/conntrack/mark.h
-include/config/nf/conntrack/pptp.h
-include/config/nf/conntrack/proc/compat.h
-include/config/nf/conntrack/procfs.h
-include/config/nf/conntrack/sip.h
-include/config/nf/conntrack/tftp.h
-include/config/nf/ct/netlink.h
-include/config/nf/ct/proto/gre.h
-include/config/nf/ct/proto/udplite.h
-include/config/nf/defrag/ipv4.h
-include/config/nf/defrag/ipv6.h
-include/config/nf/nat.h
-include/config/nf/nat/ftp.h
-include/config/nf/nat/ipv4.h
-include/config/nf/nat/needed.h
-include/config/nf/nat/pptp.h
-include/config/nf/nat/proto/gre.h
-include/config/nf/nat/proto/udplite.h
-include/config/nf/nat/sip.h
-include/config/nf/nat/tftp.h
-include/config/nl80211/testmode.h
-include/config/nlattr.h
-include/config/nls.h
-include/config/nls/ascii.h
-include/config/nls/codepage/437.h
-include/config/nls/codepage/950.h
-include/config/nls/default.h
-include/config/nls/iso8859/1.h
-include/config/nls/utf8.h
-include/config/no/bootmem.h
-include/config/no/hz.h
-include/config/no/hz/common.h
-include/config/no/hz/idle.h
-include/config/no/ioport.h
-include/config/nop/tracer.h
-include/config/nop/usb/xceiv.h
-include/config/nr/cpus.h
-include/config/of.h
-include/config/of/address.h
-include/config/of/device.h
-include/config/of/early/flattree.h
-include/config/of/flattree.h
-include/config/of/gpio.h
-include/config/of/i2c.h
-include/config/of/iommu.h
-include/config/of/irq.h
-include/config/of/mtd.h
-include/config/of/net.h
-include/config/of/reserved/mem.h
-include/config/old/sigsuspend3.h
-include/config/packet.h
-include/config/pageflags/extended.h
-include/config/panic/on/oops.h
-include/config/panic/on/oops/value.h
-include/config/panic/timeout.h
-include/config/perf/events.h
-include/config/perf/use/vmalloc.h
-include/config/phys/addr/t/64bit.h
-include/config/pm.h
-include/config/pm/autosleep.h
-include/config/pm/clk.h
-include/config/pm/sleep.h
-include/config/pm/sleep/smp.h
-include/config/pm/std/partition.h
-include/config/pm/wakelocks.h
-include/config/pm/wakelocks/gc.h
-include/config/pm/wakelocks/limit.h
-include/config/pocketmod.h
-include/config/power/reset.h
-include/config/power/supply.h
-include/config/ppp.h
-include/config/ppp/async.h
-include/config/ppp/bsdcomp.h
-include/config/ppp/deflate.h
-include/config/ppp/filter.h
-include/config/ppp/mppe.h
-include/config/ppp/multilink.h
-include/config/ppp/sync/tty.h
-include/config/pppoe.h
-include/config/pppolac.h
-include/config/pppopns.h
-include/config/preempt.h
-include/config/preempt/count.h
-include/config/preempt/rcu.h
-include/config/prevent/firmware/build.h
-include/config/print/quota/warning.h
-include/config/printk.h
-include/config/printk/process/info.h
-include/config/printk/time.h
-include/config/proc/fs.h
-include/config/proc/page/monitor.h
-include/config/proc/sysctl.h
-include/config/profiling.h
-include/config/qfmt/v2.h
-include/config/quota.h
-include/config/quota/tree.h
-include/config/quotactl.h
-include/config/ramdisk/offset.h
-include/config/rcu/cpu/stall/timeout.h
-include/config/rcu/cpu/stall/verbose.h
-include/config/rcu/fanout.h
-include/config/rcu/fanout/leaf.h
-include/config/rcu/stall/common.h
-include/config/rd/gzip.h
-include/config/regmap.h
-include/config/regmap/i2c.h
-include/config/regmap/spi.h
-include/config/regulator.h
-include/config/resource/counters.h
-include/config/rfs/accel.h
-include/config/ring/buffer.h
-include/config/rps.h
-include/config/rt/group/sched.h
-include/config/rt/mutexes.h
-include/config/rtc/class.h
-include/config/rtc/hctosys.h
-include/config/rtc/hctosys/device.h
-include/config/rtc/intf/dev.h
-include/config/rtc/intf/proc.h
-include/config/rtc/intf/sysfs.h
-include/config/rtc/lib.h
-include/config/rwsem/generic/spinlock.h
-include/config/schedstats.h
-include/config/scsi.h
-include/config/scsi/dma.h
-include/config/scsi/mod.h
-include/config/scsi/multi/lun.h
-include/config/scsi/proc/fs.h
-include/config/scsi/scan/async.h
-include/config/scsi/tgt.h
-include/config/seccomp.h
-include/config/seccomp/filter.h
-include/config/security.h
-include/config/security/network.h
-include/config/security/selinux.h
-include/config/security/selinux/avc/stats.h
-include/config/security/selinux/bootparam.h
-include/config/security/selinux/bootparam/value.h
-include/config/security/selinux/checkreqprot/value.h
-include/config/security/selinux/develop.h
-include/config/select/memory/model.h
-include/config/serial/core.h
-include/config/serial/core/console.h
-include/config/shmem.h
-include/config/signalfd.h
-include/config/slhc.h
-include/config/slub.h
-include/config/smp.h
-include/config/snd.h
-include/config/snd/compress/offload.h
-include/config/snd/drivers.h
-include/config/snd/dynamic/minors.h
-include/config/snd/hrtimer.h
-include/config/snd/hwdep.h
-include/config/snd/jack.h
-include/config/snd/mixer/oss.h
-include/config/snd/ossemul.h
-include/config/snd/pcm.h
-include/config/snd/pcm/oss.h
-include/config/snd/pcm/oss/plugins.h
-include/config/snd/rawmidi.h
-include/config/snd/rawmidi/seq.h
-include/config/snd/seq/dummy.h
-include/config/snd/seq/hrtimer/default.h
-include/config/snd/sequencer.h
-include/config/snd/sequencer/oss.h
-include/config/snd/simple/card.h
-include/config/snd/soc.h
-include/config/snd/soc/i2c/and/spi.h
-include/config/snd/support/old/api.h
-include/config/snd/timer.h
-include/config/snd/usb.h
-include/config/snd/usb/audio.h
-include/config/sound.h
-include/config/sound/oss/core.h
-include/config/sound/oss/core/preclaim.h
-include/config/sound/prime.h
-include/config/sparse/irq.h
-include/config/sparsemem.h
-include/config/sparsemem/extreme.h
-include/config/sparsemem/manual.h
-include/config/sparsemem/vmemmap.h
-include/config/sparsemem/vmemmap/enable.h
-include/config/spi.h
-include/config/spi/master.h
-include/config/split/ptlock/cpus.h
-include/config/ssb/possible.h
-include/config/stacktrace.h
-include/config/stacktrace/support.h
-include/config/staging.h
-include/config/standalone.h
-include/config/stop/machine.h
-include/config/stp.h
-include/config/suspend.h
-include/config/suspend/freezer.h
-include/config/suspend/time.h
-include/config/sw/sync.h
-include/config/sw/sync/user.h
-include/config/swap.h
-include/config/swiotlb.h
-include/config/switch.h
-include/config/swp/emulate.h
-include/config/syn/cookies.h
-include/config/sync.h
-include/config/sysctl.h
-include/config/sysctl/exception/trace.h
-include/config/sysctl/syscall.h
-include/config/sysfs.h
-include/config/tcp/cong/cubic.h
-include/config/textsearch.h
-include/config/textsearch/bm.h
-include/config/textsearch/fsm.h
-include/config/textsearch/kmp.h
-include/config/thermal.h
-include/config/thermal/default/gov/backward/compatible.h
-include/config/thunderquake/engine/gpl.h
-include/config/tick/cpu/accounting.h
-include/config/tick/oneshot.h
-include/config/timerfd.h
-include/config/tmpfs.h
-include/config/toi.h
-include/config/toi/core.h
-include/config/toi/crypto.h
-include/config/toi/default/extra/pages/allowance.h
-include/config/toi/default/image/size/limit.h
-include/config/toi/default/wait.h
-include/config/toi/enhance.h
-include/config/toi/fixup.h
-include/config/toi/replace/swsusp.h
-include/config/toi/swap.h
-include/config/toi/zram/support.h
-include/config/touchscreen/doubletap2wake.h
-include/config/touchscreen/mtk.h
-include/config/touchscreen/prevent/sleep.h
-include/config/touchscreen/sweep2wake.h
-include/config/trace/clock.h
-include/config/trace/irqflags/support.h
-include/config/tracepoints.h
-include/config/tracing.h
-include/config/tracing/support.h
-include/config/tree/preempt/rcu.h
-include/config/tristate.conf
-include/config/tty.h
-include/config/tun.h
-include/config/uevent/helper/path.h
-include/config/uhid.h
-include/config/uid/stat.h
-include/config/uid16.h
-include/config/uidgid/converted.h
-include/config/uksm.h
-include/config/uninline/spin/unlock.h
-include/config/unix.h
-include/config/unix98/ptys.h
-include/config/usb.h
-include/config/usb/arch/has/hcd.h
-include/config/usb/common.h
-include/config/usb/default/persist.h
-include/config/usb/f/acm.h
-include/config/usb/f/serial.h
-include/config/usb/g/android.h
-include/config/usb/gadget.h
-include/config/usb/gadget/storage/num/buffers.h
-include/config/usb/gadget/vbus/draw.h
-include/config/usb/hid.h
-include/config/usb/libcomposite.h
-include/config/usb/mtk/acm/temp.h
-include/config/usb/mtk/debug.h
-include/config/usb/mtk/debug/fs.h
-include/config/usb/mtk/hdrc.h
-include/config/usb/mtk/hdrc/gadget.h
-include/config/usb/phy.h
-include/config/usb/storage.h
-include/config/usb/storage/alauda.h
-include/config/usb/storage/cypress/atacb.h
-include/config/usb/storage/datafab.h
-include/config/usb/storage/freecom.h
-include/config/usb/storage/isd200.h
-include/config/usb/storage/jumpshot.h
-include/config/usb/storage/karma.h
-include/config/usb/storage/onetouch.h
-include/config/usb/storage/sddr09.h
-include/config/usb/storage/sddr55.h
-include/config/usb/storage/usbat.h
-include/config/usb/support.h
-include/config/usb/trancevibrator.h
-include/config/usb/u/serial.h
-include/config/use/generic/smp/helpers.h
-include/config/vfat/fs.h
-include/config/vlan/8021q.h
-include/config/vm/event/counters.h
-include/config/wakelock.h
-include/config/wext/core.h
-include/config/wext/priv.h
-include/config/wext/proc.h
-include/config/wireless.h
-include/config/wireless/ext.h
-include/config/wlan.h
-include/config/xfrm.h
-include/config/xfrm/algo.h
-include/config/xfrm/ipcomp.h
-include/config/xfrm/migrate.h
-include/config/xps.h
-include/config/zisofs.h
-include/config/zlib/deflate.h
-include/config/zlib/inflate.h
-include/config/zone/dma.h
-include/config/zone/dma/flag.h
-include/config/zram.h
-include/config/zsmalloc.h
-include/generated/asm-offsets.h
-include/generated/autoconf.h
-include/generated/bounds.h
-include/generated/compile.h
-include/generated/uapi/linux/version.h
-include/generated/utsrelease.h
-include/generated/vdso-offsets.h
-init/modules.order
-ipc/modules.order
-kernel/bounds.s
-kernel/cpu/modules.order
-kernel/events/modules.order
-kernel/irq/modules.order
-kernel/modules.order
-kernel/power/modules.order
-kernel/sched/modules.order
-kernel/time/modules.order
-kernel/trace/modules.order
-lib/lib.a
-lib/lzo/modules.order
-lib/modules.order
-lib/zlib_deflate/modules.order
-lib/zlib_inflate/modules.order
-mm/modules.order
-modules.order
-net/802/modules.order
-net/8021q/modules.order
-net/bridge/modules.order
-net/core/modules.order
-net/ethernet/modules.order
-net/ipv4/modules.order
-net/ipv4/netfilter/modules.order
-net/ipv6/modules.order
-net/ipv6/netfilter/modules.order
-net/key/modules.order
-net/llc/modules.order
-net/modules.order
-net/netfilter/modules.order
-net/netlink/modules.order
-net/packet/modules.order
-net/sched/modules.order
-net/unix/modules.order
-net/wireless/modules.order
-net/xfrm/modules.order
-scripts/basic/modules.order
-scripts/dtc/modules.order
-scripts/mod/devicetable-offsets.s
-scripts/mod/modules.order
-scripts/modules.order
-scripts/selinux/genheaders/modules.order
-scripts/selinux/mdp/modules.order
-scripts/selinux/modules.order
-security/modules.order
-security/selinux/modules.order
-sound/arm/modules.order
-sound/atmel/modules.order
-sound/core/modules.order
-sound/core/oss/modules.order
-sound/core/seq/modules.order
-sound/core/seq/oss/modules.order
-sound/drivers/modules.order
-sound/drivers/mpu401/modules.order
-sound/drivers/opl3/modules.order
-sound/drivers/opl4/modules.order
-sound/drivers/pcsp/modules.order
-sound/drivers/vx/modules.order
-sound/firewire/modules.order
-sound/i2c/modules.order
-sound/i2c/other/modules.order
-sound/isa/ad1816a/modules.order
-sound/isa/ad1848/modules.order
-sound/isa/cs423x/modules.order
-sound/isa/es1688/modules.order
-sound/isa/galaxy/modules.order
-sound/isa/gus/modules.order
-sound/isa/modules.order
-sound/isa/msnd/modules.order
-sound/isa/opti9xx/modules.order
-sound/isa/sb/modules.order
-sound/isa/wavefront/modules.order
-sound/isa/wss/modules.order
-sound/mips/modules.order
-sound/modules.order
-sound/oss/modules.order
-sound/parisc/modules.order
-sound/pci/ac97/modules.order
-sound/pci/ali5451/modules.order
-sound/pci/asihpi/modules.order
-sound/pci/au88x0/modules.order
-sound/pci/aw2/modules.order
-sound/pci/ca0106/modules.order
-sound/pci/cs46xx/modules.order
-sound/pci/cs5535audio/modules.order
-sound/pci/ctxfi/modules.order
-sound/pci/echoaudio/modules.order
-sound/pci/emu10k1/modules.order
-sound/pci/hda/modules.order
-sound/pci/ice1712/modules.order
-sound/pci/korg1212/modules.order
-sound/pci/lola/modules.order
-sound/pci/lx6464es/modules.order
-sound/pci/mixart/modules.order
-sound/pci/modules.order
-sound/pci/nm256/modules.order
-sound/pci/oxygen/modules.order
-sound/pci/pcxhr/modules.order
-sound/pci/riptide/modules.order
-sound/pci/rme9652/modules.order
-sound/pci/trident/modules.order
-sound/pci/vx222/modules.order
-sound/pci/ymfpci/modules.order
-sound/pcmcia/modules.order
-sound/pcmcia/pdaudiocf/modules.order
-sound/pcmcia/vx/modules.order
-sound/ppc/modules.order
-sound/sh/modules.order
-sound/soc/atmel/modules.order
-sound/soc/au1x/modules.order
-sound/soc/blackfin/modules.order
-sound/soc/cirrus/modules.order
-sound/soc/codecs/modules.order
-sound/soc/davinci/modules.order
-sound/soc/dwc/modules.order
-sound/soc/fsl/modules.order
-sound/soc/generic/modules.order
-sound/soc/jz4740/modules.order
-sound/soc/kirkwood/modules.order
-sound/soc/mediatek/common/modules.order
-sound/soc/mediatek/modules.order
-sound/soc/mediatek/mt_soc_audio_v3/modules.order
-sound/soc/mid-x86/modules.order
-sound/soc/modules.order
-sound/soc/mxs/modules.order
-sound/soc/nuc900/modules.order
-sound/soc/omap/modules.order
-sound/soc/pxa/modules.order
-sound/soc/s6000/modules.order
-sound/soc/samsung/modules.order
-sound/soc/sh/modules.order
-sound/soc/tegra/modules.order
-sound/soc/txx9/modules.order
-sound/soc/ux500/modules.order
-sound/sparc/modules.order
-sound/spi/modules.order
-sound/synth/emux/modules.order
-sound/synth/modules.order
-sound/usb/6fire/modules.order
-sound/usb/caiaq/modules.order
-sound/usb/misc/modules.order
-sound/usb/modules.order
-sound/usb/usx2y/modules.order
-usr/modules.order
-include/config/auto.conf
-include/config/kernel.release
-include/generated/autoconf.h
-include/generated/compile.h
-include/generated/utsrelease.h
 
 
 
 
+<!DOCTYPE html>
+<html lang="en" class="">
+  <head prefix="og: http://ogp.me/ns# fb: http://ogp.me/ns/fb# object: http://ogp.me/ns/object# article: http://ogp.me/ns/article# profile: http://ogp.me/ns/profile#">
+    <meta charset='utf-8'>
+    
+
+    <link crossorigin="anonymous" href="https://assets-cdn.github.com/assets/frameworks-b5ed3d6e738642f4deea39d36d818bc4a9e4b09c5b2a0398fa3f280e9b9da484.css" media="all" rel="stylesheet" />
+    <link crossorigin="anonymous" href="https://assets-cdn.github.com/assets/github-d25fa5e2181a6ce90c617e1bfee9b3bac8a699af5bcb6fcbed090b7f422a628a.css" media="all" rel="stylesheet" />
+    
+    
+    <link crossorigin="anonymous" href="https://assets-cdn.github.com/assets/site-293f92180d0a619a750fa2b5eae9e36740f5723a59c0ec308972c70d24e834fc.css" media="all" rel="stylesheet" />
+    
+
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta http-equiv="Content-Language" content="en">
+    <meta name="viewport" content="width=device-width">
+    
+    <title>Mystery-Kernel/.gitignore at cad38bb9d0e2dd15abe2de36df5a66c8b4eeab8d · Hot2-Kernel/Mystery-Kernel · GitHub</title>
+    <link rel="search" type="application/opensearchdescription+xml" href="/opensearch.xml" title="GitHub">
+    <link rel="fluid-icon" href="https://github.com/fluidicon.png" title="GitHub">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+    <link rel="apple-touch-icon" sizes="57x57" href="/apple-touch-icon-57x57.png">
+    <link rel="apple-touch-icon" sizes="60x60" href="/apple-touch-icon-60x60.png">
+    <link rel="apple-touch-icon" sizes="72x72" href="/apple-touch-icon-72x72.png">
+    <link rel="apple-touch-icon" sizes="76x76" href="/apple-touch-icon-76x76.png">
+    <link rel="apple-touch-icon" sizes="114x114" href="/apple-touch-icon-114x114.png">
+    <link rel="apple-touch-icon" sizes="120x120" href="/apple-touch-icon-120x120.png">
+    <link rel="apple-touch-icon" sizes="144x144" href="/apple-touch-icon-144x144.png">
+    <link rel="apple-touch-icon" sizes="152x152" href="/apple-touch-icon-152x152.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon-180x180.png">
+    <meta property="fb:app_id" content="1401488693436528">
+
+      <meta content="https://avatars1.githubusercontent.com/u/24937712?v=3&amp;s=400" name="twitter:image:src" /><meta content="@github" name="twitter:site" /><meta content="summary" name="twitter:card" /><meta content="Hot2-Kernel/Mystery-Kernel" name="twitter:title" /><meta content="Mystery-Kernel - kernel source for Infinix Hot 2" name="twitter:description" />
+      <meta content="https://avatars1.githubusercontent.com/u/24937712?v=3&amp;s=400" property="og:image" /><meta content="GitHub" property="og:site_name" /><meta content="object" property="og:type" /><meta content="Hot2-Kernel/Mystery-Kernel" property="og:title" /><meta content="https://github.com/Hot2-Kernel/Mystery-Kernel" property="og:url" /><meta content="Mystery-Kernel - kernel source for Infinix Hot 2" property="og:description" />
+      <meta name="browser-stats-url" content="https://api.github.com/_private/browser/stats">
+    <meta name="browser-errors-url" content="https://api.github.com/_private/browser/errors">
+    <link rel="assets" href="https://assets-cdn.github.com/">
+    
+    <meta name="pjax-timeout" content="1000">
+    
+    <meta name="request-id" content="68C6BBC7:553C:9ED7DF2:587270A9" data-pjax-transient>
+
+    <meta name="msapplication-TileImage" content="/windows-tile.png">
+    <meta name="msapplication-TileColor" content="#ffffff">
+    <meta name="selected-link" value="repo_source" data-pjax-transient>
+
+    <meta name="google-site-verification" content="KT5gs8h0wvaagLKAVWq8bbeNwnZZK1r1XQysX3xurLU">
+<meta name="google-site-verification" content="ZzhVyEFwb7w3e0-uOTltm8Jsck2F5StVihD0exw2fsA">
+    <meta name="google-analytics" content="UA-3769691-2">
+
+<meta content="collector.githubapp.com" name="octolytics-host" /><meta content="github" name="octolytics-app-id" /><meta content="68C6BBC7:553C:9ED7DF2:587270A9" name="octolytics-dimension-request_id" />
+<meta content="/&lt;user-name&gt;/&lt;repo-name&gt;/blob/show" data-pjax-transient="true" name="analytics-location" />
 
 
 
+  <meta class="js-ga-set" name="dimension1" content="Logged Out">
 
-/tags
-/TAGS
-/linux
-/vmlinux
-/vmlinuz
-/System.map
-/Module.markers
-/Module.symvers
 
-.gitignore
-!.gitignore
-!.mailmap
-.mailmap
 
-out/
+        <meta name="hostname" content="github.com">
+    <meta name="user-login" content="">
+
+        <meta name="expected-hostname" content="github.com">
+      <meta name="js-proxy-site-detection-payload" content="OTMwMTUyYjY2M2MyMDkxYWQ0NWQ5YzAzOTVmNTExZjdjYTQwZGRjMzZhNmYxYjkzYjE5MDMyMWIyMDhjYjIzOXx7InJlbW90ZV9hZGRyZXNzIjoiMTA0LjE5OC4xODcuMTk5IiwicmVxdWVzdF9pZCI6IjY4QzZCQkM3OjU1M0M6OUVEN0RGMjo1ODcyNzBBOSIsInRpbWVzdGFtcCI6MTQ4Mzg5NDk1MywiaG9zdCI6ImdpdGh1Yi5jb20ifQ==">
+
+
+      <link rel="mask-icon" href="https://assets-cdn.github.com/pinned-octocat.svg" color="#000000">
+      <link rel="icon" type="image/x-icon" href="https://assets-cdn.github.com/favicon.ico">
+
+    <meta name="html-safe-nonce" content="d93d2051e4db9cc196732b9cd4297b6742b718b7">
+
+    <meta http-equiv="x-pjax-version" content="caa96e05d76a72e24527eafdd194d57f">
+    
+
+      
+  <meta name="description" content="Mystery-Kernel - kernel source for Infinix Hot 2">
+  <meta name="go-import" content="github.com/Hot2-Kernel/Mystery-Kernel git https://github.com/Hot2-Kernel/Mystery-Kernel.git">
+
+  <meta content="24937712" name="octolytics-dimension-user_id" /><meta content="Hot2-Kernel" name="octolytics-dimension-user_login" /><meta content="77940473" name="octolytics-dimension-repository_id" /><meta content="Hot2-Kernel/Mystery-Kernel" name="octolytics-dimension-repository_nwo" /><meta content="true" name="octolytics-dimension-repository_public" /><meta content="false" name="octolytics-dimension-repository_is_fork" /><meta content="77940473" name="octolytics-dimension-repository_network_root_id" /><meta content="Hot2-Kernel/Mystery-Kernel" name="octolytics-dimension-repository_network_root_nwo" />
+  <link href="https://github.com/Hot2-Kernel/Mystery-Kernel/commits/cad38bb9d0e2dd15abe2de36df5a66c8b4eeab8d.atom" rel="alternate" title="Recent Commits to Mystery-Kernel:cad38bb9d0e2dd15abe2de36df5a66c8b4eeab8d" type="application/atom+xml">
+
+
+      <link rel="canonical" href="https://github.com/Hot2-Kernel/Mystery-Kernel/blob/cad38bb9d0e2dd15abe2de36df5a66c8b4eeab8d/.gitignore" data-pjax-transient>
+  </head>
+
+
+  <body class="logged-out  env-production  vis-public page-blob">
+    <div id="js-pjax-loader-bar" class="pjax-loader-bar"><div class="progress"></div></div>
+    <a href="#start-of-content" tabindex="1" class="accessibility-aid js-skip-to-content">Skip to content</a>
+
+    
+    
+    
+
+
+
+          <header class="site-header js-details-container" role="banner">
+  <div class="container-responsive">
+    <a class="header-logo-invertocat" href="https://github.com/" aria-label="Homepage" data-ga-click="(Logged out) Header, go to homepage, icon:logo-wordmark">
+      <svg aria-hidden="true" class="octicon octicon-mark-github" height="32" version="1.1" viewBox="0 0 16 16" width="32"><path fill-rule="evenodd" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+    </a>
+
+    <button class="btn-link float-right site-header-toggle js-details-target" type="button" aria-label="Toggle navigation">
+      <svg aria-hidden="true" class="octicon octicon-three-bars" height="24" version="1.1" viewBox="0 0 12 16" width="18"><path fill-rule="evenodd" d="M11.41 9H.59C0 9 0 8.59 0 8c0-.59 0-1 .59-1H11.4c.59 0 .59.41.59 1 0 .59 0 1-.59 1h.01zm0-4H.59C0 5 0 4.59 0 4c0-.59 0-1 .59-1H11.4c.59 0 .59.41.59 1 0 .59 0 1-.59 1h.01zM.59 11H11.4c.59 0 .59.41.59 1 0 .59 0 1-.59 1H.59C0 13 0 12.59 0 12c0-.59 0-1 .59-1z"/></svg>
+    </button>
+
+    <div class="site-header-menu">
+      <nav class="site-header-nav site-header-nav-main">
+        <a href="/personal" class="js-selected-navigation-item nav-item nav-item-personal" data-ga-click="Header, click, Nav menu - item:personal" data-selected-links="/personal /personal">
+          Personal
+</a>        <a href="/open-source" class="js-selected-navigation-item nav-item nav-item-opensource" data-ga-click="Header, click, Nav menu - item:opensource" data-selected-links="/open-source /open-source">
+          Open source
+</a>        <a href="/business" class="js-selected-navigation-item nav-item nav-item-business" data-ga-click="Header, click, Nav menu - item:business" data-selected-links="/business /business/partners /business/features /business/customers /business">
+          Business
+</a>        <a href="/explore" class="js-selected-navigation-item nav-item nav-item-explore" data-ga-click="Header, click, Nav menu - item:explore" data-selected-links="/explore /trending /trending/developers /integrations /integrations/feature/code /integrations/feature/collaborate /integrations/feature/ship /showcases /explore">
+          Explore
+</a>      </nav>
+
+      <div class="site-header-actions">
+            <a class="btn btn-primary site-header-actions-btn" href="/join?source=header-repo" data-ga-click="(Logged out) Header, clicked Sign up, text:sign-up">Sign up</a>
+          <a class="btn site-header-actions-btn mr-1" href="/login?return_to=%2FHot2-Kernel%2FMystery-Kernel%2Fblob%2Fcad38bb9d0e2dd15abe2de36df5a66c8b4eeab8d%2F.gitignore" data-ga-click="(Logged out) Header, clicked Sign in, text:sign-in">Sign in</a>
+      </div>
+
+        <nav class="site-header-nav site-header-nav-secondary mr-md-3">
+          <a class="nav-item" href="/pricing">Pricing</a>
+          <a class="nav-item" href="/blog">Blog</a>
+          <a class="nav-item" href="https://help.github.com">Support</a>
+          <a class="nav-item header-search-link" href="https://github.com/search">Search GitHub</a>
+              <div class="header-search scoped-search site-scoped-search js-site-search" role="search">
+  <!-- '"` --><!-- </textarea></xmp> --></option></form><form accept-charset="UTF-8" action="/Hot2-Kernel/Mystery-Kernel/search" class="js-site-search-form" data-scoped-search-url="/Hot2-Kernel/Mystery-Kernel/search" data-unscoped-search-url="/search" method="get"><div style="margin:0;padding:0;display:inline"><input name="utf8" type="hidden" value="&#x2713;" /></div>
+    <label class="form-control header-search-wrapper js-chromeless-input-container">
+      <div class="header-search-scope">This repository</div>
+      <input type="text"
+        class="form-control header-search-input js-site-search-focus js-site-search-field is-clearable"
+        data-hotkey="s"
+        name="q"
+        placeholder="Search"
+        aria-label="Search this repository"
+        data-unscoped-placeholder="Search GitHub"
+        data-scoped-placeholder="Search"
+        autocapitalize="off">
+    </label>
+</form></div>
+
+        </nav>
+    </div>
+  </div>
+</header>
+
+
+
+    <div id="start-of-content" class="accessibility-aid"></div>
+
+      <div id="js-flash-container">
+</div>
+
+
+    <div role="main">
+        <div itemscope itemtype="http://schema.org/SoftwareSourceCode">
+    <div id="js-repo-pjax-container" data-pjax-container>
+      
+<div class="pagehead repohead instapaper_ignore readability-menu experiment-repo-nav">
+  <div class="container repohead-details-container">
+
+    
+
+<ul class="pagehead-actions">
+
+  <li>
+      <a href="/login?return_to=%2FHot2-Kernel%2FMystery-Kernel"
+    class="btn btn-sm btn-with-count tooltipped tooltipped-n"
+    aria-label="You must be signed in to watch a repository" rel="nofollow">
+    <svg aria-hidden="true" class="octicon octicon-eye" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M8.06 2C3 2 0 8 0 8s3 6 8.06 6C13 14 16 8 16 8s-3-6-7.94-6zM8 12c-2.2 0-4-1.78-4-4 0-2.2 1.8-4 4-4 2.22 0 4 1.8 4 4 0 2.22-1.78 4-4 4zm2-4c0 1.11-.89 2-2 2-1.11 0-2-.89-2-2 0-1.11.89-2 2-2 1.11 0 2 .89 2 2z"/></svg>
+    Watch
+  </a>
+  <a class="social-count" href="/Hot2-Kernel/Mystery-Kernel/watchers"
+     aria-label="1 user is watching this repository">
+    1
+  </a>
+
+  </li>
+
+  <li>
+      <a href="/login?return_to=%2FHot2-Kernel%2FMystery-Kernel"
+    class="btn btn-sm btn-with-count tooltipped tooltipped-n"
+    aria-label="You must be signed in to star a repository" rel="nofollow">
+    <svg aria-hidden="true" class="octicon octicon-star" height="16" version="1.1" viewBox="0 0 14 16" width="14"><path fill-rule="evenodd" d="M14 6l-4.9-.64L7 1 4.9 5.36 0 6l3.6 3.26L2.67 14 7 11.67 11.33 14l-.93-4.74z"/></svg>
+    Star
+  </a>
+
+    <a class="social-count js-social-count" href="/Hot2-Kernel/Mystery-Kernel/stargazers"
+      aria-label="0 users starred this repository">
+      0
+    </a>
+
+  </li>
+
+  <li>
+      <a href="/login?return_to=%2FHot2-Kernel%2FMystery-Kernel"
+        class="btn btn-sm btn-with-count tooltipped tooltipped-n"
+        aria-label="You must be signed in to fork a repository" rel="nofollow">
+        <svg aria-hidden="true" class="octicon octicon-repo-forked" height="16" version="1.1" viewBox="0 0 10 16" width="10"><path fill-rule="evenodd" d="M8 1a1.993 1.993 0 0 0-1 3.72V6L5 8 3 6V4.72A1.993 1.993 0 0 0 2 1a1.993 1.993 0 0 0-1 3.72V6.5l3 3v1.78A1.993 1.993 0 0 0 5 15a1.993 1.993 0 0 0 1-3.72V9.5l3-3V4.72A1.993 1.993 0 0 0 8 1zM2 4.2C1.34 4.2.8 3.65.8 3c0-.65.55-1.2 1.2-1.2.65 0 1.2.55 1.2 1.2 0 .65-.55 1.2-1.2 1.2zm3 10c-.66 0-1.2-.55-1.2-1.2 0-.65.55-1.2 1.2-1.2.65 0 1.2.55 1.2 1.2 0 .65-.55 1.2-1.2 1.2zm3-10c-.66 0-1.2-.55-1.2-1.2 0-.65.55-1.2 1.2-1.2.65 0 1.2.55 1.2 1.2 0 .65-.55 1.2-1.2 1.2z"/></svg>
+        Fork
+      </a>
+
+    <a href="/Hot2-Kernel/Mystery-Kernel/network" class="social-count"
+       aria-label="4 users forked this repository">
+      4
+    </a>
+  </li>
+</ul>
+
+    <h1 class="public ">
+  <svg aria-hidden="true" class="octicon octicon-repo" height="16" version="1.1" viewBox="0 0 12 16" width="12"><path fill-rule="evenodd" d="M4 9H3V8h1v1zm0-3H3v1h1V6zm0-2H3v1h1V4zm0-2H3v1h1V2zm8-1v12c0 .55-.45 1-1 1H6v2l-1.5-1.5L3 16v-2H1c-.55 0-1-.45-1-1V1c0-.55.45-1 1-1h10c.55 0 1 .45 1 1zm-1 10H1v2h2v-1h3v1h5v-2zm0-10H2v9h9V1z"/></svg>
+  <span class="author" itemprop="author"><a href="/Hot2-Kernel" class="url fn" rel="author">Hot2-Kernel</a></span><!--
+--><span class="path-divider">/</span><!--
+--><strong itemprop="name"><a href="/Hot2-Kernel/Mystery-Kernel" data-pjax="#js-repo-pjax-container">Mystery-Kernel</a></strong>
+
+</h1>
+
+  </div>
+  <div class="container">
+    
+<nav class="reponav js-repo-nav js-sidenav-container-pjax"
+     itemscope
+     itemtype="http://schema.org/BreadcrumbList"
+     role="navigation"
+     data-pjax="#js-repo-pjax-container">
+
+  <span itemscope itemtype="http://schema.org/ListItem" itemprop="itemListElement">
+    <a href="/Hot2-Kernel/Mystery-Kernel" class="js-selected-navigation-item selected reponav-item" data-hotkey="g c" data-selected-links="repo_source repo_downloads repo_commits repo_releases repo_tags repo_branches /Hot2-Kernel/Mystery-Kernel" itemprop="url">
+      <svg aria-hidden="true" class="octicon octicon-code" height="16" version="1.1" viewBox="0 0 14 16" width="14"><path fill-rule="evenodd" d="M9.5 3L8 4.5 11.5 8 8 11.5 9.5 13 14 8 9.5 3zm-5 0L0 8l4.5 5L6 11.5 2.5 8 6 4.5 4.5 3z"/></svg>
+      <span itemprop="name">Code</span>
+      <meta itemprop="position" content="1">
+</a>  </span>
+
+    <span itemscope itemtype="http://schema.org/ListItem" itemprop="itemListElement">
+      <a href="/Hot2-Kernel/Mystery-Kernel/issues" class="js-selected-navigation-item reponav-item" data-hotkey="g i" data-selected-links="repo_issues repo_labels repo_milestones /Hot2-Kernel/Mystery-Kernel/issues" itemprop="url">
+        <svg aria-hidden="true" class="octicon octicon-issue-opened" height="16" version="1.1" viewBox="0 0 14 16" width="14"><path fill-rule="evenodd" d="M7 2.3c3.14 0 5.7 2.56 5.7 5.7s-2.56 5.7-5.7 5.7A5.71 5.71 0 0 1 1.3 8c0-3.14 2.56-5.7 5.7-5.7zM7 1C3.14 1 0 4.14 0 8s3.14 7 7 7 7-3.14 7-7-3.14-7-7-7zm1 3H6v5h2V4zm0 6H6v2h2v-2z"/></svg>
+        <span itemprop="name">Issues</span>
+        <span class="counter">0</span>
+        <meta itemprop="position" content="2">
+</a>    </span>
+
+  <span itemscope itemtype="http://schema.org/ListItem" itemprop="itemListElement">
+    <a href="/Hot2-Kernel/Mystery-Kernel/pulls" class="js-selected-navigation-item reponav-item" data-hotkey="g p" data-selected-links="repo_pulls /Hot2-Kernel/Mystery-Kernel/pulls" itemprop="url">
+      <svg aria-hidden="true" class="octicon octicon-git-pull-request" height="16" version="1.1" viewBox="0 0 12 16" width="12"><path fill-rule="evenodd" d="M11 11.28V5c-.03-.78-.34-1.47-.94-2.06C9.46 2.35 8.78 2.03 8 2H7V0L4 3l3 3V4h1c.27.02.48.11.69.31.21.2.3.42.31.69v6.28A1.993 1.993 0 0 0 10 15a1.993 1.993 0 0 0 1-3.72zm-1 2.92c-.66 0-1.2-.55-1.2-1.2 0-.65.55-1.2 1.2-1.2.65 0 1.2.55 1.2 1.2 0 .65-.55 1.2-1.2 1.2zM4 3c0-1.11-.89-2-2-2a1.993 1.993 0 0 0-1 3.72v6.56A1.993 1.993 0 0 0 2 15a1.993 1.993 0 0 0 1-3.72V4.72c.59-.34 1-.98 1-1.72zm-.8 10c0 .66-.55 1.2-1.2 1.2-.65 0-1.2-.55-1.2-1.2 0-.65.55-1.2 1.2-1.2.65 0 1.2.55 1.2 1.2zM2 4.2C1.34 4.2.8 3.65.8 3c0-.65.55-1.2 1.2-1.2.65 0 1.2.55 1.2 1.2 0 .65-.55 1.2-1.2 1.2z"/></svg>
+      <span itemprop="name">Pull requests</span>
+      <span class="counter">0</span>
+      <meta itemprop="position" content="3">
+</a>  </span>
+
+  <a href="/Hot2-Kernel/Mystery-Kernel/projects" class="js-selected-navigation-item reponav-item" data-selected-links="repo_projects new_repo_project repo_project /Hot2-Kernel/Mystery-Kernel/projects">
+    <svg aria-hidden="true" class="octicon octicon-project" height="16" version="1.1" viewBox="0 0 15 16" width="15"><path fill-rule="evenodd" d="M10 12h3V2h-3v10zm-4-2h3V2H6v8zm-4 4h3V2H2v12zm-1 1h13V1H1v14zM14 0H1a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h13a1 1 0 0 0 1-1V1a1 1 0 0 0-1-1z"/></svg>
+    Projects
+    <span class="counter">0</span>
+</a>
+
+
+  <a href="/Hot2-Kernel/Mystery-Kernel/pulse" class="js-selected-navigation-item reponav-item" data-selected-links="pulse /Hot2-Kernel/Mystery-Kernel/pulse">
+    <svg aria-hidden="true" class="octicon octicon-pulse" height="16" version="1.1" viewBox="0 0 14 16" width="14"><path fill-rule="evenodd" d="M11.5 8L8.8 5.4 6.6 8.5 5.5 1.6 2.38 8H0v2h3.6l.9-1.8.9 5.4L9 8.5l1.6 1.5H14V8z"/></svg>
+    Pulse
+</a>
+  <a href="/Hot2-Kernel/Mystery-Kernel/graphs" class="js-selected-navigation-item reponav-item" data-selected-links="repo_graphs repo_contributors /Hot2-Kernel/Mystery-Kernel/graphs">
+    <svg aria-hidden="true" class="octicon octicon-graph" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M16 14v1H0V0h1v14h15zM5 13H3V8h2v5zm4 0H7V3h2v10zm4 0h-2V6h2v7z"/></svg>
+    Graphs
+</a>
+
+</nav>
+
+  </div>
+</div>
+
+<div class="container new-discussion-timeline experiment-repo-nav">
+  <div class="repository-content">
+
+    
+
+<a href="/Hot2-Kernel/Mystery-Kernel/blob/cad38bb9d0e2dd15abe2de36df5a66c8b4eeab8d/.gitignore" class="d-none js-permalink-shortcut" data-hotkey="y">Permalink</a>
+
+<!-- blob contrib key: blob_contributors:v21:2b9f6f5dcc52db35c43a7a5570dfb680 -->
+
+<div class="file-navigation js-zeroclipboard-container">
+  
+<div class="select-menu branch-select-menu js-menu-container js-select-menu float-left">
+  <button class="btn btn-sm select-menu-button js-menu-target css-truncate" data-hotkey="w"
+    
+    type="button" aria-label="Switch branches or tags" tabindex="0" aria-haspopup="true">
+    <i>Tree:</i>
+    <span class="js-select-button css-truncate-target">cad38bb9d0</span>
+  </button>
+
+  <div class="select-menu-modal-holder js-menu-content js-navigation-container" data-pjax aria-hidden="true">
+
+    <div class="select-menu-modal">
+      <div class="select-menu-header">
+        <svg aria-label="Close" class="octicon octicon-x js-menu-close" height="16" role="img" version="1.1" viewBox="0 0 12 16" width="12"><path fill-rule="evenodd" d="M7.48 8l3.75 3.75-1.48 1.48L6 9.48l-3.75 3.75-1.48-1.48L4.52 8 .77 4.25l1.48-1.48L6 6.52l3.75-3.75 1.48 1.48z"/></svg>
+        <span class="select-menu-title">Switch branches/tags</span>
+      </div>
+
+      <div class="select-menu-filters">
+        <div class="select-menu-text-filter">
+          <input type="text" aria-label="Filter branches/tags" id="context-commitish-filter-field" class="form-control js-filterable-field js-navigation-enable" placeholder="Filter branches/tags">
+        </div>
+        <div class="select-menu-tabs">
+          <ul>
+            <li class="select-menu-tab">
+              <a href="#" data-tab-filter="branches" data-filter-placeholder="Filter branches/tags" class="js-select-menu-tab" role="tab">Branches</a>
+            </li>
+            <li class="select-menu-tab">
+              <a href="#" data-tab-filter="tags" data-filter-placeholder="Find a tag…" class="js-select-menu-tab" role="tab">Tags</a>
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="select-menu-list select-menu-tab-bucket js-select-menu-tab-bucket" data-tab-filter="branches" role="menu">
+
+        <div data-filterable-for="context-commitish-filter-field" data-filterable-type="substring">
+
+
+            <a class="select-menu-item js-navigation-item js-navigation-open "
+               href="/Hot2-Kernel/Mystery-Kernel/blob/master/.gitignore"
+               data-name="master"
+               data-skip-pjax="true"
+               rel="nofollow">
+              <svg aria-hidden="true" class="octicon octicon-check select-menu-item-icon" height="16" version="1.1" viewBox="0 0 12 16" width="12"><path fill-rule="evenodd" d="M12 5l-8 8-4-4 1.5-1.5L4 10l6.5-6.5z"/></svg>
+              <span class="select-menu-item-text css-truncate-target js-select-menu-filter-text">
+                master
+              </span>
+            </a>
+        </div>
+
+          <div class="select-menu-no-results">Nothing to show</div>
+      </div>
+
+      <div class="select-menu-list select-menu-tab-bucket js-select-menu-tab-bucket" data-tab-filter="tags">
+        <div data-filterable-for="context-commitish-filter-field" data-filterable-type="substring">
+
+
+        </div>
+
+        <div class="select-menu-no-results">Nothing to show</div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+  <div class="BtnGroup float-right">
+    <a href="/Hot2-Kernel/Mystery-Kernel/find/cad38bb9d0e2dd15abe2de36df5a66c8b4eeab8d"
+          class="js-pjax-capture-input btn btn-sm BtnGroup-item"
+          data-pjax
+          data-hotkey="t">
+      Find file
+    </a>
+    <button aria-label="Copy file path to clipboard" class="js-zeroclipboard btn btn-sm BtnGroup-item tooltipped tooltipped-s" data-copied-hint="Copied!" type="button">Copy path</button>
+  </div>
+  <div class="breadcrumb js-zeroclipboard-target">
+    <span class="repo-root js-repo-root"><span class="js-path-segment"><a href="/Hot2-Kernel/Mystery-Kernel/tree/cad38bb9d0e2dd15abe2de36df5a66c8b4eeab8d"><span>Mystery-Kernel</span></a></span></span><span class="separator">/</span><strong class="final-path">.gitignore</strong>
+  </div>
+</div>
+
+
+  <div class="commit-tease">
+      <span class="float-right">
+        <a class="commit-tease-sha" href="/Hot2-Kernel/Mystery-Kernel/commit/cad38bb9d0e2dd15abe2de36df5a66c8b4eeab8d" data-pjax>
+          cad38bb
+        </a>
+        <relative-time datetime="2017-01-05T01:37:36Z">Jan 5, 2017</relative-time>
+      </span>
+      <div>
+        <img alt="@kirito96" class="avatar" height="20" src="https://avatars2.githubusercontent.com/u/6293753?v=3&amp;s=40" width="20" />
+        <a href="/kirito96" class="user-mention" rel="contributor">kirito96</a>
+          <a href="/Hot2-Kernel/Mystery-Kernel/commit/cad38bb9d0e2dd15abe2de36df5a66c8b4eeab8d" class="message" data-pjax="true" title="add .gitignore">add .gitignore</a>
+      </div>
+
+    <div class="commit-tease-contributors">
+      <button type="button" class="btn-link muted-link contributors-toggle" data-facebox="#blob_contributors_box">
+        <strong>1</strong>
+         contributor
+      </button>
+      
+    </div>
+
+    <div id="blob_contributors_box" style="display:none">
+      <h2 class="facebox-header" data-facebox-id="facebox-header">Users who have contributed to this file</h2>
+      <ul class="facebox-user-list" data-facebox-id="facebox-description">
+          <li class="facebox-user-list-item">
+            <img alt="@kirito96" height="24" src="https://avatars0.githubusercontent.com/u/6293753?v=3&amp;s=48" width="24" />
+            <a href="/kirito96">kirito96</a>
+          </li>
+      </ul>
+    </div>
+  </div>
+
+
+<div class="file">
+  <div class="file-header">
+  <div class="file-actions">
+
+    <div class="BtnGroup">
+      <a href="/Hot2-Kernel/Mystery-Kernel/raw/cad38bb9d0e2dd15abe2de36df5a66c8b4eeab8d/.gitignore" class="btn btn-sm BtnGroup-item" id="raw-url">Raw</a>
+        <a href="/Hot2-Kernel/Mystery-Kernel/blame/cad38bb9d0e2dd15abe2de36df5a66c8b4eeab8d/.gitignore" class="btn btn-sm js-update-url-with-hash BtnGroup-item">Blame</a>
+      <a href="/Hot2-Kernel/Mystery-Kernel/commits/cad38bb9d0e2dd15abe2de36df5a66c8b4eeab8d/.gitignore" class="btn btn-sm BtnGroup-item" rel="nofollow">History</a>
+    </div>
+
+
+        <button type="button" class="btn-octicon disabled tooltipped tooltipped-nw"
+          aria-label="You must be signed in to make or propose changes">
+          <svg aria-hidden="true" class="octicon octicon-pencil" height="16" version="1.1" viewBox="0 0 14 16" width="14"><path fill-rule="evenodd" d="M0 12v3h3l8-8-3-3-8 8zm3 2H1v-2h1v1h1v1zm10.3-9.3L12 6 9 3l1.3-1.3a.996.996 0 0 1 1.41 0l1.59 1.59c.39.39.39 1.02 0 1.41z"/></svg>
+        </button>
+        <button type="button" class="btn-octicon btn-octicon-danger disabled tooltipped tooltipped-nw"
+          aria-label="You must be signed in to make or propose changes">
+          <svg aria-hidden="true" class="octicon octicon-trashcan" height="16" version="1.1" viewBox="0 0 12 16" width="12"><path fill-rule="evenodd" d="M11 2H9c0-.55-.45-1-1-1H5c-.55 0-1 .45-1 1H2c-.55 0-1 .45-1 1v1c0 .55.45 1 1 1v9c0 .55.45 1 1 1h7c.55 0 1-.45 1-1V5c.55 0 1-.45 1-1V3c0-.55-.45-1-1-1zm-1 12H3V5h1v8h1V5h1v8h1V5h1v8h1V5h1v9zm1-10H2V3h9v1z"/></svg>
+        </button>
+  </div>
+
+  <div class="file-info">
+      116 lines (105 sloc)
+      <span class="file-info-divider"></span>
+    1.6 KB
+  </div>
+</div>
+
+  
+
+  <div itemprop="text" class="blob-wrapper data type-text">
+      <table class="highlight tab-size js-file-line-container" data-tab-size="8">
+      <tr>
+        <td id="L1" class="blob-num js-line-number" data-line-number="1"></td>
+        <td id="LC1" class="blob-code blob-code-inner js-file-line">#</td>
+      </tr>
+      <tr>
+        <td id="L2" class="blob-num js-line-number" data-line-number="2"></td>
+        <td id="LC2" class="blob-code blob-code-inner js-file-line"># NOTE! Don&#39;t add files that are generated in specific</td>
+      </tr>
+      <tr>
+        <td id="L3" class="blob-num js-line-number" data-line-number="3"></td>
+        <td id="LC3" class="blob-code blob-code-inner js-file-line"># subdirectories here. Add them in the &quot;.gitignore&quot; file</td>
+      </tr>
+      <tr>
+        <td id="L4" class="blob-num js-line-number" data-line-number="4"></td>
+        <td id="LC4" class="blob-code blob-code-inner js-file-line"># in that subdirectory instead.</td>
+      </tr>
+      <tr>
+        <td id="L5" class="blob-num js-line-number" data-line-number="5"></td>
+        <td id="LC5" class="blob-code blob-code-inner js-file-line">#</td>
+      </tr>
+      <tr>
+        <td id="L6" class="blob-num js-line-number" data-line-number="6"></td>
+        <td id="LC6" class="blob-code blob-code-inner js-file-line"># NOTE! Please use &#39;git ls-files -i --exclude-standard&#39;</td>
+      </tr>
+      <tr>
+        <td id="L7" class="blob-num js-line-number" data-line-number="7"></td>
+        <td id="LC7" class="blob-code blob-code-inner js-file-line"># command after changing this file, to see if there are</td>
+      </tr>
+      <tr>
+        <td id="L8" class="blob-num js-line-number" data-line-number="8"></td>
+        <td id="LC8" class="blob-code blob-code-inner js-file-line"># any tracked files which get ignored after the change.</td>
+      </tr>
+      <tr>
+        <td id="L9" class="blob-num js-line-number" data-line-number="9"></td>
+        <td id="LC9" class="blob-code blob-code-inner js-file-line">#</td>
+      </tr>
+      <tr>
+        <td id="L10" class="blob-num js-line-number" data-line-number="10"></td>
+        <td id="LC10" class="blob-code blob-code-inner js-file-line"># Normal rules</td>
+      </tr>
+      <tr>
+        <td id="L11" class="blob-num js-line-number" data-line-number="11"></td>
+        <td id="LC11" class="blob-code blob-code-inner js-file-line">#</td>
+      </tr>
+      <tr>
+        <td id="L12" class="blob-num js-line-number" data-line-number="12"></td>
+        <td id="LC12" class="blob-code blob-code-inner js-file-line">.*</td>
+      </tr>
+      <tr>
+        <td id="L13" class="blob-num js-line-number" data-line-number="13"></td>
+        <td id="LC13" class="blob-code blob-code-inner js-file-line">*.o</td>
+      </tr>
+      <tr>
+        <td id="L14" class="blob-num js-line-number" data-line-number="14"></td>
+        <td id="LC14" class="blob-code blob-code-inner js-file-line">*.o.*</td>
+      </tr>
+      <tr>
+        <td id="L15" class="blob-num js-line-number" data-line-number="15"></td>
+        <td id="LC15" class="blob-code blob-code-inner js-file-line">*.a</td>
+      </tr>
+      <tr>
+        <td id="L16" class="blob-num js-line-number" data-line-number="16"></td>
+        <td id="LC16" class="blob-code blob-code-inner js-file-line">*.s</td>
+      </tr>
+      <tr>
+        <td id="L17" class="blob-num js-line-number" data-line-number="17"></td>
+        <td id="LC17" class="blob-code blob-code-inner js-file-line">*.ko</td>
+      </tr>
+      <tr>
+        <td id="L18" class="blob-num js-line-number" data-line-number="18"></td>
+        <td id="LC18" class="blob-code blob-code-inner js-file-line">*.so</td>
+      </tr>
+      <tr>
+        <td id="L19" class="blob-num js-line-number" data-line-number="19"></td>
+        <td id="LC19" class="blob-code blob-code-inner js-file-line">*.so.dbg</td>
+      </tr>
+      <tr>
+        <td id="L20" class="blob-num js-line-number" data-line-number="20"></td>
+        <td id="LC20" class="blob-code blob-code-inner js-file-line">*.mod.c</td>
+      </tr>
+      <tr>
+        <td id="L21" class="blob-num js-line-number" data-line-number="21"></td>
+        <td id="LC21" class="blob-code blob-code-inner js-file-line">*.i</td>
+      </tr>
+      <tr>
+        <td id="L22" class="blob-num js-line-number" data-line-number="22"></td>
+        <td id="LC22" class="blob-code blob-code-inner js-file-line">*.lst</td>
+      </tr>
+      <tr>
+        <td id="L23" class="blob-num js-line-number" data-line-number="23"></td>
+        <td id="LC23" class="blob-code blob-code-inner js-file-line">*.symtypes</td>
+      </tr>
+      <tr>
+        <td id="L24" class="blob-num js-line-number" data-line-number="24"></td>
+        <td id="LC24" class="blob-code blob-code-inner js-file-line">*.order</td>
+      </tr>
+      <tr>
+        <td id="L25" class="blob-num js-line-number" data-line-number="25"></td>
+        <td id="LC25" class="blob-code blob-code-inner js-file-line">modules.builtin</td>
+      </tr>
+      <tr>
+        <td id="L26" class="blob-num js-line-number" data-line-number="26"></td>
+        <td id="LC26" class="blob-code blob-code-inner js-file-line">*.elf</td>
+      </tr>
+      <tr>
+        <td id="L27" class="blob-num js-line-number" data-line-number="27"></td>
+        <td id="LC27" class="blob-code blob-code-inner js-file-line">*.bin</td>
+      </tr>
+      <tr>
+        <td id="L28" class="blob-num js-line-number" data-line-number="28"></td>
+        <td id="LC28" class="blob-code blob-code-inner js-file-line">*.gz</td>
+      </tr>
+      <tr>
+        <td id="L29" class="blob-num js-line-number" data-line-number="29"></td>
+        <td id="LC29" class="blob-code blob-code-inner js-file-line">*.bz2</td>
+      </tr>
+      <tr>
+        <td id="L30" class="blob-num js-line-number" data-line-number="30"></td>
+        <td id="LC30" class="blob-code blob-code-inner js-file-line">*.lzma</td>
+      </tr>
+      <tr>
+        <td id="L31" class="blob-num js-line-number" data-line-number="31"></td>
+        <td id="LC31" class="blob-code blob-code-inner js-file-line">*.xz</td>
+      </tr>
+      <tr>
+        <td id="L32" class="blob-num js-line-number" data-line-number="32"></td>
+        <td id="LC32" class="blob-code blob-code-inner js-file-line">*.lzo</td>
+      </tr>
+      <tr>
+        <td id="L33" class="blob-num js-line-number" data-line-number="33"></td>
+        <td id="LC33" class="blob-code blob-code-inner js-file-line">*.patch</td>
+      </tr>
+      <tr>
+        <td id="L34" class="blob-num js-line-number" data-line-number="34"></td>
+        <td id="LC34" class="blob-code blob-code-inner js-file-line">*.gcno</td>
+      </tr>
+      <tr>
+        <td id="L35" class="blob-num js-line-number" data-line-number="35"></td>
+        <td id="LC35" class="blob-code blob-code-inner js-file-line">
+</td>
+      </tr>
+      <tr>
+        <td id="L36" class="blob-num js-line-number" data-line-number="36"></td>
+        <td id="LC36" class="blob-code blob-code-inner js-file-line">#</td>
+      </tr>
+      <tr>
+        <td id="L37" class="blob-num js-line-number" data-line-number="37"></td>
+        <td id="LC37" class="blob-code blob-code-inner js-file-line"># Top-level generic files</td>
+      </tr>
+      <tr>
+        <td id="L38" class="blob-num js-line-number" data-line-number="38"></td>
+        <td id="LC38" class="blob-code blob-code-inner js-file-line">#</td>
+      </tr>
+      <tr>
+        <td id="L39" class="blob-num js-line-number" data-line-number="39"></td>
+        <td id="LC39" class="blob-code blob-code-inner js-file-line">/tags</td>
+      </tr>
+      <tr>
+        <td id="L40" class="blob-num js-line-number" data-line-number="40"></td>
+        <td id="LC40" class="blob-code blob-code-inner js-file-line">/TAGS</td>
+      </tr>
+      <tr>
+        <td id="L41" class="blob-num js-line-number" data-line-number="41"></td>
+        <td id="LC41" class="blob-code blob-code-inner js-file-line">/linux</td>
+      </tr>
+      <tr>
+        <td id="L42" class="blob-num js-line-number" data-line-number="42"></td>
+        <td id="LC42" class="blob-code blob-code-inner js-file-line">/vmlinux</td>
+      </tr>
+      <tr>
+        <td id="L43" class="blob-num js-line-number" data-line-number="43"></td>
+        <td id="LC43" class="blob-code blob-code-inner js-file-line">/vmlinuz</td>
+      </tr>
+      <tr>
+        <td id="L44" class="blob-num js-line-number" data-line-number="44"></td>
+        <td id="LC44" class="blob-code blob-code-inner js-file-line">/System.map</td>
+      </tr>
+      <tr>
+        <td id="L45" class="blob-num js-line-number" data-line-number="45"></td>
+        <td id="LC45" class="blob-code blob-code-inner js-file-line">/Module.markers</td>
+      </tr>
+      <tr>
+        <td id="L46" class="blob-num js-line-number" data-line-number="46"></td>
+        <td id="LC46" class="blob-code blob-code-inner js-file-line">/Module.symvers</td>
+      </tr>
+      <tr>
+        <td id="L47" class="blob-num js-line-number" data-line-number="47"></td>
+        <td id="LC47" class="blob-code blob-code-inner js-file-line">
+</td>
+      </tr>
+      <tr>
+        <td id="L48" class="blob-num js-line-number" data-line-number="48"></td>
+        <td id="LC48" class="blob-code blob-code-inner js-file-line">#</td>
+      </tr>
+      <tr>
+        <td id="L49" class="blob-num js-line-number" data-line-number="49"></td>
+        <td id="LC49" class="blob-code blob-code-inner js-file-line"># Debian directory (make deb-pkg)</td>
+      </tr>
+      <tr>
+        <td id="L50" class="blob-num js-line-number" data-line-number="50"></td>
+        <td id="LC50" class="blob-code blob-code-inner js-file-line">#</td>
+      </tr>
+      <tr>
+        <td id="L51" class="blob-num js-line-number" data-line-number="51"></td>
+        <td id="LC51" class="blob-code blob-code-inner js-file-line">/debian/</td>
+      </tr>
+      <tr>
+        <td id="L52" class="blob-num js-line-number" data-line-number="52"></td>
+        <td id="LC52" class="blob-code blob-code-inner js-file-line">
+</td>
+      </tr>
+      <tr>
+        <td id="L53" class="blob-num js-line-number" data-line-number="53"></td>
+        <td id="LC53" class="blob-code blob-code-inner js-file-line">#</td>
+      </tr>
+      <tr>
+        <td id="L54" class="blob-num js-line-number" data-line-number="54"></td>
+        <td id="LC54" class="blob-code blob-code-inner js-file-line"># git files that we don&#39;t want to ignore even it they are dot-files</td>
+      </tr>
+      <tr>
+        <td id="L55" class="blob-num js-line-number" data-line-number="55"></td>
+        <td id="LC55" class="blob-code blob-code-inner js-file-line">#</td>
+      </tr>
+      <tr>
+        <td id="L56" class="blob-num js-line-number" data-line-number="56"></td>
+        <td id="LC56" class="blob-code blob-code-inner js-file-line">!.gitignore</td>
+      </tr>
+      <tr>
+        <td id="L57" class="blob-num js-line-number" data-line-number="57"></td>
+        <td id="LC57" class="blob-code blob-code-inner js-file-line">!.mailmap</td>
+      </tr>
+      <tr>
+        <td id="L58" class="blob-num js-line-number" data-line-number="58"></td>
+        <td id="LC58" class="blob-code blob-code-inner js-file-line">
+</td>
+      </tr>
+      <tr>
+        <td id="L59" class="blob-num js-line-number" data-line-number="59"></td>
+        <td id="LC59" class="blob-code blob-code-inner js-file-line">#</td>
+      </tr>
+      <tr>
+        <td id="L60" class="blob-num js-line-number" data-line-number="60"></td>
+        <td id="LC60" class="blob-code blob-code-inner js-file-line"># Generated include files</td>
+      </tr>
+      <tr>
+        <td id="L61" class="blob-num js-line-number" data-line-number="61"></td>
+        <td id="LC61" class="blob-code blob-code-inner js-file-line">#</td>
+      </tr>
+      <tr>
+        <td id="L62" class="blob-num js-line-number" data-line-number="62"></td>
+        <td id="LC62" class="blob-code blob-code-inner js-file-line">include/config</td>
+      </tr>
+      <tr>
+        <td id="L63" class="blob-num js-line-number" data-line-number="63"></td>
+        <td id="LC63" class="blob-code blob-code-inner js-file-line">include/generated</td>
+      </tr>
+      <tr>
+        <td id="L64" class="blob-num js-line-number" data-line-number="64"></td>
+        <td id="LC64" class="blob-code blob-code-inner js-file-line">arch/*/include/generated</td>
+      </tr>
+      <tr>
+        <td id="L65" class="blob-num js-line-number" data-line-number="65"></td>
+        <td id="LC65" class="blob-code blob-code-inner js-file-line">include/config/auto.conf</td>
+      </tr>
+      <tr>
+        <td id="L66" class="blob-num js-line-number" data-line-number="66"></td>
+        <td id="LC66" class="blob-code blob-code-inner js-file-line">include/config/kernel.release</td>
+      </tr>
+      <tr>
+        <td id="L67" class="blob-num js-line-number" data-line-number="67"></td>
+        <td id="LC67" class="blob-code blob-code-inner js-file-line">include/config/tristate.conf</td>
+      </tr>
+      <tr>
+        <td id="L68" class="blob-num js-line-number" data-line-number="68"></td>
+        <td id="LC68" class="blob-code blob-code-inner js-file-line">include/generated/asm-offsets.h</td>
+      </tr>
+      <tr>
+        <td id="L69" class="blob-num js-line-number" data-line-number="69"></td>
+        <td id="LC69" class="blob-code blob-code-inner js-file-line">include/generated/autoconf.h</td>
+      </tr>
+      <tr>
+        <td id="L70" class="blob-num js-line-number" data-line-number="70"></td>
+        <td id="LC70" class="blob-code blob-code-inner js-file-line">include/generated/bounds.h</td>
+      </tr>
+      <tr>
+        <td id="L71" class="blob-num js-line-number" data-line-number="71"></td>
+        <td id="LC71" class="blob-code blob-code-inner js-file-line">include/generated/compile.h</td>
+      </tr>
+      <tr>
+        <td id="L72" class="blob-num js-line-number" data-line-number="72"></td>
+        <td id="LC72" class="blob-code blob-code-inner js-file-line">include/generated/utsrelease.h</td>
+      </tr>
+      <tr>
+        <td id="L73" class="blob-num js-line-number" data-line-number="73"></td>
+        <td id="LC73" class="blob-code blob-code-inner js-file-line">scripts/basic/bin2c</td>
+      </tr>
+      <tr>
+        <td id="L74" class="blob-num js-line-number" data-line-number="74"></td>
+        <td id="LC74" class="blob-code blob-code-inner js-file-line">scripts/basic/fixdep</td>
+      </tr>
+      <tr>
+        <td id="L75" class="blob-num js-line-number" data-line-number="75"></td>
+        <td id="LC75" class="blob-code blob-code-inner js-file-line">scripts/dtc/dtc</td>
+      </tr>
+      <tr>
+        <td id="L76" class="blob-num js-line-number" data-line-number="76"></td>
+        <td id="LC76" class="blob-code blob-code-inner js-file-line">scripts/kallsyms</td>
+      </tr>
+      <tr>
+        <td id="L77" class="blob-num js-line-number" data-line-number="77"></td>
+        <td id="LC77" class="blob-code blob-code-inner js-file-line">scripts/kconfig/conf</td>
+      </tr>
+      <tr>
+        <td id="L78" class="blob-num js-line-number" data-line-number="78"></td>
+        <td id="LC78" class="blob-code blob-code-inner js-file-line">scripts/kconfig/mconf</td>
+      </tr>
+      <tr>
+        <td id="L79" class="blob-num js-line-number" data-line-number="79"></td>
+        <td id="LC79" class="blob-code blob-code-inner js-file-line">scripts/mod/elfconfig.h</td>
+      </tr>
+      <tr>
+        <td id="L80" class="blob-num js-line-number" data-line-number="80"></td>
+        <td id="LC80" class="blob-code blob-code-inner js-file-line">scripts/mod/mk_elfconfig</td>
+      </tr>
+      <tr>
+        <td id="L81" class="blob-num js-line-number" data-line-number="81"></td>
+        <td id="LC81" class="blob-code blob-code-inner js-file-line">scripts/mod/modpost</td>
+      </tr>
+      <tr>
+        <td id="L82" class="blob-num js-line-number" data-line-number="82"></td>
+        <td id="LC82" class="blob-code blob-code-inner js-file-line">scripts/pnmtologo</td>
+      </tr>
+      <tr>
+        <td id="L83" class="blob-num js-line-number" data-line-number="83"></td>
+        <td id="LC83" class="blob-code blob-code-inner js-file-line">scripts/selinux/genheaders/genheaders</td>
+      </tr>
+      <tr>
+        <td id="L84" class="blob-num js-line-number" data-line-number="84"></td>
+        <td id="LC84" class="blob-code blob-code-inner js-file-line">scripts/selinux/mdp/mdp</td>
+      </tr>
+      <tr>
+        <td id="L85" class="blob-num js-line-number" data-line-number="85"></td>
+        <td id="LC85" class="blob-code blob-code-inner js-file-line">scripts/sortextable</td>
+      </tr>
+      <tr>
+        <td id="L86" class="blob-num js-line-number" data-line-number="86"></td>
+        <td id="LC86" class="blob-code blob-code-inner js-file-line">tools/dct/old_dct/DCT.log</td>
+      </tr>
+      <tr>
+        <td id="L87" class="blob-num js-line-number" data-line-number="87"></td>
+        <td id="LC87" class="blob-code blob-code-inner js-file-line">
+</td>
+      </tr>
+      <tr>
+        <td id="L88" class="blob-num js-line-number" data-line-number="88"></td>
+        <td id="LC88" class="blob-code blob-code-inner js-file-line"># stgit generated dirs</td>
+      </tr>
+      <tr>
+        <td id="L89" class="blob-num js-line-number" data-line-number="89"></td>
+        <td id="LC89" class="blob-code blob-code-inner js-file-line">patches-*</td>
+      </tr>
+      <tr>
+        <td id="L90" class="blob-num js-line-number" data-line-number="90"></td>
+        <td id="LC90" class="blob-code blob-code-inner js-file-line">
+</td>
+      </tr>
+      <tr>
+        <td id="L91" class="blob-num js-line-number" data-line-number="91"></td>
+        <td id="LC91" class="blob-code blob-code-inner js-file-line"># quilt&#39;s files</td>
+      </tr>
+      <tr>
+        <td id="L92" class="blob-num js-line-number" data-line-number="92"></td>
+        <td id="LC92" class="blob-code blob-code-inner js-file-line">patches</td>
+      </tr>
+      <tr>
+        <td id="L93" class="blob-num js-line-number" data-line-number="93"></td>
+        <td id="LC93" class="blob-code blob-code-inner js-file-line">series</td>
+      </tr>
+      <tr>
+        <td id="L94" class="blob-num js-line-number" data-line-number="94"></td>
+        <td id="LC94" class="blob-code blob-code-inner js-file-line">
+</td>
+      </tr>
+      <tr>
+        <td id="L95" class="blob-num js-line-number" data-line-number="95"></td>
+        <td id="LC95" class="blob-code blob-code-inner js-file-line"># cscope files</td>
+      </tr>
+      <tr>
+        <td id="L96" class="blob-num js-line-number" data-line-number="96"></td>
+        <td id="LC96" class="blob-code blob-code-inner js-file-line">cscope.*</td>
+      </tr>
+      <tr>
+        <td id="L97" class="blob-num js-line-number" data-line-number="97"></td>
+        <td id="LC97" class="blob-code blob-code-inner js-file-line">ncscope.*</td>
+      </tr>
+      <tr>
+        <td id="L98" class="blob-num js-line-number" data-line-number="98"></td>
+        <td id="LC98" class="blob-code blob-code-inner js-file-line">
+</td>
+      </tr>
+      <tr>
+        <td id="L99" class="blob-num js-line-number" data-line-number="99"></td>
+        <td id="LC99" class="blob-code blob-code-inner js-file-line"># gnu global files</td>
+      </tr>
+      <tr>
+        <td id="L100" class="blob-num js-line-number" data-line-number="100"></td>
+        <td id="LC100" class="blob-code blob-code-inner js-file-line">GPATH</td>
+      </tr>
+      <tr>
+        <td id="L101" class="blob-num js-line-number" data-line-number="101"></td>
+        <td id="LC101" class="blob-code blob-code-inner js-file-line">GRTAGS</td>
+      </tr>
+      <tr>
+        <td id="L102" class="blob-num js-line-number" data-line-number="102"></td>
+        <td id="LC102" class="blob-code blob-code-inner js-file-line">GSYMS</td>
+      </tr>
+      <tr>
+        <td id="L103" class="blob-num js-line-number" data-line-number="103"></td>
+        <td id="LC103" class="blob-code blob-code-inner js-file-line">GTAGS</td>
+      </tr>
+      <tr>
+        <td id="L104" class="blob-num js-line-number" data-line-number="104"></td>
+        <td id="LC104" class="blob-code blob-code-inner js-file-line">
+</td>
+      </tr>
+      <tr>
+        <td id="L105" class="blob-num js-line-number" data-line-number="105"></td>
+        <td id="LC105" class="blob-code blob-code-inner js-file-line">*.orig</td>
+      </tr>
+      <tr>
+        <td id="L106" class="blob-num js-line-number" data-line-number="106"></td>
+        <td id="LC106" class="blob-code blob-code-inner js-file-line">*~</td>
+      </tr>
+      <tr>
+        <td id="L107" class="blob-num js-line-number" data-line-number="107"></td>
+        <td id="LC107" class="blob-code blob-code-inner js-file-line">\#*#</td>
+      </tr>
+      <tr>
+        <td id="L108" class="blob-num js-line-number" data-line-number="108"></td>
+        <td id="LC108" class="blob-code blob-code-inner js-file-line">
+</td>
+      </tr>
+      <tr>
+        <td id="L109" class="blob-num js-line-number" data-line-number="109"></td>
+        <td id="LC109" class="blob-code blob-code-inner js-file-line">#</td>
+      </tr>
+      <tr>
+        <td id="L110" class="blob-num js-line-number" data-line-number="110"></td>
+        <td id="LC110" class="blob-code blob-code-inner js-file-line"># Leavings from module signing</td>
+      </tr>
+      <tr>
+        <td id="L111" class="blob-num js-line-number" data-line-number="111"></td>
+        <td id="LC111" class="blob-code blob-code-inner js-file-line">#</td>
+      </tr>
+      <tr>
+        <td id="L112" class="blob-num js-line-number" data-line-number="112"></td>
+        <td id="LC112" class="blob-code blob-code-inner js-file-line">extra_certificates</td>
+      </tr>
+      <tr>
+        <td id="L113" class="blob-num js-line-number" data-line-number="113"></td>
+        <td id="LC113" class="blob-code blob-code-inner js-file-line">signing_key.priv</td>
+      </tr>
+      <tr>
+        <td id="L114" class="blob-num js-line-number" data-line-number="114"></td>
+        <td id="LC114" class="blob-code blob-code-inner js-file-line">signing_key.x509</td>
+      </tr>
+      <tr>
+        <td id="L115" class="blob-num js-line-number" data-line-number="115"></td>
+        <td id="LC115" class="blob-code blob-code-inner js-file-line">x509.genkey</td>
+      </tr>
+</table>
+
+  </div>
+
+</div>
+
+<button type="button" data-facebox="#jump-to-line" data-facebox-class="linejump" data-hotkey="l" class="d-none">Jump to Line</button>
+<div id="jump-to-line" style="display:none">
+  <!-- '"` --><!-- </textarea></xmp> --></option></form><form accept-charset="UTF-8" action="" class="js-jump-to-line-form" method="get"><div style="margin:0;padding:0;display:inline"><input name="utf8" type="hidden" value="&#x2713;" /></div>
+    <input class="form-control linejump-input js-jump-to-line-field" type="text" placeholder="Jump to line&hellip;" aria-label="Jump to line" autofocus>
+    <button type="submit" class="btn">Go</button>
+</form></div>
+
+  </div>
+  <div class="modal-backdrop js-touch-events"></div>
+</div>
+
+
+    </div>
+  </div>
+
+    </div>
+
+        <div class="container site-footer-container">
+  <div class="site-footer" role="contentinfo">
+    <ul class="site-footer-links float-right">
+        <li><a href="https://github.com/contact" data-ga-click="Footer, go to contact, text:contact">Contact GitHub</a></li>
+      <li><a href="https://developer.github.com" data-ga-click="Footer, go to api, text:api">API</a></li>
+      <li><a href="https://training.github.com" data-ga-click="Footer, go to training, text:training">Training</a></li>
+      <li><a href="https://shop.github.com" data-ga-click="Footer, go to shop, text:shop">Shop</a></li>
+        <li><a href="https://github.com/blog" data-ga-click="Footer, go to blog, text:blog">Blog</a></li>
+        <li><a href="https://github.com/about" data-ga-click="Footer, go to about, text:about">About</a></li>
+
+    </ul>
+
+    <a href="https://github.com" aria-label="Homepage" class="site-footer-mark" title="GitHub">
+      <svg aria-hidden="true" class="octicon octicon-mark-github" height="24" version="1.1" viewBox="0 0 16 16" width="24"><path fill-rule="evenodd" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+</a>
+    <ul class="site-footer-links">
+      <li>&copy; 2017 <span title="0.04104s from github-fe-acdc16e.cp1-iad.github.net">GitHub</span>, Inc.</li>
+        <li><a href="https://github.com/site/terms" data-ga-click="Footer, go to terms, text:terms">Terms</a></li>
+        <li><a href="https://github.com/site/privacy" data-ga-click="Footer, go to privacy, text:privacy">Privacy</a></li>
+        <li><a href="https://github.com/security" data-ga-click="Footer, go to security, text:security">Security</a></li>
+        <li><a href="https://status.github.com/" data-ga-click="Footer, go to status, text:status">Status</a></li>
+        <li><a href="https://help.github.com" data-ga-click="Footer, go to help, text:help">Help</a></li>
+    </ul>
+  </div>
+</div>
+
+
+
+    
+
+    <div id="ajax-error-message" class="ajax-error-message flash flash-error">
+      <svg aria-hidden="true" class="octicon octicon-alert" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M8.865 1.52c-.18-.31-.51-.5-.87-.5s-.69.19-.87.5L.275 13.5c-.18.31-.18.69 0 1 .19.31.52.5.87.5h13.7c.36 0 .69-.19.86-.5.17-.31.18-.69.01-1L8.865 1.52zM8.995 13h-2v-2h2v2zm0-3h-2V6h2v4z"/></svg>
+      <button type="button" class="flash-close js-flash-close js-ajax-error-dismiss" aria-label="Dismiss error">
+        <svg aria-hidden="true" class="octicon octicon-x" height="16" version="1.1" viewBox="0 0 12 16" width="12"><path fill-rule="evenodd" d="M7.48 8l3.75 3.75-1.48 1.48L6 9.48l-3.75 3.75-1.48-1.48L4.52 8 .77 4.25l1.48-1.48L6 6.52l3.75-3.75 1.48 1.48z"/></svg>
+      </button>
+      You can't perform that action at this time.
+    </div>
+
+
+      <script crossorigin="anonymous" src="https://assets-cdn.github.com/assets/compat-30ce4c86c27f88c3d1b4eb03efda59b45d8d7c871880dee0b8f73d5ef1b25fdf.js"></script>
+      <script crossorigin="anonymous" src="https://assets-cdn.github.com/assets/frameworks-9acf37c4e836448ae505ab18621a28780ca08f53f94bcd871a0a9952ee0a5c4c.js"></script>
+      <script async="async" crossorigin="anonymous" src="https://assets-cdn.github.com/assets/github-72e6707f3d94d989d8aa283d27a78adf60e300beea6792f9c291c5181a88b258.js"></script>
+      
+      
+      
+      
+    <div class="js-stale-session-flash stale-session-flash flash flash-warn flash-banner d-none">
+      <svg aria-hidden="true" class="octicon octicon-alert" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M8.865 1.52c-.18-.31-.51-.5-.87-.5s-.69.19-.87.5L.275 13.5c-.18.31-.18.69 0 1 .19.31.52.5.87.5h13.7c.36 0 .69-.19.86-.5.17-.31.18-.69.01-1L8.865 1.52zM8.995 13h-2v-2h2v2zm0-3h-2V6h2v4z"/></svg>
+      <span class="signed-in-tab-flash">You signed in with another tab or window. <a href="">Reload</a> to refresh your session.</span>
+      <span class="signed-out-tab-flash">You signed out in another tab or window. <a href="">Reload</a> to refresh your session.</span>
+    </div>
+    <div class="facebox" id="facebox" style="display:none;">
+  <div class="facebox-popup">
+    <div class="facebox-content" role="dialog" aria-labelledby="facebox-header" aria-describedby="facebox-description">
+    </div>
+    <button type="button" class="facebox-close js-facebox-close" aria-label="Close modal">
+      <svg aria-hidden="true" class="octicon octicon-x" height="16" version="1.1" viewBox="0 0 12 16" width="12"><path fill-rule="evenodd" d="M7.48 8l3.75 3.75-1.48 1.48L6 9.48l-3.75 3.75-1.48-1.48L4.52 8 .77 4.25l1.48-1.48L6 6.52l3.75-3.75 1.48 1.48z"/></svg>
+    </button>
+  </div>
+</div>
+
+  </body>
+</html>
+
