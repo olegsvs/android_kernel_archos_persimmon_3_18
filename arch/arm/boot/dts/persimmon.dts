@@ -574,3 +574,31 @@ memory@00000000 {
 	status = "okay";
 };
 /* USB GPIO Kernal Standardization end */
+
+/* AUDIO GPIO standardization */
+&audgpio {
+        pinctrl-names = "default", "extamp-pullhigh", "extamp-pulllow";
+        pinctrl-0 = <&AUD_pins_default>;
+        pinctrl-1 = <&AUD_pins_extamp_high>;
+        pinctrl-2 = <&AUD_pins_extamp_low>;
+        status = "okay";
+};
+&pio {
+        AUD_pins_default: audiodefault {
+        };
+        AUD_pins_extamp_high: audexamphigh {
+                pins_cmd_dat {
+                        pins = <PINMUX_GPIO50__FUNC_GPIO50>;
+                                slew-rate = <1>;
+                                output-high;
+                };
+        };
+        AUD_pins_extamp_low: audexamplow {
+                pins_cmd_dat {
+                        pins = <PINMUX_GPIO50__FUNC_GPIO50>;
+                                slew-rate = <1>;
+                                output-low;
+                };
+        };
+};
+/* AUDIO end */
