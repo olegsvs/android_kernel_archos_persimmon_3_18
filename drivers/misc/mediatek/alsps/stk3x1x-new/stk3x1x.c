@@ -87,10 +87,10 @@
 /*----------------------------------------------------------------------------*/
 #define APS_TAG                  "[ALS/PS] "
 
-#define APS_FUN(f)               printk(APS_TAG"%s\n", __func__)
-#define APS_ERR(fmt, args...)    printk(APS_TAG"%s %d : "fmt, __func__, __LINE__, ##args)
-#define APS_LOG(fmt, args...)    printk(APS_TAG fmt, ##args)
-#define APS_DBG(fmt, args...)    printk(APS_TAG fmt, ##args)                
+#define APS_FUN(f)               no_printk(APS_TAG"%s\n", __func__)
+#define APS_ERR(fmt, args...)    no_printk(APS_TAG"%s %d : "fmt, __func__, __LINE__, ##args)
+#define APS_LOG(fmt, args...)    no_printk(APS_TAG fmt, ##args)
+#define APS_DBG(fmt, args...)    no_printk(APS_TAG fmt, ##args)                
 /******************************************************************************
  * extern functions
 *******************************************************************************/
