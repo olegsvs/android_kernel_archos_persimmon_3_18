@@ -2,7 +2,7 @@
 #!/bin/bash
 #export CONFIG_DEBUG_SECTION_MISMATCH=y
 export KBUILD_BUILD_USER=oleg.svs
-
+export GCC_VERSION="gcc version 5.3.1 20160412 (linaro) (GCC)"
 export KBUILD_BUILD_HOST=SRT
 
 echo "Make dirs >>>"
