@@ -79,6 +79,7 @@ ifneq ($(strip $(TARGET_NO_KERNEL)),true)
     endif
     export KBUILD_BUILD_USER
     export KBUILD_BUILD_HOST
+    export MTK_DTBO_FEATURE
     BUILT_KERNEL_TARGET := $(KERNEL_ZIMAGE_OUT).bin
     INSTALLED_KERNEL_TARGET := $(PRODUCT_OUT)/kernel
     TARGET_KERNEL_CONFIG := $(KERNEL_OUT)/.config
@@ -89,21 +90,30 @@ ifneq ($(strip $(TARGET_NO_KERNEL)),true)
     KERNEL_MODULES_DEPS := $(if $(wildcard $(KERNEL_MODULES_OUT)/lib/modules/*.ko),$(wildcard $(KERNEL_MODULES_OUT)/lib/modules/*.ko),$(KERNEL_MODULES_OUT)/lib/modules)
     KERNEL_MODULES_SYMBOLS_OUT := $(if $(filter /% ~%,$(TARGET_OUT_UNSTRIPPED)),,$(KERNEL_ROOT_DIR)/)$(TARGET_OUT_UNSTRIPPED)/system
     KERNEL_MAKE_OPTION := O=$(KERNEL_OUT) ARCH=$(TARGET_ARCH) CROSS_COMPILE=$(KERNEL_CROSS_COMPILE) ROOTDIR=$(KERNEL_ROOT_DIR) $(if $(strip $(SHOW_COMMANDS)),V=1)
+ifneq (yes,$(filter $(MTK_BSP_PACKAGE) $(MTK_BASIC_PACKAGE),yes))
+ifneq ($(strip $(MTK_EMMC_SUPPORT)),yes)
+ifeq  ($(strip $(MTK_NAND_UBIFS_SUPPORT)),yes)
+    KERNEL_MAKE_OPTION += LOCALVERSION=
+endif
+endif
+endif
 
 # .config cannot be PHONY due to config_data.gz
 $(TARGET_KERNEL_CONFIG): $(KERNEL_CONFIG_FILE) $(LOCAL_PATH)/Android.mk
-ifneq ($(wildcard $(TARGET_KERNEL_CONFIG)),)
 $(TARGET_KERNEL_CONFIG): $(shell find $(KERNEL_DIR) -name "Kconfig*")
-endif
 	$(hide) mkdir -p $(KERNEL_OUT)
 	$(MAKE) -C $(KERNEL_DIR) $(KERNEL_MAKE_OPTION) $(KERNEL_DEFCONFIG)
 
 $(KERNEL_MODULES_DEPS): $(KERNEL_ZIMAGE_OUT) ;
 
+.KATI_RESTAT: $(KERNEL_ZIMAGE_OUT)
 $(KERNEL_ZIMAGE_OUT): $(TARGET_KERNEL_CONFIG) FORCE
 	$(hide) mkdir -p $(KERNEL_OUT)
 	$(MAKE) -C $(KERNEL_DIR) $(KERNEL_MAKE_OPTION)
 	$(hide) $(call fixup-kernel-cmd-file,$(KERNEL_OUT)/arch/$(TARGET_ARCH)/boot/compressed/.piggy.xzkern.cmd)
+ifeq ($(strip $(MTK_DTBO_FEATURE)), yes)
+	$(MAKE) -C $(KERNEL_DIR) $(KERNEL_MAKE_OPTION) dtboimage
+endif
 ifneq ($(KERNEL_CONFIG_MODULES),)
 	$(MAKE) -C $(KERNEL_DIR) $(KERNEL_MAKE_OPTION) modules
 	$(MAKE) -C $(KERNEL_DIR) $(KERNEL_MAKE_OPTION) INSTALL_MOD_PATH=$(KERNEL_MODULES_SYMBOLS_OUT) modules_install
@@ -117,11 +127,9 @@ endif
 ifeq ($(strip $(MTK_HEADER_SUPPORT)), yes)
 $(BUILT_KERNEL_TARGET): $(KERNEL_ZIMAGE_OUT) $(TARGET_KERNEL_CONFIG) $(LOCAL_PATH)/Android.mk | $(HOST_OUT_EXECUTABLES)/mkimage$(HOST_EXECUTABLE_SUFFIX)
 	$(hide) $(HOST_OUT_EXECUTABLES)/mkimage$(HOST_EXECUTABLE_SUFFIX) $< KERNEL 0xffffffff > $@
-
 else
 $(BUILT_KERNEL_TARGET): $(KERNEL_ZIMAGE_OUT) $(TARGET_KERNEL_CONFIG) $(LOCAL_PATH)/Android.mk | $(ACP)
 	$(copy-file-to-target)
-
 endif
 
 $(TARGET_PREBUILT_KERNEL): $(BUILT_KERNEL_TARGET) $(LOCAL_PATH)/Android.mk | $(ACP)
@@ -131,14 +139,24 @@ $(TARGET_PREBUILT_KERNEL): $(BUILT_KERNEL_TARGET) $(LOCAL_PATH)/Android.mk | $(A
     BUILT_KERNEL_TARGET := $(TARGET_PREBUILT_KERNEL)
   endif#TARGET_PREBUILT_KERNEL
 
-$(INSTALLED_KERNEL_TARGET): $(BUILT_KERNEL_TARGET) $(LOCAL_PATH)/Android.mk | $(ACP)
+ifeq ($(strip $(MTK_DTBO_FEATURE)), yes)
+INSTALLED_DTB_OVERLAY_TARGET := $(PRODUCT_OUT)/dtbo.img
+BUILT_DTB_OVERLAY_TARGET := $(KERNEL_OUT)/arch/$(TARGET_ARCH)/boot/dts/overlays/dtbo.img
+
+$(BUILT_DTB_OVERLAY_TARGET): $(BUILT_KERNEL_TARGET)
+
+$(INSTALLED_DTB_OVERLAY_TARGET): $(BUILT_DTB_OVERLAY_TARGET) $(LOCAL_PATH)/Android.mk | $(ACP)
+	$(copy-file-to-target)
+endif
+
+$(INSTALLED_KERNEL_TARGET): $(BUILT_KERNEL_TARGET) $(INSTALLED_DTB_OVERLAY_TARGET) $(LOCAL_PATH)/Android.mk | $(ACP)
 	$(copy-file-to-target)
 
 ifneq ($(KERNEL_CONFIG_MODULES),)
 $(BUILT_SYSTEMIMAGE): $(KERNEL_MODULES_DEPS)
 endif
 
-.PHONY: kernel save-kernel kernel-savedefconfig %config-kernel clean-kernel
+.PHONY: kernel save-kernel kernel-savedefconfig %config-kernel clean-kernel dtboimage
 kernel: $(INSTALLED_KERNEL_TARGET)
 save-kernel: $(TARGET_PREBUILT_KERNEL)
 
@@ -155,19 +173,35 @@ kernel-menuconfig:
 
 clean-kernel:
 	$(hide) rm -rf $(KERNEL_OUT) $(KERNEL_MODULES_OUT) $(INSTALLED_KERNEL_TARGET)
+ifeq ($(strip $(MTK_DTBO_FEATURE)), yes)
+	$(hide) rm -f $(INSTALLED_DTB_OVERLAY_TARGET)
+
+dtboimage: $(TARGET_KERNEL_CONFIG) FORCE
+	$(hide) mkdir -p $(KERNEL_OUT)
+	$(MAKE) -C $(KERNEL_DIR) $(KERNEL_MAKE_OPTION) dtboimage
+	$(hide) cp $(BUILT_DTB_OVERLAY_TARGET) $(INSTALLED_DTB_OVERLAY_TARGET)
+endif
 
 .PHONY: check-kernel-config check-kernel-dotconfig
 droid: check-kernel-config check-kernel-dotconfig
 check-mtk-config: check-kernel-config check-kernel-dotconfig
 check-kernel-config:
+ifneq (yes,$(strip $(DISABLE_MTK_CONFIG_CHECK)))
 	python device/mediatek/build/build/tools/check_kernel_config.py -c $(MTK_TARGET_PROJECT_FOLDER)/ProjectConfig.mk -k $(KERNEL_CONFIG_FILE) -p $(MTK_PROJECT_NAME)
+else
+	-python device/mediatek/build/build/tools/check_kernel_config.py -c $(MTK_TARGET_PROJECT_FOLDER)/ProjectConfig.mk -k $(KERNEL_CONFIG_FILE) -p $(MTK_PROJECT_NAME)
+endif
 
 
 ifneq ($(filter check-mtk-config check-kernel-dotconfig,$(MAKECMDGOALS)),)
 .PHONY: $(TARGET_KERNEL_CONFIG)
 endif
 check-kernel-dotconfig: $(TARGET_KERNEL_CONFIG)
+ifneq (yes,$(strip $(DISABLE_MTK_CONFIG_CHECK)))
 	python device/mediatek/build/build/tools/check_kernel_config.py -c $(MTK_TARGET_PROJECT_FOLDER)/ProjectConfig.mk -k $(TARGET_KERNEL_CONFIG) -p $(MTK_PROJECT_NAME)
+else
+	-python device/mediatek/build/build/tools/check_kernel_config.py -c $(MTK_TARGET_PROJECT_FOLDER)/ProjectConfig.mk -k $(TARGET_KERNEL_CONFIG) -p $(MTK_PROJECT_NAME)
+endif
 
 
 endif#TARGET_NO_KERNEL

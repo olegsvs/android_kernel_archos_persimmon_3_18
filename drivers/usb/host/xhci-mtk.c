@@ -19,7 +19,7 @@
 #include <linux/list.h>
 #include <linux/platform_device.h>
 #include <linux/io.h>
-#include <xhci-mtk.h>
+#include "xhci-mtk.h"
 
 static struct sch_ep **ss_out_eps[MAX_EP_NUM];
 static struct sch_ep **ss_in_eps[MAX_EP_NUM];
@@ -140,7 +140,7 @@ int count_ss_bw(int is_in, int ep_type, int maxp, int interval, int burst,
 				ep_repeat = cur_sch_ep->repeat;
 				ep_mult = cur_sch_ep->mult;
 				for (k = 0; k <= ep_mult; k++) {
-					cur_ep_offset = ep_offset + (k * ep_mult);
+					cur_ep_offset = ep_offset + (k * ep_repeat);
 					if (ep_interval >= interval) {
 						tmp_offset = cur_ep_offset + ep_interval - offset;
 						tmp_interval = interval;
@@ -305,6 +305,8 @@ int count_tt_isoc_bw(int is_in, int maxp, int interval, int offset, int td_size)
 	max_bw = 0;
 	if (is_in)
 		i = 2;
+	else
+		i = 0;
 
 	for (cur_mframe = offset + i; i < ss_cs_count; cur_mframe++, i++) {
 		bw_required = 0;
@@ -458,6 +460,8 @@ int mtk_xhci_scheduler_add_ep(int dev_speed, int is_in, int isTT, int ep_type,
 		dev_speed, is_in, isTT, ep_type,
 		maxp, interval, burst, mult,
 		ep, ep_ctx, sch_ep);
+
+	ret = SCH_FAIL; /* default value */
 
 	if (isTT && ep_type == USB_EP_INT
 	    && ((dev_speed == USB_SPEED_LOW) || (dev_speed == USB_SPEED_FULL))) {

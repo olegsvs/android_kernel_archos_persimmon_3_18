@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 /*****************************************************************************/
 /*****************************************************************************/
 #include <linux/mm.h>
@@ -18,7 +31,6 @@
 
 #include <asm/uaccess.h>
 #include <asm/atomic.h>
-#include <linux/types.h>
 
 #include "extd_log.h"
 #include "extd_utils.h"
@@ -287,15 +299,6 @@ static long mtk_extd_mgr_ioctl(struct file *file, unsigned int cmd, unsigned lon
 			/* /r = hdmi_factory_mode_test(STEP4_DPI_STOP_AND_POWER_OFF, NULL); */
 			break;
 		}
-	case MTK_HDMI_FAKE_PLUG_IN:
-		{
-			int connect = arg & 0x0FF;
-
-			if (extd_driver[DEV_MHL] && extd_driver[DEV_MHL]->fake_connect)
-				extd_driver[DEV_MHL]->fake_connect(connect);
-
-			break;
-		}
 	default:
 		{
 			EXT_MGR_ERR("[EXTD]ioctl(%d) arguments is not support\n", cmd & 0x0ff);
@@ -310,13 +313,13 @@ static long mtk_extd_mgr_ioctl(struct file *file, unsigned int cmd, unsigned lon
 
 static int mtk_extd_mgr_open(struct inode *inode, struct file *file)
 {
-	EXT_MGR_FUNC();
+	/*EXT_MGR_FUNC();*/
 	return 0;
 }
 
 static int mtk_extd_mgr_release(struct inode *inode, struct file *file)
 {
-	EXT_MGR_FUNC();
+	/*EXT_MGR_FUNC();*/
 	return 0;
 }
 
@@ -349,7 +352,7 @@ const struct file_operations external_display_fops = {
 };
 
 static const struct of_device_id extd_of_ids[] = {
-	{.compatible = "mediatek,sii8348-hdmi",},
+	{.compatible = "mediatek,extd_dev",},
 	{}
 };
 
@@ -516,7 +519,7 @@ static int __init mtk_extd_mgr_init(void)
 	}
 
 	if (platform_driver_register(&external_display_driver)) {
-		EXT_MGR_ERR("[EXTD]failed to register mtkfb driver\n");
+		EXT_MGR_ERR("failed to register mtkfb driver\n");
 		return -1;
 	}
 

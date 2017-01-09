@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #ifndef __HAL_BTIF_H_
 #define __HAL_BTIF_H_
 
@@ -6,7 +19,7 @@
 #endif
 
 #if defined(CONFIG_MTK_CLKMGR)
-#if defined(CONFIG_ARCH_MT6580)
+#if defined(CONFIG_ARCH_MT6580) || defined(CONFIG_ARCH_MT6570)
 #define MTK_BTIF_CG_BIT MT_CG_BTIF_SW_CG
 #elif defined(CONFIG_ARCH_MT6735) || defined(CONFIG_ARCH_MT6735M) || defined(CONFIG_ARCH_MT6753)
 #define MTK_BTIF_CG_BIT MT_CG_PERI_BTIF

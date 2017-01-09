@@ -72,7 +72,52 @@ static void blktrans_dev_put(struct mtd_blktrans_dev *dev)
 	mutex_unlock(&blktrans_ref_mutex);
 }
 
+/*
+static int do_blktrans_request(struct mtd_blktrans_ops *tr,
+			       struct mtd_blktrans_dev *dev,
+			       struct request *req)
+{
+	unsigned long block, nsect;
+	char *buf;
 
+	block = blk_rq_pos(req) << 9 >> tr->blkshift;
+	nsect = blk_rq_cur_bytes(req) >> tr->blkshift;
+	buf = bio_data(req->bio);
+
+	if (req->cmd_type != REQ_TYPE_FS)
+		return -EIO;
+
+	if (req->cmd_flags & REQ_FLUSH)
+		return tr->flush(dev);
+
+	if (blk_rq_pos(req) + blk_rq_cur_sectors(req) >
+	    get_capacity(req->rq_disk))
+		return -EIO;
+
+	if (req->cmd_flags & REQ_DISCARD)
+		return tr->discard(dev, block, nsect);
+
+	switch(rq_data_dir(req)) {
+	case READ:
+		for (; nsect > 0; nsect--, block++, buf += tr->blksize)
+			if (tr->readsect(dev, block, buf))
+				return -EIO;
+		rq_flush_dcache_pages(req);
+		return 0;
+	case WRITE:
+		if (!tr->writesect)
+			return -EIO;
+
+		rq_flush_dcache_pages(req);
+		for (; nsect > 0; nsect--, block++, buf += tr->blksize)
+			if (tr->writesect(dev, block, buf))
+				return -EIO;
+		return 0;
+	default:
+		printk(KERN_NOTICE "Unknown request %u\n", rq_data_dir(req));
+		return -EIO;
+	}
+}*/
 static int do_blktrans_request(struct mtd_blktrans_ops *tr,
 			       struct mtd_blktrans_dev *dev,
 			       struct request *req)
@@ -406,7 +451,7 @@ int add_mtd_blktrans_dev(struct mtd_blktrans_dev *new)
 		snprintf(gd->disk_name, sizeof(gd->disk_name),
 			 "%s%d", tr->name, new->devnum);
 
-	set_capacity(gd, (new->size * tr->blksize) >> 9);
+	set_capacity(gd, ((u64)new->size * tr->blksize) >> 9);
 
 	/* Create the request queue */
 	spin_lock_init(&new->queue_lock);

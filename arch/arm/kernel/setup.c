@@ -374,8 +374,10 @@ void __init early_print(const char *str, ...)
 
 static void __init cpuid_init_hwcaps(void)
 {
-	unsigned int divide_instrs, vmsa;
-	u32 isar5;
+	unsigned int divide_instrs, vmsa, features;
+#ifdef CONFIG_MTK_ADVERTISE_CE_SUPPORT
+	unsigned int block;
+#endif
 
 	if (cpu_architecture() < CPU_ARCH_ARMv7)
 		return;
@@ -394,12 +396,46 @@ static void __init cpuid_init_hwcaps(void)
 	if (vmsa >= 5)
 		elf_hwcap |= HWCAP_LPAE;
 
-	/* check for supported v8 Crypto instructions */
-	isar5 = read_cpuid_ext(CPUID_EXT_ISAR5);
+#ifdef CONFIG_MTK_ADVERTISE_CE_SUPPORT
+	/*
+	 * ID_ISAR5 contains 4-bit wide signed feature blocks.
+	 * The blocks we test below represent incremental functionality
+	 * for non-negative values. Negative values are reserved.
+	 */
+	features = read_cpuid_ext(CPUID_EXT_ISAR5);
+	block = (features >> 4) & 0xf;
+	if (!(block & 0x8)) {
+		switch (block) {
+		default:
+		case 2:
+			elf_hwcap2 |= HWCAP2_PMULL;
+		case 1:
+			elf_hwcap2 |= HWCAP2_AES;
+		case 0:
+			break;
+		}
+	}
 
-	vmsa = cpuid_feature_extract_field(isar5, 12);
+	block = (features >> 8) & 0xf;
+	if (block && !(block & 0x8))
+		elf_hwcap2 |= HWCAP2_SHA1;
+
+	block = (features >> 12) & 0xf;
+	if (block && !(block & 0x8))
+		elf_hwcap2 |= HWCAP2_SHA2;
+
+	block = (features >> 16) & 0xf;
+	if (block && !(block & 0x8))
+		elf_hwcap2 |= HWCAP2_CRC32;
+#else
+	/* check for supported v8 Crypto instructions */
+	features = read_cpuid_ext(CPUID_EXT_ISAR5);
+
+	vmsa = cpuid_feature_extract_field(features, 12);
 	if (vmsa >= 1)
 		elf_hwcap2 |= HWCAP2_SHA2;
+#endif
+
 }
 
 static void __init elf_hwcap_fixup(void)
@@ -928,9 +964,9 @@ void __init setup_arch(char **cmdline_p)
 
 	early_paging_init(mdesc, lookup_processor_type(read_cpuid_id()));
 	setup_dma_zone(mdesc);
-	sanity_check_meminfo();
 	arm_memblock_init(mdesc);
 
+	sanity_check_meminfo();
 	paging_init(mdesc);
 	request_standard_resources(mdesc);
 

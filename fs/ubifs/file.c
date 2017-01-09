@@ -266,6 +266,7 @@ static int write_begin_slow(struct address_space *mapping,
 			if (err) {
 				unlock_page(page);
 				page_cache_release(page);
+				ubifs_release_budget(c, &req);
 				return err;
 			}
 		}
@@ -1016,6 +1017,12 @@ static int ubifs_writepage(struct page *page, struct writeback_control *wbc)
 	dbg_gen("ino %lu, pg %lu, pg flags %#lx",
 		inode->i_ino, page->index, page->flags);
 	ubifs_assert(PagePrivate(page));
+
+	if (((struct ubifs_info *)(inode->i_sb->s_fs_info))->ro_mount) {
+		dbg_gen("the volume has been changed to read-only mode.\n");
+		err = -EROFS;
+		goto out_unlock;
+	}
 
 	/* Is the page fully outside @i_size? (truncate in progress) */
 	if (page->index > end_index || (page->index == end_index && !len)) {

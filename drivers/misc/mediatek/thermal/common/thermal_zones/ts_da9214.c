@@ -1,3 +1,16 @@
+/*
+* Copyright (C) 2016 MediaTek Inc.
+*
+* This program is free software; you can redistribute it and/or modify
+* it under the terms of the GNU General Public License version 2 as
+* published by the Free Software Foundation.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+* See http://www.gnu.org/licenses/gpl-2.0.html for more details.
+*/
+
 #include <linux/version.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
@@ -11,7 +24,6 @@
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
 #include "mt-plat/mtk_thermal_monitor.h"
-#include "mtk_thermal_typedefs.h"
 #include "mach/mt_thermal.h"
 #include "da9214.h"
 #include <linux/uidgid.h>
@@ -59,18 +71,18 @@ static int tsda9214_get_temp(struct thermal_zone_device *thermal, unsigned long 
 	unsigned char val = 0;
 
 	tsda9214_dprintk("[tsda9214_get_temp]\n");
-	if (da9214_read_interface(0x51, &val, 0x11, 2) == 1) {
+	if (da9214_read_interface(0x51, &val, 3, 2) == 1) {
 		switch (val) {
-		case 0x00:
+		case 0:
 			/* < 125 */
 			*t = 60000;
 			break;
-		case 0x01:
+		case 1:
 			/* 125 ~ 140 */
 			*t = 125000;
 			break;
-		case 0x10:
-		case 0x11:
+		case 2:
+		case 3:
 			/* 140 ~ 150 */
 			*t = 140000;
 			break;
@@ -303,7 +315,7 @@ static ssize_t tsda9214_write(struct file *file, const char __user *buffer, size
 
 	if (sscanf
 	    (ptr_tsda9214_data->desc,
-	     "%d %d %d %s %d %d %s %d %d %s %d %d %s %d %d %s %d %d %s %d %d %s %d %d %s %d %d %s %d %d %s %d",
+	     "%d %d %d %19s %d %d %19s %d %d %19s %d %d %19s %d %d %19s %d %d %19s %d %d %19s %d %d %19s %d %d %19s %d %d %19s %d",
 		&num_trip,
 		&ptr_tsda9214_data->trip[0], &ptr_tsda9214_data->t_type[0], ptr_tsda9214_data->bind0,
 		&ptr_tsda9214_data->trip[1], &ptr_tsda9214_data->t_type[1], ptr_tsda9214_data->bind1,
@@ -318,6 +330,14 @@ static ssize_t tsda9214_write(struct file *file, const char __user *buffer, size
 		&ptr_tsda9214_data->time_msec) == 32) {
 		tsda9214_dprintk("[tsda9214_write] tsda9214_unregister_thermal\n");
 		tsda9214_unregister_thermal();
+
+		if (num_trip < 0 || num_trip > 10) {
+			aee_kernel_warning_api(__FILE__, __LINE__, DB_OPT_DEFAULT, "tsda9214_write",
+					"Bad argument");
+			tsda9214_dprintk("tsda9214_write bad argument\n");
+			kfree(ptr_tsda9214_data);
+			return -EINVAL;
+		}
 
 		for (i = 0; i < num_trip; i++)
 			g_THERMAL_TRIP[i] = ptr_tsda9214_data->t_type[i];

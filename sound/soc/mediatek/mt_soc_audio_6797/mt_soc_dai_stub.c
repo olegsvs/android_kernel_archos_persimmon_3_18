@@ -1,17 +1,19 @@
 /*
- * Copyright (C) 2007 The Android Open Source Project
+ * Copyright (C) 2015 MediaTek Inc.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ * You should have received a copy of the GNU General Public License
+ * along with this program
+ * If not, see <http://www.gnu.org/licenses/>.
  */
 /*******************************************************************************
  *
@@ -88,6 +90,120 @@ static struct snd_soc_dai_ops mtk_dai_stub_ops = {
 	.startup    = multimedia_startup,
 };
 
+static bool i2s2_adc2_is_started;
+
+/* i2s2 adc2 data */
+static int mtk_dai_i2s2_adc2_start(struct snd_pcm_substream *substream)
+{
+	struct snd_pcm_runtime *runtime = substream->runtime;
+	AudioDigtalI2S DigtalI2SIn;
+
+	if (!i2s2_adc2_is_started) {
+		pr_warn("%s(), rate = %d, format = %d, channel = %d\n",
+			__func__,
+			runtime->rate, runtime->format, runtime->channels);
+
+		i2s2_adc2_is_started = true;
+
+		if (!GetMemoryPathEnable(Soc_Aud_Digital_Block_I2S_IN)) {
+			DigtalI2SIn.mLR_SWAP = Soc_Aud_LR_SWAP_NO_SWAP;
+			DigtalI2SIn.mBuffer_Update_word = 8;
+			DigtalI2SIn.mFpga_bit_test = 0;
+			DigtalI2SIn.mFpga_bit = 0;
+			DigtalI2SIn.mloopback = 0;
+			DigtalI2SIn.mINV_LRCK = Soc_Aud_INV_LRCK_NO_INVERSE;
+			DigtalI2SIn.mI2S_FMT = Soc_Aud_I2S_FORMAT_I2S;
+			DigtalI2SIn.mI2S_WLEN = Soc_Aud_I2S_WLEN_WLEN_32BITS;
+			DigtalI2SIn.mI2S_IN_PAD_SEL = true;
+			DigtalI2SIn.mI2S_SAMPLERATE = (runtime->rate);
+
+			SetExtI2SAdcIn(&DigtalI2SIn);
+			SetExtI2SAdcInEnable(true);
+		}
+
+		SetMemoryPathEnable(Soc_Aud_Digital_Block_I2S_IN, true);
+
+		SetConnection(Soc_Aud_InterCon_Connection,
+			      Soc_Aud_InterConnectionInput_I25,
+			      Soc_Aud_InterConnectionOutput_O21);
+		SetConnection(Soc_Aud_InterCon_Connection,
+			      Soc_Aud_InterConnectionInput_I26,
+			      Soc_Aud_InterConnectionOutput_O22);
+	}
+
+	return 0;
+}
+
+static int mtk_dai_i2s2_adc2_stop(struct snd_pcm_substream *substream)
+{
+	if (i2s2_adc2_is_started) {
+		pr_warn("%s()\n", __func__);
+		i2s2_adc2_is_started = false;
+		SetConnection(Soc_Aud_InterCon_DisConnect,
+			      Soc_Aud_InterConnectionInput_I25,
+			      Soc_Aud_InterConnectionOutput_O21);
+		SetConnection(Soc_Aud_InterCon_DisConnect,
+			      Soc_Aud_InterConnectionInput_I26,
+			      Soc_Aud_InterConnectionOutput_O22);
+
+		SetMemoryPathEnable(Soc_Aud_Digital_Block_I2S_IN, false);
+		if (!GetMemoryPathEnable(Soc_Aud_Digital_Block_I2S_IN))
+			SetExtI2SAdcInEnable(false);
+	}
+	return 0;
+}
+
+static int mtk_dai_i2s2_adc2_trigger(struct snd_pcm_substream *substream,
+				     int cmd,
+				     struct snd_soc_dai *dai)
+{
+	switch (cmd) {
+	case SNDRV_PCM_TRIGGER_START:
+	case SNDRV_PCM_TRIGGER_RESUME:
+		return mtk_dai_i2s2_adc2_start(substream);
+	case SNDRV_PCM_TRIGGER_STOP:
+	case SNDRV_PCM_TRIGGER_SUSPEND:
+		return mtk_dai_i2s2_adc2_stop(substream);
+	}
+	return -EINVAL;
+}
+
+static struct snd_soc_dai_ops mtk_dai_i2s2_adc2_ops = {
+	.trigger = mtk_dai_i2s2_adc2_trigger,
+};
+/* i2s2 adc2 data */
+
+/* anc record */
+static bool anc_ul_record_is_started;
+
+static int mtk_dai_anc_record_trigger(struct snd_pcm_substream *substream,
+				      int cmd,
+				      struct snd_soc_dai *dai)
+{
+	switch (cmd) {
+	case SNDRV_PCM_TRIGGER_START:
+	case SNDRV_PCM_TRIGGER_RESUME:
+		if (!anc_ul_record_is_started) {
+			anc_ul_record_is_started = true;
+			Afe_Set_Reg(AFE_ADDA2_TOP_CON0, 0x1 << 11, 0x1 << 11);
+		}
+		return 0;
+	case SNDRV_PCM_TRIGGER_STOP:
+	case SNDRV_PCM_TRIGGER_SUSPEND:
+		if (anc_ul_record_is_started) {
+			anc_ul_record_is_started = false;
+			Afe_Set_Reg(AFE_ADDA2_TOP_CON0, 0x0 << 11, 0x1 << 11);
+		}
+		return 0;
+	}
+	return -EINVAL;
+}
+
+static struct snd_soc_dai_ops mtk_dai_anc_record_ops = {
+	.trigger = mtk_dai_anc_record_trigger,
+};
+/* anc record */
+
 static struct snd_soc_dai_driver mtk_dai_stub_dai[] = {
 	{
 		.playback = {
@@ -105,23 +221,22 @@ static struct snd_soc_dai_driver mtk_dai_stub_dai[] = {
 	{
 		.capture = {
 			.stream_name = MT_SOC_UL1_STREAM_NAME,
-			.rates = SNDRV_PCM_RATE_8000_192000,
+			.rates = SOC_HIGH_USE_RATE,
 			.formats = SND_SOC_ADV_MT_FMTS,
 			.channels_min = 1,
 			.channels_max = 2,
 			.rate_min = 8000,
-			.rate_max = 192000,
+			.rate_max = 260000,
 		},
 		.name = MT_SOC_UL1DAI_NAME,
-		.ops = &mtk_dai_stub_ops,
 	},
 	{
 		.capture = {
 			.stream_name = MT_SOC_TDM_CAPTURE_STREAM_NAME,
 			.rates = SNDRV_PCM_RATE_8000_48000,
 			.formats = SNDRV_PCM_FMTBIT_S16_LE,
-			.channels_min = 1,
-			.channels_max = 8,
+			.channels_min = 2,
+			.channels_max = 2,
 			.rate_min = 8000,
 			.rate_max = 48000,
 		},
@@ -333,12 +448,12 @@ static struct snd_soc_dai_driver mtk_dai_stub_dai[] = {
 	{
 		.capture = {
 			.stream_name = MT_SOC_DL1_AWB_RECORD_STREAM_NAME,
-			.rates = SNDRV_PCM_RATE_8000_192000,
+			.rates = SOC_HIGH_USE_RATE,
 			.formats = SND_SOC_ADV_MT_FMTS,
 			.channels_min = 1,
 			.channels_max = 2,
 			.rate_min = 8000,
-			.rate_max = 48000,
+			.rate_max = 260000,
 		},
 		.name = MT_SOC_DL1AWB_NAME,
 		.ops = &mtk_dai_stub_ops,
@@ -427,17 +542,30 @@ static struct snd_soc_dai_driver mtk_dai_stub_dai[] = {
 		.ops = &mtk_dai_stub_ops,
 	},
 	{
-	.capture = {
-		.stream_name = MT_SOC_4PINI2S0AWB_STREAM_NAME,
-		.rates = SNDRV_PCM_RATE_8000_48000,
-		.formats = SNDRV_PCM_FMTBIT_S16_LE,
-		.channels_min = 1,
-		.channels_max = 2,
-		.rate_min = 8000,
-		.rate_max = 48000,
+		.capture = {
+			.stream_name = MT_SOC_I2S2ADC2_STREAM_NAME,
+			.rates = SOC_HIGH_USE_RATE,
+			.formats = SND_SOC_ADV_MT_FMTS,
+			.channels_min = 1,
+			.channels_max = 2,
+			.rate_min = 8000,
+			.rate_max = 192000,
+		},
+		.name = MT_SOC_I2S2ADC2DAI_NAME,
+		.ops = &mtk_dai_i2s2_adc2_ops,
 	},
-	.name = MT_SOC_4PINI2S0AWBDAI_NAME,
-	.ops = &mtk_dai_stub_ops,
+	{
+		.capture = {
+			.stream_name = MT_SOC_ANC_RECORD_STREAM_NAME,
+			.rates = SOC_HIGH_USE_RATE,
+			.formats = SND_SOC_ADV_MT_FMTS,
+			.channels_min = 1,
+			.channels_max = 2,
+			.rate_min = 8000,
+			.rate_max = 260000,
+		},
+		.name = MT_SOC_ANC_RECORD_DAI_NAME,
+		.ops = &mtk_dai_anc_record_ops,
 	},
 	{
 		.capture = {
@@ -482,12 +610,12 @@ static struct snd_soc_dai_driver mtk_dai_stub_dai[] = {
 	{
 		.playback = {
 			.stream_name = MT_SOC_HP_IMPEDANCE_STREAM_NAME,
-			.rates = SNDRV_PCM_RATE_8000_48000,
+			.rates = SNDRV_PCM_RATE_8000_192000,
 			.formats = SND_SOC_ADV_MT_FMTS,
 			.channels_min = 1,
 			.channels_max = 8,
 			.rate_min = 8000,
-			.rate_max = 48000,
+			.rate_max = 192000,
 		},
 		.name = MT_SOC_HP_IMPEDANCE_NAME,
 		.ops = &mtk_dai_stub_ops,
@@ -538,20 +666,6 @@ static struct snd_soc_dai_driver mtk_dai_stub_dai[] = {
 	},
 	{
 		.playback = {
-			.stream_name = MT_SOC_OFFLOAD_GDMA_STREAM_NAME,
-			.rates = SNDRV_PCM_RATE_8000_48000,
-			.formats = SND_SOC_ADV_MT_FMTS,
-			.channels_min = 1,
-			.channels_max = 2,
-			.rate_min = 8000,
-			.rate_max = 48000,
-		},
-		.compress_dai = 1,
-		.name = MT_SOC_OFFLOAD_GDMA_NAME,
-		.ops = &mtk_dai_stub_ops,
-	},
-	{
-		.playback = {
 		.stream_name = MT_SOC_SPEAKER_STREAM_NAME,
 		.rates = SNDRV_PCM_RATE_8000_192000,
 		.formats = SND_SOC_ADV_MT_FMTS,
@@ -591,6 +705,19 @@ static struct snd_soc_dai_driver mtk_dai_stub_dai[] = {
 	},
 	{
 		.playback = {
+			.stream_name = MT_SOC_ANC_STREAM_NAME,
+			.rates = SNDRV_PCM_RATE_8000_48000,
+			.formats = SND_SOC_ADV_MT_FMTS,
+			.channels_min = 1,
+			.channels_max = 8,
+			.rate_min = 8000,
+			.rate_max = 48000,
+		},
+		.name = MT_SOC_ANC_NAME,
+		.ops = &mtk_dai_stub_ops,
+	},
+	{
+		.playback = {
 			.stream_name = MT_SOC_BTCVSD_PLAYBACK_STREAM_NAME,
 			.rates = SNDRV_PCM_RATE_8000_48000,
 			.formats = SND_SOC_ADV_MT_FMTS,
@@ -603,64 +730,18 @@ static struct snd_soc_dai_driver mtk_dai_stub_dai[] = {
 		.ops = &mtk_dai_stub_ops,
 	},
 	{
-		.playback = {
-			.stream_name = MT_SOC_VOICEMD1_SPEAKER_STREAM_NAME,
-			.rates = SNDRV_PCM_RATE_8000_48000,
-			.formats = SND_SOC_STD_MT_FMTS,
-			.channels_min = 1,
-			.channels_max = 2,
-			.rate_min = 8000,
-			.rate_max = 32000,
-		},
 		.capture = {
-			.stream_name = MT_SOC_VOICEMD1_SPEAKER_STREAM_NAME,
+			.stream_name = MT_SOC_MODDAI_STREAM_NAME,
 			.rates = SNDRV_PCM_RATE_8000_48000,
-			.formats = SND_SOC_STD_MT_FMTS,
-			.channels_min = 1,
-			.channels_max = 2,
-			.rate_min = 8000,
-			.rate_max = 32000,
-		},
-		.name = MT_SOC_VOICEMD1_EXTSPKDAI_NAME,
-		.ops = &mtk_dai_stub_ops,
-	},
-	{
-		.playback = {
-			.stream_name = MT_SOC_VOICEMD2_SPEAKER_STREAM_NAME,
-			.rates = SNDRV_PCM_RATE_8000_48000,
-			.formats = SND_SOC_STD_MT_FMTS,
-			.channels_min = 1,
-			.channels_max = 2,
-			.rate_min = 8000,
-			.rate_max = 32000,
-		},
-		.capture = {
-			.stream_name = MT_SOC_VOICEMD2_SPEAKER_STREAM_NAME,
-			.rates = SNDRV_PCM_RATE_8000_48000,
-			.formats = SND_SOC_STD_MT_FMTS,
-			.channels_min = 1,
-			.channels_max = 2,
-			.rate_min = 8000,
-			.rate_max = 32000,
-		},
-		.name = MT_SOC_VOICEMD2_EXTSPKDAI_NAME,
-		.ops = &mtk_dai_stub_ops,
-	},
-	{
-		.playback = {
-			.stream_name = MT_SOC_FMPLAYBACK_EXTSPEAKER_STREAM_NAME,
-			.rates = SNDRV_PCM_RATE_8000_48000,
-			.formats = SND_SOC_STD_MT_FMTS,
+			.formats = SND_SOC_ADV_MT_FMTS,
 			.channels_min = 1,
 			.channels_max = 2,
 			.rate_min = 8000,
 			.rate_max = 48000,
-		},
-		.name = MT_SOC_FM_PLAYBACK_EXTSPKDAI_NAME,
-		.ops = &mtk_dai_stub_ops,
 	},
-};
-
+		.name = MT_SOC_MOD_DAI_NAME,
+		.ops = &mtk_dai_stub_ops,
+	},};
 
 static const struct snd_soc_component_driver mt_dai_component = {
 	.name       = MT_SOC_DAI_NAME,

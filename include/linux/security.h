@@ -2500,7 +2500,7 @@ static inline int security_task_prctl(int option, unsigned long arg2,
 				      unsigned long arg4,
 				      unsigned long arg5)
 {
-	return cap_task_prctl(option, arg2, arg3, arg3, arg5);
+	return cap_task_prctl(option, arg2, arg3, arg4, arg5);
 }
 
 static inline void security_task_to_inode(struct task_struct *p, struct inode *inode)
@@ -3228,6 +3228,12 @@ static inline int yama_task_prctl(int option, unsigned long arg2,
 	return -ENOSYS;
 }
 #endif /* CONFIG_SECURITY_YAMA */
+
+
+#ifdef CONFIG_MTK_ROOT_TRACE
+extern int sec_trace_root(const struct cred *old, const struct cred *new);
+#endif /* CONFIG_MTK_ROOT_TRACE */
+
 
 #endif /* ! __LINUX_SECURITY_H */
 

@@ -1,3 +1,16 @@
+/*
+* Copyright (C) 2016 MediaTek Inc.
+*
+* This program is free software; you can redistribute it and/or modify
+* it under the terms of the GNU General Public License version 2 as
+* published by the Free Software Foundation.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+* See http://www.gnu.org/licenses/gpl-2.0.html for more details.
+*/
+
 #ifndef __RAWFS_H__
 #define __RAWFS_H__
 
@@ -8,6 +21,7 @@
 #define RAWFS_DBG		 pr_debug
 #endif
 
+#define RAWFS_BLOCK_LIMIT 2  /* do not modify, design limit */
 #define RAWFS_BLOCK_FILE
 /* #define RAWFS_RAM_DISK */
 
@@ -28,9 +42,10 @@ enum rawfs_debug_level_enum {
 
 extern int rawfs_debug_msg_mask;
 
-#define RAWFS_DEBUG_MSG_DEFAULT  (RAWFS_DBG_SUPER | \
+#define RAWFS_DEBUG_MSG_DEFAULT  (RAWFS_DBG_SUPER | RAWFS_DBG_DEVICE | \
+		RAWFS_DBG_INODE | RAWFS_DBG_FILE | \
 		RAWFS_DBG_DIR | RAWFS_DBG_DENTRY | \
-		RAWFS_DBG_INIT | RAWFS_DBG_MOUNT)
+		RAWFS_DBG_INIT | RAWFS_DBG_GC | RAWFS_DBG_MOUNT)
 
 #ifdef RAWFS_DBG
 #define RAWFS_PRINT(category, str, ...) do { \
@@ -101,7 +116,7 @@ struct rawfs_sb_info {
 	struct hlist_head inode_hashtable[RAWFS_HASH_SIZE];
 };
 
-#define RAWFS_NAND_BLOCKS(sb)		 ((sb)?2:0) /* We use only two block */
+#define RAWFS_NAND_BLOCKS(sb)		 ((sb)?RAWFS_BLOCK_LIMIT:0) /* We use only two block */
 #define RAWFS_NAND_PAGES(sb)		  (sb->pages_per_block)
 #define RAWFS_NAND_PAGE_SIZE(sb)	  (sb->page_size)
 #define RAWFS_NAND_BLOCK_SIZE(sb)	 (sb->block_size)

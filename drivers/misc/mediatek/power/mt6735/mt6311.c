@@ -7393,11 +7393,13 @@ static int __init mt6311_init(void)
 #endif
 */
 #endif
+
 exit:
 #if defined(CONFIG_ARCH_MT6753)
 	PMIC_INIT_SETTING_V1();
 #else
 #endif
+
 	return ret;
 }
 

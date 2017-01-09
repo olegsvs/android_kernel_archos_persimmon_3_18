@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #include "mtk-phy.h"
 
 #ifdef CONFIG_U3_PHY_GPIO_SUPPORT
@@ -9,7 +22,7 @@
 #define SSUSB_I2C_OUT			(GPIO_BASE + 0xd0)
 #define SSUSB_I2C_IN			(GPIO_BASE + 0xd4)
 
-#if 1 /* #ifdef NEVER //USE_GPIO */
+#ifdef NEVER /*USE_GPIO */
 
 /* /////////////////////////////////////////////////////////////// */
 
@@ -294,7 +307,11 @@ PHY_INT32 I2cReadReg(PHY_UINT8 dev_id, PHY_UINT8 Addr, PHY_UINT8 *Data)
 #define REG_I2C_START_BIT	    0x1
 #define I2C_READ_BIT         0x1
 
+#ifdef USB_ELBRUS
+#define PHY_I2C_BASE      (i2c_base)
+#else
 #define PHY_I2C_BASE      (i2c1_base)
+#endif
 
 /* "volatile" type class should not be used, see volatile-considered-harmful.txt */
 #define REG_I2C_DATA_PORT    (*((volatile unsigned short int *) (PHY_I2C_BASE + 0x00)))

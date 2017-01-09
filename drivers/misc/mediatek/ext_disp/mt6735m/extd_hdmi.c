@@ -1,3 +1,15 @@
+/*
+* Copyright (C) 2016 MediaTek Inc.
+*
+* This program is free software; you can redistribute it and/or modify
+* it under the terms of the GNU General Public License version 2 as
+* published by the Free Software Foundation.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+* See http://www.gnu.org/licenses/gpl-2.0.html for more details.
+*/
 /*****************************************************************************/
 /*****************************************************************************/
 #include "extd_info.h"
@@ -1265,6 +1277,25 @@ int hdmi_ioctl(unsigned int ioctl_cmd, int param1, int param2, unsigned long *pa
 	return ret;
 }
 
+int hdmi_is_force_awake(void *argp)
+{
+	int ret;
+
+	if (!argp) {
+		HDMI_LOG("ioctl pointer is NULL\n");
+		return -EFAULT;
+	}
+
+	/*only for hdmi cable,maybe mhl cable need this too*/
+	if (hdmi_params->cabletype == HDMI_CABLE) {
+		ret = copy_to_user(argp, &hdmi_params->is_force_awake, sizeof(hdmi_params->is_force_awake));
+	} else {
+		HDMI_ERR("[ERROR]cabletype is not HDMI_CABLE\n");
+		ret = -EFAULT;
+	}
+	return ret;
+}
+
 void hdmi_udelay(unsigned int us)
 {
 	udelay(us);
@@ -1371,6 +1402,7 @@ const struct EXTD_DRIVER *EXTD_HDMI_Driver(void)
 		.fake_connect =      hdmi_cable_fake_connect,
 		.factory_mode_test = NULL,
 		.ioctl =             hdmi_ioctl,
+		.is_force_awake =	 hdmi_is_force_awake,
 #else
 		.init = 0,
 #endif

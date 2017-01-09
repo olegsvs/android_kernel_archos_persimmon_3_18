@@ -1,3 +1,15 @@
+/*
+* Copyright (C) 2013 MediaTek Inc.
+*
+* This program is free software; you can redistribute it and/or modify
+* it under the terms of the GNU General Public License version 2 as
+* published by the Free Software Foundation.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+* See http://www.gnu.org/licenses/gpl-2.0.html for more details.
+*/
 
 #include <batch.h>
 #include <linux/time.h>
@@ -26,11 +38,32 @@ static int IDToSensorType(int id)
 	case ID_MAGNETIC:
 		sensorType = SENSOR_TYPE_MAGNETIC_FIELD;
 		break;
+	case ID_MAGNETIC_UNCALIBRATED:
+		sensorType = SENSOR_TYPE_MAGNETIC_FIELD_UNCALIBRATED;
+		break;
 	case ID_ORIENTATION:
 		sensorType = SENSOR_TYPE_ORIENTATION;
 		break;
 	case ID_GYROSCOPE:
 		sensorType = SENSOR_TYPE_GYROSCOPE;
+		break;
+	case ID_GYROSCOPE_UNCALIBRATED:
+		sensorType = SENSOR_TYPE_GYROSCOPE_UNCALIBRATED;
+		break;
+	case ID_ROTATION_VECTOR:
+		sensorType = SENSOR_TYPE_ROTATION_VECTOR;
+		break;
+	case ID_GAME_ROTATION_VECTOR:
+		sensorType = SENSOR_TYPE_GAME_ROTATION_VECTOR;
+		break;
+	case ID_GEOMAGNETIC_ROTATION_VECTOR:
+		sensorType = SENSOR_TYPE_GEOMAGNETIC_ROTATION_VECTOR;
+		break;
+	case ID_LINEAR_ACCELERATION:
+		sensorType = SENSOR_TYPE_LINEAR_ACCELERATION;
+		break;
+	case ID_GRAVITY:
+		sensorType = SENSOR_TYPE_GRAVITY;
 		break;
 	case ID_LIGHT:
 		sensorType = SENSOR_TYPE_LIGHT;
@@ -53,6 +86,12 @@ static int IDToSensorType(int id)
 	case ID_STEP_COUNTER:
 		sensorType = SENSOR_TYPE_STEP_COUNTER;
 		break;
+	case ID_PEDOMETER:
+		sensorType = SENSOR_TYPE_PEDOMETER;
+		break;
+	case ID_PDR:
+		sensorType = SENSOR_TYPE_PDR;
+		break;
 	default:
 		sensorType = -1;
 	}
@@ -67,7 +106,7 @@ static int batch_update_polling_rate(void)
 	int mindelay = 0;
 
 	for (idx = 0; idx < ID_SENSOR_MAX_HANDLE; idx++) {
-		if ((obj->active_sensor & (0x01 << idx)) && (0 != obj->dev_list.data_dev[idx].maxBatchReportLatencyMs))
+		if ((obj->active_sensor & (1ULL << idx)) && (0 != obj->dev_list.data_dev[idx].maxBatchReportLatencyMs))
 			mindelay = ((obj->dev_list.data_dev[idx].maxBatchReportLatencyMs < mindelay)
 				|| (mindelay == 0)) ? obj->dev_list.data_dev[idx].maxBatchReportLatencyMs:mindelay;
 
@@ -112,7 +151,7 @@ static int get_fifo_data(struct batch_context *obj)
 				}
 			} else if (fifo_len >= 0) {
 			#ifdef CONFIG_PM_WAKELOCKS
-				__pm_stay_awake(&(batch_context_obj->read_data_wake_lock));
+				/* __pm_stay_awake(&(batch_context_obj->read_data_wake_lock)); */
 			#else
 				wake_lock(&(batch_context_obj->read_data_wake_lock));
 			#endif
@@ -129,7 +168,7 @@ static int get_fifo_data(struct batch_context *obj)
 		if ((obj->dev_list.ctl_dev[idx].flush == NULL) || (obj->dev_list.data_dev[idx].get_data == NULL))
 				continue;
 
-		if ((obj->active_sensor & (0x01 << idx))) {
+		if ((obj->active_sensor & (1ULL << idx))) {
 			do {
 					err = obj->dev_list.data_dev[idx].get_data(idx, &sensor_data);
 					if (err == 0)
@@ -257,7 +296,7 @@ static ssize_t batch_store_active(struct device *dev, struct device_attribute *a
 	if (res != 2)
 		BATCH_ERR(" batch_store_active param error: res = %d\n", res);
 
-	BATCH_LOG(" batch_store_active handle=%d ,en=%d\n", handle, en);
+	BATCH_ERR(" batch_store_active handle=%d ,en=%d\n", handle, en);
 
 	if (handle < 0 || ID_SENSOR_MAX_HANDLE < handle) {
 		cxt->batch_result = -1;
@@ -280,13 +319,13 @@ static ssize_t batch_store_active(struct device *dev, struct device_attribute *a
 
 	mutex_lock(&batch_hw_mutex);
 	if (0 == en) {
-		cxt->active_sensor = cxt->active_sensor & (~(0x01 << handle));
+		cxt->active_sensor = cxt->active_sensor & (~(1ULL << handle));
 	/* L would not do flush at first sensor enable batch mode.
 	*So we need to flush sensor data when sensor disabled.
 	* Do flush before call enable_hw_batch to make sure flush finish. */
 		report_data_once(handle);
 	} else if (1 == en) {
-		cxt->active_sensor = cxt->active_sensor | (0x01 << handle);
+		cxt->active_sensor = cxt->active_sensor | (1ULL << handle);
 		time.tv_sec = 0;
 		time.tv_nsec = 0;
 		get_monotonic_boottime(&time);
@@ -324,7 +363,7 @@ static ssize_t batch_store_active(struct device *dev, struct device_attribute *a
 	mutex_unlock(&batch_hw_mutex);
 
 	delay = batch_update_polling_rate();
-	BATCH_LOG("batch_update_polling_rate = %d\n", delay);
+	BATCH_ERR("batch_update_polling_rate = %d\n", delay);
 	if (delay > 0) {
 		cxt->is_polling_run = true;
 		atomic_set(&cxt->delay, delay);
@@ -334,7 +373,7 @@ static ssize_t batch_store_active(struct device *dev, struct device_attribute *a
 		del_timer_sync(&cxt->timer);
 		cancel_work_sync(&cxt->report);
 	}
-
+	BATCH_ERR("batch_active done\n");
 	return count;
 }
 /*----------------------------------------------------------------------------*/
@@ -357,7 +396,7 @@ static ssize_t batch_show_active(struct device *dev,
 static ssize_t batch_store_delay(struct device *dev, struct device_attribute *attr,
 				  const char *buf, size_t count)
 {
-	BATCH_LOG(" batch_store_delay not support now\n");
+	BATCH_ERR(" batch_store_delay not support now\n");
 	return count;
 }
 
@@ -385,7 +424,7 @@ static ssize_t batch_store_batch(struct device *dev, struct device_attribute *at
 
 	cxt = batch_context_obj;
 
-	BATCH_LOG("write value: buf = %s\n", buf);
+	BATCH_ERR("write value: buf = %s\n", buf);
 	res = sscanf(buf, "%d,%d,%lld,%lld", &handle, &flags, &samplingPeriodNs, &maxBatchReportLatencyNs);
 	if (res != 4)
 		BATCH_ERR("batch_store_delay param error: res = %d\n", res);
@@ -436,7 +475,7 @@ static ssize_t batch_store_batch(struct device *dev, struct device_attribute *at
 
 	if (maxBatchReportLatencyNs == 0) {
 		/* flush batch data when change from batch mode to normal mode. */
-		if (cxt->active_sensor & (0x01 << handle)) {
+		if (cxt->active_sensor & (1ULL << handle)) {
 			BATCH_LOG("%d from batch to normal\n", handle);
 			report_data_once(handle);
 		}
@@ -452,7 +491,7 @@ static ssize_t batch_store_batch(struct device *dev, struct device_attribute *at
 			get_fifo_data(cxt);
 	}
 
-	en = (cxt->active_sensor & (0x01 << handle))?1:0;
+	en = (cxt->active_sensor & (1ULL << handle))?1:0;
 	/* BATCH_LOG("en = %d\n", en); */
 	if (cxt->dev_list.ctl_dev[handle].enable_hw_batch != NULL) {
 		res = cxt->dev_list.ctl_dev[handle].enable_hw_batch(handle, en, flags|cxt->force_wake_upon_fifo_full,
@@ -488,7 +527,7 @@ static ssize_t batch_store_batch(struct device *dev, struct device_attribute *at
 	}
 
 	cxt->batch_result = 0;
-
+	BATCH_ERR("batch_store_batch done\n");
 	return count;
 }
 
@@ -511,7 +550,7 @@ static ssize_t batch_store_flush(struct device *dev, struct device_attribute *at
 	int handle;
 	int ret;
 
-	BATCH_LOG("fwq  flush_store_delay +++\n");
+	BATCH_ERR("fwq  flush_store_delay +++\n");
 	cxt = batch_context_obj;
 
 	ret = kstrtoint(buf, 10, &handle);
@@ -529,7 +568,7 @@ static ssize_t batch_store_flush(struct device *dev, struct device_attribute *at
 
 	report_data_once(handle);/* handle need to use of this function */
 
-	BATCH_LOG("flush_store_delay success------\n");
+	BATCH_ERR("flush_store_delay success------\n");
 	return count;
 }
 
@@ -551,9 +590,14 @@ static ssize_t batch_show_devnum(struct device *dev,
 {
 	struct batch_context *cxt = NULL;
 	const char *devname = NULL;
+	struct input_handle *handle;
 
 	cxt = batch_context_obj;
-	devname = dev_name(&cxt->idev->dev);
+	list_for_each_entry(handle, &cxt->idev->h_list, d_node)
+		if (strncmp(handle->name, "event", 5) == 0) {
+			devname = handle->name;
+			break;
+		}
 	return snprintf(buf, PAGE_SIZE, "%s\n", devname+5);
 }
 /*----------------------------------------------------------------*/
@@ -639,7 +683,7 @@ static long batch_unlocked_ioctl(struct file *fp, unsigned int cmd, unsigned lon
 
 		if (batch_context_obj->numOfDataLeft == 0) {
 		#ifdef CONFIG_PM_WAKELOCKS
-			__pm_relax(&(batch_context_obj->read_data_wake_lock));
+			/* __pm_relax(&(batch_context_obj->read_data_wake_lock)); */
 		#else
 			wake_unlock(&(batch_context_obj->read_data_wake_lock));
 		#endif
@@ -662,10 +706,36 @@ static long batch_unlocked_ioctl(struct file *fp, unsigned int cmd, unsigned lon
 	return 0;
 }
 /*----------------------------------------------------------------------------*/
+#ifdef CONFIG_COMPAT
+static long batch_compat_ioctl(struct file *fp, unsigned int cmd, unsigned long arg)
+{
+	long err = 0;
+
+	void __user *arg32 = compat_ptr(arg);
+
+	if (!fp->f_op || !fp->f_op->unlocked_ioctl)
+		return -ENOTTY;
+
+	switch (cmd) {
+	case COMPAT_BATCH_IO_GET_SENSORS_DATA:
+		err = fp->f_op->unlocked_ioctl(fp, BATCH_IO_GET_SENSORS_DATA, (unsigned long)arg32);
+		break;
+	default:
+		BATCH_ERR("Unknown cmd %x!!\n", cmd);
+		return -ENOIOCTLCMD;
+	}
+
+	return err;
+}
+#endif
+/*----------------------------------------------------------------------------*/
 static const struct file_operations batch_fops = {
 	.open   = batch_open,
 	.release = batch_release,
 	.unlocked_ioctl = batch_unlocked_ioctl,
+#ifdef CONFIG_COMPAT
+	.compat_ioctl = batch_compat_ioctl,
+#endif
 };
 /*----------------------------------------------------------------------------*/
 static int batch_misc_init(struct batch_context *cxt)
@@ -814,6 +884,7 @@ int batch_register_support_info(int handle, int support, int div, int timestamp_
 	}
 	return -1;
 }
+EXPORT_SYMBOL_GPL(batch_register_support_info);
 
 void report_batch_data(struct input_dev *dev, struct hwm_sensor_data *data)
 {
@@ -876,7 +947,7 @@ static int sensorHub_suspend(struct platform_device *dev, pm_message_t state)
 	cxt->force_wake_upon_fifo_full = 0;
 	for (handle = 0; handle <= ID_SENSOR_MAX_HANDLE; handle++) {
 		if (cxt->dev_list.data_dev[handle].is_batch_supported) {
-			en = (cxt->active_sensor & (0x01 << handle))?1:0;
+			en = (cxt->active_sensor & (1ULL << handle))?1:0;
 			if (cxt->dev_list.ctl_dev[handle].enable_hw_batch != NULL) {
 				res = cxt->dev_list.ctl_dev[handle].enable_hw_batch(handle,
 					en, cxt->dev_list.data_dev[handle].flags|cxt->force_wake_upon_fifo_full,
@@ -915,7 +986,7 @@ static int sensorHub_resume(struct platform_device *dev)
 	cxt->force_wake_upon_fifo_full = SENSORS_BATCH_WAKE_UPON_FIFO_FULL;
 	for (handle = 0; handle <= ID_SENSOR_MAX_HANDLE; handle++) {
 		if (cxt->dev_list.data_dev[handle].is_batch_supported) {
-			en = (cxt->active_sensor & (0x01 << handle))?1:0;
+			en = (cxt->active_sensor & (1ULL << handle))?1:0;
 			if (cxt->dev_list.ctl_dev[handle].enable_hw_batch != NULL) {
 				res = cxt->dev_list.ctl_dev[handle].enable_hw_batch(handle,
 					en, cxt->dev_list.data_dev[handle].flags|cxt->force_wake_upon_fifo_full,

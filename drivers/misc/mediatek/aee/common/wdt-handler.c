@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #include <linux/module.h>
 #include <linux/slab.h>
 #include <mt-plat/aee.h>
@@ -21,7 +34,6 @@
 #include <mach/wd_api.h>
 #ifndef __aarch64__
 #include <smp.h>
-#include <mach/irqs.h>
 #endif
 #include "aee-common.h"
 
@@ -338,8 +350,6 @@ void aee_fiq_ipi_cpu_stop(void *arg, void *regs, void *svc_sp)
 	aee_dump_cpu_reg_bin(cpu, regs);
 	aee_wdt_dump_stack_bin(cpu, ((struct pt_regs *)regs)->ARM_sp,
 			       ((struct pt_regs *)regs)->ARM_sp + WDT_SAVE_STACK_SIZE);
-
-	set_cpu_online(cpu, false);
 	local_fiq_disable();
 	local_irq_disable();
 
@@ -357,7 +367,9 @@ void aee_smp_send_stop(void)
 	cpu = get_HW_cpuid();
 	cpumask_clear_cpu(cpu, &mask);
 	/* mt_fiq_printf("\n fiq_smp_call_function\n"); */
+#ifndef CONFIG_TRUSTY_WDT_FIQ_ARMV7_SUPPORT
 	fiq_smp_call_function(aee_fiq_ipi_cpu_stop, NULL, 0);
+#endif
 
 	/* Wait up to one second for other CPUs to stop */
 	timeout = USEC_PER_SEC;
@@ -437,12 +449,12 @@ void aee_wdt_irq_info(void)
 	wdt_log_length +=
 	    dump_idle_info((wdt_log_buf + wdt_log_length), (sizeof(wdt_log_buf) - wdt_log_length));
 #endif
+	aee_sram_fiq_log(wdt_log_buf);
 
 #ifdef CONFIG_MT_SCHED_MONITOR
 	aee_rr_rec_fiq_step(AEE_FIQ_STEP_WDT_IRQ_SCHED);
 	mt_aee_dump_sched_traces();
 #endif
-	aee_sram_fiq_log(wdt_log_buf);
 
 	/* avoid lock prove to dump_stack in __debug_locks_off() */
 	xchg(&debug_locks, 0);
@@ -486,6 +498,9 @@ void aee_wdt_fiq_info(void *arg, void *regs, void *svc_sp)
 	if (atomic_xchg(&wdt_enter_fiq, 1) != 0) {
 		aee_rr_rec_fiq_step(AEE_FIQ_STEP_WDT_FIQ_LOOP);
 		aee_wdt_percpu_printf(cpu, "Other CPU already enter WDT FIQ handler\n");
+#ifdef CONFIG_TRUSTY_WDT_FIQ_ARMV7_SUPPORT
+		aee_fiq_ipi_cpu_stop(arg, regs, svc_sp);
+#endif
 		/* loop forever here to avoid SMP deadlock risk during panic flow */
 		while (1)
 			;
@@ -515,4 +530,4 @@ static int __init aee_wdt_init(void)
 	return 0;
 }
 
-module_init(aee_wdt_init);
+arch_initcall(aee_wdt_init);

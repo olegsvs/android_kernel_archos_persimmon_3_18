@@ -1,17 +1,19 @@
 /*
- * Copyright (C) 2007 The Android Open Source Project
+ * Copyright (C) 2015 MediaTek Inc.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ * You should have received a copy of the GNU General Public License
+ * along with this program
+ * If not, see <http://www.gnu.org/licenses/>.
  */
 /*******************************************************************************
  *
@@ -61,13 +63,13 @@
 
 static int dummy_codec_startup(struct snd_pcm_substream *substream, struct snd_soc_dai *Daiport)
 {
-	pr_warn("dummy_codec_startup\n");
+	/*pr_warn("dummy_codec_startup\n");*/
 	return 0;
 }
 
 static int dummy_codec_prepare(struct snd_pcm_substream *substream, struct snd_soc_dai *Daiport)
 {
-	pr_warn("dummy_codec_prepare\n ");
+	/*pr_warn("dummy_codec_prepare\n ");
 	if (substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
 		pr_warn("dummy_codec_prepare set up SNDRV_PCM_STREAM_CAPTURE rate = %d\n",
 		       substream->runtime->rate);
@@ -75,7 +77,7 @@ static int dummy_codec_prepare(struct snd_pcm_substream *substream, struct snd_s
 	} else if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 		pr_warn("dummy_codec_prepare set up SNDRV_PCM_STREAM_PLAYBACK rate = %d\n",
 		       substream->runtime->rate);
-	}
+	}*/
 	return 0;
 }
 
@@ -90,7 +92,7 @@ static int dummy_codec_trigger(struct snd_pcm_substream *substream, int command,
 		break;
 	}
 
-	pr_warn("dummy_codec_trigger command = %d\n ", command);
+	/*pr_warn("dummy_codec_trigger command = %d\n ", command);*/
 	return 0;
 }
 
@@ -107,7 +109,7 @@ static struct snd_soc_dai_driver dummy_6323_dai_codecs[] = {
 		      .stream_name = MT_SOC_DL1_STREAM_NAME,
 		      .channels_min = 1,
 		      .channels_max = 8,
-		      .rates = SNDRV_PCM_RATE_8000_48000,
+		      .rates = SOC_HIGH_USE_RATE,
 		      .formats = SND_SOC_ADV_MT_FMTS,
 		      },
 	 },
@@ -117,7 +119,7 @@ static struct snd_soc_dai_driver dummy_6323_dai_codecs[] = {
 		     .stream_name = MT_SOC_UL1_STREAM_NAME,
 		     .channels_min = 1,
 		     .channels_max = 8,
-		     .rates = SNDRV_PCM_RATE_8000_48000,
+		     .rates = SOC_HIGH_USE_RATE,
 		     .formats = SND_SOC_ADV_MT_FMTS,
 		     },
 	 },
@@ -127,14 +129,14 @@ static struct snd_soc_dai_driver dummy_6323_dai_codecs[] = {
 		      .stream_name = MT_SOC_VOICE_MD1_STREAM_NAME,
 		      .channels_min = 1,
 		      .channels_max = 2,
-		      .rates = SNDRV_PCM_RATE_8000_48000,
+		      .rates = SOC_HIGH_USE_RATE,
 		      .formats = SND_SOC_ADV_MT_FMTS,
 		      },
 	 .capture = {
 		     .stream_name = MT_SOC_VOICE_MD1_STREAM_NAME,
 		     .channels_min = 1,
 		     .channels_max = 2,
-		     .rates = SNDRV_PCM_RATE_8000_48000,
+		     .rates = SOC_HIGH_USE_RATE,
 		     .formats = SND_SOC_ADV_MT_FMTS,
 		     },
 	 },
@@ -144,14 +146,14 @@ static struct snd_soc_dai_driver dummy_6323_dai_codecs[] = {
 		      .stream_name = MT_SOC_VOICE_MD2_STREAM_NAME,
 		      .channels_min = 1,
 		      .channels_max = 2,
-		      .rates = SNDRV_PCM_RATE_8000_48000,
+		      .rates = SOC_HIGH_USE_RATE,
 		      .formats = SND_SOC_ADV_MT_FMTS,
 		      },
 	 .capture = {
 		     .stream_name = MT_SOC_VOICE_MD2_STREAM_NAME,
 		     .channels_min = 1,
 		     .channels_max = 2,
-		     .rates = SNDRV_PCM_RATE_8000_48000,
+		     .rates = SOC_HIGH_USE_RATE,
 		     .formats = SND_SOC_ADV_MT_FMTS,
 		     },
 	 },
@@ -161,14 +163,14 @@ static struct snd_soc_dai_driver dummy_6323_dai_codecs[] = {
 		      .stream_name = MT_SOC_FM_I2S2_STREAM_NAME,
 		      .channels_min = 1,
 		      .channels_max = 2,
-		      .rates = SNDRV_PCM_RATE_8000_48000,
+		      .rates = SOC_HIGH_USE_RATE,
 		      .formats = SND_SOC_ADV_MT_FMTS,
 		      },
 	 .capture = {
 		     .stream_name = MT_SOC_FM_I2S2_RECORD_STREAM_NAME,
 		     .channels_min = 1,
 		     .channels_max = 2,
-		     .rates = SNDRV_PCM_RATE_8000_48000,
+		     .rates = SOC_HIGH_USE_RATE,
 		     .formats = SND_SOC_ADV_MT_FMTS,
 		     },
 	 },
@@ -178,7 +180,7 @@ static struct snd_soc_dai_driver dummy_6323_dai_codecs[] = {
 		      .stream_name = MT_SOC_ROUTING_STREAM_NAME,
 		      .channels_min = 1,
 		      .channels_max = 8,
-		      .rates = SNDRV_PCM_RATE_8000_192000,
+		      .rates = SOC_HIGH_USE_RATE,
 		      .formats = SND_SOC_ADV_MT_FMTS,
 		      },
 	 },
@@ -188,7 +190,7 @@ static struct snd_soc_dai_driver dummy_6323_dai_codecs[] = {
 		     .stream_name = MT_SOC_DL1_AWB_RECORD_STREAM_NAME,
 		     .channels_min = 1,
 		     .channels_max = 2,
-		     .rates = SNDRV_PCM_RATE_8000_48000,
+		     .rates = SOC_HIGH_USE_RATE,
 		     .formats = SND_SOC_ADV_MT_FMTS,
 		     }
 	 },
@@ -198,27 +200,17 @@ static struct snd_soc_dai_driver dummy_6323_dai_codecs[] = {
 		     .stream_name = MT_SOC_I2S0AWB_STREAM_NAME,
 		     .channels_min = 1,
 		     .channels_max = 2,
-		     .rates = SNDRV_PCM_RATE_8000_48000,
+		     .rates = SOC_HIGH_USE_RATE,
 		     .formats = SND_SOC_ADV_MT_FMTS,
 		     }
 	 },
-	{
-	.name = MT_SOC_CODEC_4PINI2S0AWB_NAME,
-	.capture = {
-		.stream_name = MT_SOC_4PINI2S0AWB_STREAM_NAME,
-		.channels_min = 1,
-		.channels_max = 2,
-		.rates = SNDRV_PCM_RATE_8000_48000,
-		.formats = SND_SOC_ADV_MT_FMTS,
-	}
-	},
 	{
 	 .name = MT_SOC_CODEC_VOICE_MD2_BTDAI_NAME,
 	 .playback = {
 		      .stream_name = MT_SOC_VOICE_MD2_BT_STREAM_NAME,
 		      .channels_min = 1,
 		      .channels_max = 2,
-		      .rates = SNDRV_PCM_RATE_8000_48000,
+		      .rates = SOC_HIGH_USE_RATE,
 		      .formats = SND_SOC_ADV_MT_FMTS,
 		      }
 	 },
@@ -228,7 +220,7 @@ static struct snd_soc_dai_driver dummy_6323_dai_codecs[] = {
 		      .stream_name = MT_SOC_VOICE_MD1_BT_STREAM_NAME,
 		      .channels_min = 1,
 		      .channels_max = 2,
-		      .rates = SNDRV_PCM_RATE_8000_48000,
+		      .rates = SOC_HIGH_USE_RATE,
 		      .formats = SND_SOC_ADV_MT_FMTS,
 		      }
 	 },
@@ -239,7 +231,7 @@ static struct snd_soc_dai_driver dummy_6323_dai_codecs[] = {
 		      .stream_name = MT_SOC_VOIP_BT_OUT_STREAM_NAME,
 		      .channels_min = 1,
 		      .channels_max = 2,
-		      .rates = SNDRV_PCM_RATE_8000_48000,
+		      .rates = SOC_HIGH_USE_RATE,
 		      .formats = SND_SOC_ADV_MT_FMTS,
 		      }
 	 },
@@ -249,7 +241,7 @@ static struct snd_soc_dai_driver dummy_6323_dai_codecs[] = {
 		     .stream_name = MT_SOC_VOIP_BT_IN_STREAM_NAME,
 		     .channels_min = 1,
 		     .channels_max = 2,
-		     .rates = SNDRV_PCM_RATE_8000_48000,
+		     .rates = SOC_HIGH_USE_RATE,
 		     .formats = SND_SOC_ADV_MT_FMTS,
 		     }
 	 },
@@ -259,7 +251,7 @@ static struct snd_soc_dai_driver dummy_6323_dai_codecs[] = {
 		      .stream_name = MT_SOC_ROUTING_STREAM_NAME,
 		      .channels_min = 1,
 		      .channels_max = 8,
-		      .rates = SNDRV_PCM_RATE_8000_192000,
+		      .rates = SOC_HIGH_USE_RATE,
 		      .formats = (SNDRV_PCM_FMTBIT_U8 | SNDRV_PCM_FMTBIT_S8 |
 				  SNDRV_PCM_FMTBIT_U16_LE | SNDRV_PCM_FMTBIT_S16_LE |
 				  SNDRV_PCM_FMTBIT_U16_BE | SNDRV_PCM_FMTBIT_S16_BE |
@@ -274,7 +266,7 @@ static struct snd_soc_dai_driver dummy_6323_dai_codecs[] = {
 		     .stream_name = MT_SOC_ROUTING_STREAM_NAME,
 		     .channels_min = 1,
 		     .channels_max = 8,
-		     .rates = SNDRV_PCM_RATE_8000_192000,
+		     .rates = SOC_HIGH_USE_RATE,
 		     .formats = (SNDRV_PCM_FMTBIT_U8 | SNDRV_PCM_FMTBIT_S8 |
 				 SNDRV_PCM_FMTBIT_U16_LE | SNDRV_PCM_FMTBIT_S16_LE |
 				 SNDRV_PCM_FMTBIT_U16_BE | SNDRV_PCM_FMTBIT_S16_BE |
@@ -292,7 +284,7 @@ static struct snd_soc_dai_driver dummy_6323_dai_codecs[] = {
 		      .stream_name = MT_SOC_HDMI_STREAM_NAME,
 		      .channels_min = 1,
 		      .channels_max = 8,
-		      .rates = SNDRV_PCM_RATE_8000_192000,
+		      .rates = SOC_HIGH_USE_RATE,
 		      .formats = SND_SOC_ADV_MT_FMTS,
 
 		      },
@@ -300,7 +292,7 @@ static struct snd_soc_dai_driver dummy_6323_dai_codecs[] = {
 		     .stream_name = MT_SOC_HDMI_STREAM_NAME,
 		     .channels_min = 1,
 		     .channels_max = 8,
-		     .rates = SNDRV_PCM_RATE_8000_192000,
+		     .rates = SOC_HIGH_USE_RATE,
 		     .formats = SND_SOC_ADV_MT_FMTS,
 		     },
 	 },
@@ -310,32 +302,9 @@ static struct snd_soc_dai_driver dummy_6323_dai_codecs[] = {
 		      .stream_name = MT_SOC_I2S0_STREAM_NAME,
 		      .channels_min = 1,
 		      .channels_max = 8,
-		      .rates = SNDRV_PCM_RATE_8000_192000,
-		      .formats = (SNDRV_PCM_FMTBIT_U8 | SNDRV_PCM_FMTBIT_S8 |
-				  SNDRV_PCM_FMTBIT_U16_LE | SNDRV_PCM_FMTBIT_S16_LE |
-				  SNDRV_PCM_FMTBIT_U16_BE | SNDRV_PCM_FMTBIT_S16_BE |
-				  SNDRV_PCM_FMTBIT_U24_LE | SNDRV_PCM_FMTBIT_S24_LE |
-				  SNDRV_PCM_FMTBIT_U24_BE | SNDRV_PCM_FMTBIT_S24_BE |
-				  SNDRV_PCM_FMTBIT_U24_3LE | SNDRV_PCM_FMTBIT_S24_3LE |
-				  SNDRV_PCM_FMTBIT_U24_3BE | SNDRV_PCM_FMTBIT_S24_3BE |
-				  SNDRV_PCM_FMTBIT_U32_LE | SNDRV_PCM_FMTBIT_S32_LE |
-				  SNDRV_PCM_FMTBIT_U32_BE | SNDRV_PCM_FMTBIT_S32_BE),
+		      .rates = SOC_HIGH_USE_RATE,
+		      .formats = SND_SOC_ADV_MT_FMTS,
 		      },
-	 .capture = {
-		     .stream_name = MT_SOC_I2S0_STREAM_NAME,
-		     .channels_min = 1,
-		     .channels_max = 8,
-		     .rates = SNDRV_PCM_RATE_8000_192000,
-		     .formats = (SNDRV_PCM_FMTBIT_U8 | SNDRV_PCM_FMTBIT_S8 |
-				 SNDRV_PCM_FMTBIT_U16_LE | SNDRV_PCM_FMTBIT_S16_LE |
-				 SNDRV_PCM_FMTBIT_U16_BE | SNDRV_PCM_FMTBIT_S16_BE |
-				 SNDRV_PCM_FMTBIT_U24_LE | SNDRV_PCM_FMTBIT_S24_LE |
-				 SNDRV_PCM_FMTBIT_U24_BE | SNDRV_PCM_FMTBIT_S24_BE |
-				 SNDRV_PCM_FMTBIT_U24_3LE | SNDRV_PCM_FMTBIT_S24_3LE |
-				 SNDRV_PCM_FMTBIT_U24_3BE | SNDRV_PCM_FMTBIT_S24_3BE |
-				 SNDRV_PCM_FMTBIT_U32_LE | SNDRV_PCM_FMTBIT_S32_LE |
-				 SNDRV_PCM_FMTBIT_U32_BE | SNDRV_PCM_FMTBIT_S32_BE),
-		     },
 	 },
 	{
 	 .name = MT_SOC_CODEC_MRGRX_DUMMY_DAI_NAME,
@@ -343,14 +312,14 @@ static struct snd_soc_dai_driver dummy_6323_dai_codecs[] = {
 		      .stream_name = MT_SOC_MRGRX_STREAM_NAME,
 		      .channels_min = 1,
 		      .channels_max = 8,
-		      .rates = SNDRV_PCM_RATE_8000_192000,
+		      .rates = SOC_HIGH_USE_RATE,
 		      .formats = SND_SOC_ADV_MT_FMTS,
 		      },
 	 .capture = {
 		     .stream_name = MT_SOC_MRGRX_STREAM_NAME,
 		     .channels_min = 1,
 		     .channels_max = 8,
-		     .rates = SNDRV_PCM_RATE_8000_192000,
+		     .rates = SOC_HIGH_USE_RATE,
 		     .formats = SND_SOC_ADV_MT_FMTS,
 		     },
 	 },
@@ -360,7 +329,7 @@ static struct snd_soc_dai_driver dummy_6323_dai_codecs[] = {
 		      .stream_name = MT_SOC_FM_MRGTX_STREAM_NAME,
 		      .channels_min = 1,
 		      .channels_max = 2,
-		      .rates = SNDRV_PCM_RATE_44100,
+		      .rates = SOC_HIGH_USE_RATE,
 		      .formats = SND_SOC_ADV_MT_FMTS,
 		      },
 	 },
@@ -369,8 +338,8 @@ static struct snd_soc_dai_driver dummy_6323_dai_codecs[] = {
 	 .capture = {
 		     .stream_name = MT_SOC_TDM_CAPTURE_STREAM_NAME,
 		     .channels_min = 2,
-		     .channels_max = 8,
-		     .rates = SNDRV_PCM_RATE_8000_192000,
+		     .channels_max = 2,
+		     .rates = SOC_HIGH_USE_RATE,
 		     .formats = (SNDRV_PCM_FMTBIT_U8 | SNDRV_PCM_FMTBIT_S8 |
 				 SNDRV_PCM_FMTBIT_U16_LE | SNDRV_PCM_FMTBIT_S16_LE |
 				 SNDRV_PCM_FMTBIT_U16_BE | SNDRV_PCM_FMTBIT_S16_BE |
@@ -388,7 +357,7 @@ static struct snd_soc_dai_driver dummy_6323_dai_codecs[] = {
 		      .stream_name = MT_SOC_MODADCI2S_STREAM_NAME,
 		      .channels_min = 1,
 		      .channels_max = 8,
-		      .rates = SNDRV_PCM_RATE_8000_192000,
+		      .rates = SOC_HIGH_USE_RATE,
 		      .formats = (SNDRV_PCM_FMTBIT_U8 | SNDRV_PCM_FMTBIT_S8 |
 				  SNDRV_PCM_FMTBIT_U16_LE | SNDRV_PCM_FMTBIT_S16_LE |
 				  SNDRV_PCM_FMTBIT_U16_BE | SNDRV_PCM_FMTBIT_S16_BE |
@@ -403,7 +372,7 @@ static struct snd_soc_dai_driver dummy_6323_dai_codecs[] = {
 		     .stream_name = MT_SOC_MODADCI2S_STREAM_NAME,
 		     .channels_min = 1,
 		     .channels_max = 8,
-		     .rates = SNDRV_PCM_RATE_8000_192000,
+		     .rates = SOC_HIGH_USE_RATE,
 		     .formats = (SNDRV_PCM_FMTBIT_U8 | SNDRV_PCM_FMTBIT_S8 |
 				 SNDRV_PCM_FMTBIT_U16_LE | SNDRV_PCM_FMTBIT_S16_LE |
 				 SNDRV_PCM_FMTBIT_U16_BE | SNDRV_PCM_FMTBIT_S16_BE |
@@ -421,7 +390,7 @@ static struct snd_soc_dai_driver dummy_6323_dai_codecs[] = {
 		      .stream_name = MT_SOC_ADC2AWB_STREAM_NAME,
 		      .channels_min = 1,
 		      .channels_max = 8,
-		      .rates = SNDRV_PCM_RATE_8000_192000,
+		      .rates = SOC_HIGH_USE_RATE,
 		      .formats = (SNDRV_PCM_FMTBIT_U8 | SNDRV_PCM_FMTBIT_S8 |
 				  SNDRV_PCM_FMTBIT_U16_LE | SNDRV_PCM_FMTBIT_S16_LE |
 				  SNDRV_PCM_FMTBIT_U16_BE | SNDRV_PCM_FMTBIT_S16_BE |
@@ -436,7 +405,7 @@ static struct snd_soc_dai_driver dummy_6323_dai_codecs[] = {
 		     .stream_name = MT_SOC_ADC2AWB_STREAM_NAME,
 		     .channels_min = 1,
 		     .channels_max = 8,
-		     .rates = SNDRV_PCM_RATE_8000_192000,
+		     .rates = SOC_HIGH_USE_RATE,
 		     .formats = (SNDRV_PCM_FMTBIT_U8 | SNDRV_PCM_FMTBIT_S8 |
 				 SNDRV_PCM_FMTBIT_U16_LE | SNDRV_PCM_FMTBIT_S16_LE |
 				 SNDRV_PCM_FMTBIT_U16_BE | SNDRV_PCM_FMTBIT_S16_BE |
@@ -455,7 +424,7 @@ static struct snd_soc_dai_driver dummy_6323_dai_codecs[] = {
 		      .stream_name = MT_SOC_IO2DAI_STREAM_NAME,
 		      .channels_min = 1,
 		      .channels_max = 8,
-		      .rates = SNDRV_PCM_RATE_8000_192000,
+		      .rates = SOC_HIGH_USE_RATE,
 		      .formats = (SNDRV_PCM_FMTBIT_U8 | SNDRV_PCM_FMTBIT_S8 |
 				  SNDRV_PCM_FMTBIT_U16_LE | SNDRV_PCM_FMTBIT_S16_LE |
 				  SNDRV_PCM_FMTBIT_U16_BE | SNDRV_PCM_FMTBIT_S16_BE |
@@ -470,7 +439,7 @@ static struct snd_soc_dai_driver dummy_6323_dai_codecs[] = {
 		     .stream_name = MT_SOC_IO2DAI_STREAM_NAME,
 		     .channels_min = 1,
 		     .channels_max = 8,
-		     .rates = SNDRV_PCM_RATE_8000_192000,
+		     .rates = SOC_HIGH_USE_RATE,
 		     .formats = (SNDRV_PCM_FMTBIT_U8 | SNDRV_PCM_FMTBIT_S8 |
 				 SNDRV_PCM_FMTBIT_U16_LE | SNDRV_PCM_FMTBIT_S16_LE |
 				 SNDRV_PCM_FMTBIT_U16_BE | SNDRV_PCM_FMTBIT_S16_BE |
@@ -484,31 +453,13 @@ static struct snd_soc_dai_driver dummy_6323_dai_codecs[] = {
 	 },
 	{
 	 .name = MT_SOC_CODEC_FM_I2S_DUMMY_DAI_NAME,
-	 .playback = {
-		      .stream_name = MT_SOC_FM_I2S_PLAYBACK_STREAM_NAME,
-		      .channels_min = 1,
-		      .channels_max = 8,
-		      .rates = SNDRV_PCM_RATE_8000_192000,
-		      .formats = SND_SOC_ADV_MT_FMTS,
-		      },
 	 .capture = {
 		     .stream_name = MT_SOC_FM_I2S_PLAYBACK_STREAM_NAME,
 		     .channels_min = 1,
 		     .channels_max = 8,
-		     .rates = SNDRV_PCM_RATE_8000_192000,
+		     .rates = SOC_HIGH_USE_RATE,
 		     .formats = SND_SOC_ADV_MT_FMTS,
 		     },
-	 },
-	{
-	 .name = MT_SOC_CODEC_OFFLOAD_GDMA_DAI_NAME,
-	 .playback = {
-		      .stream_name = MT_SOC_OFFLOAD_GDMA_STREAM_NAME,
-		      .channels_min = 1,
-		      .channels_max = 2,
-		      .rates = SNDRV_PCM_RATE_8000_48000,
-		      .formats = SND_SOC_ADV_MT_FMTS,
-		      },
-	 .compress_dai = 1,
 	 },
 	 {
 	 .name = MT_SOC_CODEC_BTCVSD_RX_DAI_NAME,
@@ -516,7 +467,7 @@ static struct snd_soc_dai_driver dummy_6323_dai_codecs[] = {
 		     .stream_name = MT_SOC_BTCVSD_CAPTURE_STREAM_NAME,
 		     .channels_min = 1,
 		     .channels_max = 2,
-		     .rates = SNDRV_PCM_RATE_8000_48000,
+		     .rates = SOC_HIGH_USE_RATE,
 		     .formats = SND_SOC_ADV_MT_FMTS,
 		     },
 	 },
@@ -526,10 +477,20 @@ static struct snd_soc_dai_driver dummy_6323_dai_codecs[] = {
 		      .stream_name = MT_SOC_BTCVSD_PLAYBACK_STREAM_NAME,
 		      .channels_min = 1,
 		      .channels_max = 2,
-		      .rates = SNDRV_PCM_RATE_8000_48000,
+		      .rates = SOC_HIGH_USE_RATE,
 		      .formats = SND_SOC_ADV_MT_FMTS,
 		      },
-	 }
+	 },
+	 {
+	.name = MT_SOC_CODEC_MOD_DAI_NAME,
+	.capture = {
+		.stream_name = MT_SOC_MODDAI_STREAM_NAME,
+		.channels_min = 1,
+		.channels_max = 2,
+		.rates = SNDRV_PCM_RATE_8000_48000,
+		.formats = SND_SOC_ADV_MT_FMTS,
+		},
+	},
 };
 
 static int dummy_codec_probe(struct snd_soc_codec *codec)

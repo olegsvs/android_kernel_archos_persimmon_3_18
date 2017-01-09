@@ -1,4 +1,15 @@
-#include $(srctree)/drivers/misc/mediatek/Makefile.custom
+#
+# Copyright (C) 2015 MediaTek Inc.
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License version 2 as
+# published by the Free Software Foundation.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU General Public License for more details.
+#
 
 #obj-$(CONFIG_MTK_PMIC)          += pmic.o upmu_common.o pmic_auxadc.o pmic_chr_type_det.o mt6311.o
 obj-$(CONFIG_MTK_PMIC)          += pmic.o upmu_common.o pmic_auxadc.o mt6311.o
@@ -24,9 +35,13 @@ else
                     ifeq ($(CONFIG_MTK_FAN5405_SUPPORT),y)
                         obj-$(CONFIG_MTK_SMART_BATTERY) += fan5405.o charging_hw_fan5405.o
                     else
-                    obj-$(CONFIG_MTK_SMART_BATTERY) += charging_hw_pmic.o
+                         ifeq ($(CONFIG_MTK_RT9536_SUPPORT),y)
+                             obj-$(CONFIG_MTK_SMART_BATTERY) += rt9536.o charging_hw_rt9536.o
+                         else
+                             obj-$(CONFIG_MTK_SMART_BATTERY) += charging_hw_pmic.o
+                         endif
+                    endif
                endif
           endif
      endif
-endif
 endif

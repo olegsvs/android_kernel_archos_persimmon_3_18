@@ -16,8 +16,8 @@
 #include <gyroscope.h>
 
 /*----------------------------------------------------------------------------*/
-#define ICM20645_DEFAULT_FS		ICM20645_FS_1000
-#define ICM20645_DEFAULT_LSB		ICM20645_FS_1000_LSB
+#define ICM20645_DEFAULT_FS		ICM20645_FS_2000
+#define ICM20645_DEFAULT_LSB		ICM20645_FS_2000_LSB
 /*---------------------------------------------------------------------------*/
 #define DEBUG 0
 /*----------------------------------------------------------------------------*/
@@ -226,6 +226,18 @@ static int icm20645_lp_mode(struct i2c_client *client, bool on)
 		}
 #endif
 	}
+	return ICM20645_SUCCESS;
+
+}
+
+static int icm20645_lowest_power_mode(struct i2c_client *client, bool on)
+{
+	int res;
+	u8 databuf[2];
+
+	memset(databuf, 0, sizeof(databuf));
+	icm20645_set_bank(client, BANK_SEL_0);
+
 /* all_chip_lp_config */
 #ifdef ICM20645_ACCESS_BY_GSE_I2C
 	res = ICM20645_hwmsen_read_block(ICM20645_REG_PWR_CTL, databuf, 0x01);
@@ -433,8 +445,15 @@ static int ICM20645_SetPowerMode(struct i2c_client *client, bool enable)
 
 	databuf[0] &= ~ICM20645_SLEEP;
 	if (enable == FALSE) {
-		if (ICM20645_gse_mode() == false)
+		if (ICM20645_gse_mode() == false) {
 			databuf[0] |= ICM20645_SLEEP;
+		} else {
+			res = icm20645_lowest_power_mode(client, true);
+			if (res != 0) {
+				GYRO_ERR("icm20645gy_lowest_power_mode error\n\r");
+				return res;
+			}
+		}
 	}
 
 #ifdef ICM20645_ACCESS_BY_GSE_I2C
@@ -513,7 +532,7 @@ static int ICM20645_Setfilter(struct i2c_client *client, int filter_sample)
 	databuf[1] = filter_sample;
 	res = i2c_master_send(client, databuf, 0x2);
 #endif
-	if (res <= 0) {
+	if (res < 0) {
 		GYRO_ERR("write sample rate register err!\n");
 		return ICM20645_ERR_I2C;
 	}
@@ -525,22 +544,23 @@ static int ICM20645_Setfilter(struct i2c_client *client, int filter_sample)
 static int ICM20645_SetSampleRate(struct i2c_client *client, int sample_rate)
 {
 	u8 databuf[2] = { 0 };
-	int rate_div = 0;
 	int res = 0;
 
-	rate_div = 1125 / sample_rate - 1;
+	if (sample_rate >= 500)
+		databuf[0] = 0;
+	else
+		databuf[0] = 1125 / sample_rate - 1;
 
 	icm20645_set_bank(client, BANK_SEL_2);
 
 #ifdef ICM20645_ACCESS_BY_GSE_I2C
-	databuf[0] = rate_div;
 	res = ICM20645_hwmsen_write_block(ICM20645_REG_SAMRT_DIV, databuf, 0x1);
 #else
+	databuf[1] = databuf[0];
 	databuf[0] = ICM20645_REG_SAMRT_DIV;
-	databuf[1] = rate_div;
 	res = i2c_master_send(client, databuf, 0x2);
 #endif
-	if (res <= 0) {
+	if (res < 0) {
 		GYRO_ERR("write sample rate register err!\n");
 		return ICM20645_ERR_I2C;
 	}
@@ -558,6 +578,7 @@ static int ICM20645_ReadGyroData(struct i2c_client *client, char *buf, int bufsi
 
 	if (sensor_power == false) {
 		ICM20645_SetPowerMode(client, true);
+		icm20645_turn_on(client, BIT_PWR_GYRO_STBY, true);
 		msleep(50);
 	}
 #ifdef ICM20645_ACCESS_BY_GSE_I2C
@@ -878,34 +899,51 @@ static int icm20645_init_client(struct i2c_client *client, bool enable)
 		GYRO_ERR("ICM20645_SetPowerMode ERR!\n");
 		return res;
 	}
-
+	res = icm20645_turn_on(client, BIT_PWR_GYRO_STBY, true);
+	if (res != ICM20645_SUCCESS) {
+		GYRO_ERR("icm20645_turn_on ERR!\n");
+		return res;
+	}
+	res = icm20645_lp_mode(client, true);
+	if (res != ICM20645_SUCCESS) {
+		GYRO_ERR("icm20645_lp_mode ERR!\n");
+		return res;
+	}
+	res = icm20645_lowest_power_mode(client, false);
+	if (res != 0) {
+		GYRO_ERR("icm20645gy_lowest_power_mode error\n\r");
+		return res;
+	}
 	res = ICM20645_SetDataFormat(client, (GYRO_DLPFCFG | GYRO_FS_SEL | GYRO_FCHOICE));
 	if (res != ICM20645_SUCCESS) {
 		GYRO_ERR("ICM20645_SetDataFormat ERR!\n");
 		return res;
 	}
-	res = ICM20645_SetSampleRate(client, 125);
-	if (res != ICM20645_SUCCESS) {
-		GYRO_ERR("ICM20645_SetSampleRate ERR!\n");
-		return res;
-	}
-	res = ICM20645_Setfilter(client, GYRO_AVGCFG_8X);
+	/* this is used to cts gyroscope measurement test, this case will use 500hz frquency,
+	 * so we calibrate sensor in factory use use 500hz and 1x filter to give raw data, if
+	 * we use 100hz and 8x filter in factory calibration will lead raw data not accurancy 
+	 */
+	res = ICM20645_Setfilter(client, GYRO_AVGCFG_1X);
 	if (res != ICM20645_SUCCESS) {
 		GYRO_ERR("ICM20645_Setfilter ERR!\n");
+		return res;
+	}
+	res = ICM20645_SetSampleRate(client, 500);
+	if (res != ICM20645_SUCCESS) {
+		GYRO_ERR("ICM20645_SetSampleRate ERR!\n");
 		return res;
 	}
 #ifdef CONFIG_ICM20645_LOWPASS
 	memset(&obj->fir, 0x00, sizeof(obj->fir));
 #endif
-	icm20645_turn_on(client, BIT_PWR_GYRO_STBY, true);
+	res = icm20645_turn_on(client, BIT_PWR_GYRO_STBY, false);
 	if (res != ICM20645_SUCCESS) {
 		GYRO_ERR("icm20645_turn_on ERR!\n");
 		return res;
 	}
-
-	icm20645_lp_mode(client, true);
-	if (res != ICM20645_SUCCESS) {
-		GYRO_ERR("icm20645_lp_mode ERR!\n");
+	res = icm20645_lowest_power_mode(client, true);
+	if (res != 0) {
+		GYRO_ERR("icm20645gy_lowest_power_mode error\n\r");
 		return res;
 	}
 	res = ICM20645_SetPowerMode(client, enable);
@@ -1162,9 +1200,14 @@ static int icm20645_suspend(struct i2c_client *client, pm_message_t msg)
 			return -EINVAL;
 		}
 		atomic_set(&obj->suspend, 1);
+		err = icm20645_turn_on(client, BIT_PWR_GYRO_STBY, false);
+		if (err != ICM20645_SUCCESS) {
+			GYRO_ERR("icm20645_turn_on ERR!\n");
+			return err;
+		}
 
 		err = ICM20645_SetPowerMode(client, false);
-		if (err <= 0)
+		if (err < 0)
 			return err;
 	}
 	return err;
@@ -1214,14 +1257,39 @@ static int icm20645_enable_nodata(int en)
 		power = true;
 	if (0 == en)
 		power = false;
-
-	for (retry = 0; retry < 3; retry++) {
-		res = ICM20645_SetPowerMode(obj_i2c_data->client, power);
-		if (res == 0) {
-			GYRO_LOG("ICM20645_SetPowerMode done\n");
-			break;
+	if (power == true) {
+		for (retry = 0; retry < 3; retry++) {
+			res = ICM20645_SetPowerMode(obj_i2c_data->client, true);
+			if (res == 0) {
+				GYRO_LOG("ICM20645_SetPowerMode done\n");
+				break;
+			}
+			GYRO_LOG("ICM20645_SetPowerMode fail\n");
 		}
-		GYRO_LOG("ICM20645_SetPowerMode fail\n");
+		res = icm20645_turn_on(obj_i2c_data->client, BIT_PWR_GYRO_STBY, true);
+		if (res != ICM20645_SUCCESS) {
+			GYRO_ERR("icm20645_turn_on ERR!\n");
+			return res;
+		}
+		res = icm20645_lowest_power_mode(obj_i2c_data->client, true);
+		if (res != 0) {
+			GYRO_ERR("icm20645gy_lowest_power_mode error\n\r");
+			return res;
+		}
+	} else {
+		res = icm20645_turn_on(obj_i2c_data->client, BIT_PWR_GYRO_STBY, false);
+		if (res != ICM20645_SUCCESS) {
+			GYRO_ERR("icm20645_turn_on ERR!\n");
+			return res;
+		}
+		for (retry = 0; retry < 3; retry++) {
+			res = ICM20645_SetPowerMode(obj_i2c_data->client, false);
+			if (res == 0) {
+				GYRO_LOG("ICM20645_SetPowerMode done\n");
+				break;
+			}
+			GYRO_LOG("ICM20645_SetPowerMode fail\n");
+		}
 	}
 
 	if (res != ICM20645_SUCCESS) {
@@ -1235,6 +1303,49 @@ static int icm20645_enable_nodata(int en)
 
 static int icm20645_set_delay(u64 ns)
 {
+	unsigned int hw_rate, delay_t, err;
+
+	delay_t = ns / 1000 / 1000;
+	hw_rate = 1000 / delay_t;
+
+	err = ICM20645_SetPowerMode(obj_i2c_data->client, true);
+	if (err < 0) {
+		GYRO_LOG("ICM20645_SetPowerMode on fail\n\r");
+		err = -1;
+	}
+
+	err = icm20645_lowest_power_mode(obj_i2c_data->client, false);
+	if (err != 0) {
+		GYRO_ERR("icm20645gy_lowest_power_mode error\n\r");
+		err = -1;
+	}
+
+	if (hw_rate >= 500) {
+		err = ICM20645_Setfilter(obj_i2c_data->client, GYRO_AVGCFG_1X);
+		if (err != ICM20645_SUCCESS) {
+			GYRO_ERR("ICM20645_Setfilter ERR!\n");
+			return err;
+		}
+	} else if (hw_rate >= 100) {
+		err = ICM20645_Setfilter(obj_i2c_data->client, GYRO_AVGCFG_4X);
+		if (err != ICM20645_SUCCESS) {
+			GYRO_ERR("ICM20645_Setfilter ERR!\n");
+			return err;
+		}
+	 }
+
+	err = ICM20645_SetSampleRate(obj_i2c_data->client, hw_rate);
+	if (err != 0 ) {
+		GYRO_ERR("icm20645gy_SetSampleRate error\n\r");
+		err = -1;
+	}
+
+	err = icm20645_lowest_power_mode(obj_i2c_data->client, true);
+	if (err != 0) {
+		GYRO_ERR("icm20645gy_lowest_power_mode error\n\r");
+		err = -1;
+	}
+
 	return 0;
 }
 

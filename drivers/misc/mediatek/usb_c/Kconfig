@@ -34,6 +34,15 @@ config USB_C_SWITCH_SII70XX
           And support DRP, aka UFP and DFP mode.
           If unsure, say N.
 
+config USB_C_SWITCH_SII70XX_MHL_MODE
+	bool "MediaTek USB TYPE-C Driver with external solution (sii70xx MHL Mode)"
+	default n
+	---help---
+	  Enable to support usb-c MHL Mode.
+          usb-c is supported by Sii7033 and redriver.
+          Sii7033 MHL Mode supports only MHL alt mode.
+          If unsure, say N.
+
 config USB_C_SWITCH_ANX7418
 	bool "Analogix Type-C interface support"
 	default n
@@ -44,3 +53,15 @@ config USB_C_SWITCH_ANX7418
           ANX7418 supports CC detect, PD and DP alt mode.
           And support DRP, aka UFP and DFP mode.
           If unsure, say N.
+
+config USB_C_SWITCH_MT6353
+	bool "MediaTek USB TYPE-C Driver (MT6353)"
+	default n
+	select USB_C_SWITCH
+	---help---
+	  Enable to support usb-c.
+	  Enables support .
+	  usb-c is supported by MT6353 USB TYPE-C (CC only).
+	  MT6353 supports CC detect. And support DRP, aka UFP and DFP mode.
+	  PD and MHL alt mode are not supported.
+	  If unsure, say N.

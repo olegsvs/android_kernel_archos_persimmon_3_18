@@ -1,17 +1,19 @@
 /*
- * Copyright (C) 2007 The Android Open Source Project
+ * Copyright (C) 2015 MediaTek Inc.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ * You should have received a copy of the GNU General Public License
+ * along with this program
+ * If not, see <http://www.gnu.org/licenses/>.
  */
 /*******************************************************************************
  *
@@ -58,6 +60,8 @@
 #include "mt_soc_pcm_common.h"
 
 static AFE_MEM_CONTROL_T *pdl1btMemControl;
+static struct snd_dma_buffer *dl1bt_Playback_dma_buf;
+static unsigned int mPlaybackDramState;
 
 static DEFINE_SPINLOCK(auddrv_DL1BTCtl_lock);
 
@@ -92,17 +96,14 @@ static struct snd_pcm_hardware mtk_dl1bt_pcm_hardware = {
 
 static int mtk_pcm_dl1Bt_stop(struct snd_pcm_substream *substream)
 {
-
 	PRINTK_AUDDRV("mtk_pcm_dl1Bt_stop\n");
-
-	SetIrqEnable(Soc_Aud_IRQ_MCU_MODE_IRQ1_MCU_MODE, false);
 
 	/* here to turn off digital part */
 	SetConnection(Soc_Aud_InterCon_DisConnect, Soc_Aud_InterConnectionInput_I05, Soc_Aud_InterConnectionOutput_O02);
 	SetConnection(Soc_Aud_InterCon_DisConnect, Soc_Aud_InterConnectionInput_I06, Soc_Aud_InterConnectionOutput_O02);
 	SetMemoryPathEnable(Soc_Aud_Digital_Block_MEM_DL1, false);
 
-	SetIrqEnable(Soc_Aud_IRQ_MCU_MODE_IRQ1_MCU_MODE, false);
+	irq_remove_user(substream, Soc_Aud_IRQ_MCU_MODE_IRQ1_MCU_MODE);
 
 	SetMemoryPathEnable(Soc_Aud_Digital_Block_DAI_BT, false);
 
@@ -165,6 +166,28 @@ static snd_pcm_uframes_t mtk_dl1bt_pcm_pointer(struct snd_pcm_substream *substre
 	return Frameidx;
 }
 
+static void SetDL1Buffer(struct snd_pcm_substream *substream, struct snd_pcm_hw_params *hw_params)
+{
+	struct snd_pcm_runtime *runtime = substream->runtime;
+	AFE_BLOCK_T *pblock = &pdl1btMemControl->rBlock;
+
+	pblock->pucPhysBufAddr = runtime->dma_addr;
+	pblock->pucVirtBufAddr = runtime->dma_area;
+	pblock->u4BufferSize = runtime->dma_bytes;
+	pblock->u4SampleNumMask = 0x001f;	/* 32 byte align */
+	pblock->u4WriteIdx = 0;
+	pblock->u4DMAReadIdx = 0;
+	pblock->u4DataRemained = 0;
+	pblock->u4fsyncflag = false;
+	pblock->uResetFlag = true;
+	pr_warn("SetDL1Buffer u4BufferSize = %d pucVirtBufAddr = %p pucPhysBufAddr = 0x%x\n",
+	       pblock->u4BufferSize, pblock->pucVirtBufAddr, pblock->pucPhysBufAddr);
+	/* set dram address top hardware */
+	Afe_Set_Reg(AFE_DL1_BASE, pblock->pucPhysBufAddr, 0xffffffff);
+	Afe_Set_Reg(AFE_DL1_END, pblock->pucPhysBufAddr + (pblock->u4BufferSize - 1), 0xffffffff);
+	memset_io((void *)pblock->pucVirtBufAddr, 0, pblock->u4BufferSize);
+
+}
 
 static int mtk_pcm_dl1bt_hw_params(struct snd_pcm_substream *substream,
 				   struct snd_pcm_hw_params *hw_params)
@@ -176,11 +199,21 @@ static int mtk_pcm_dl1bt_hw_params(struct snd_pcm_substream *substream,
 	/* runtime->dma_bytes has to be set manually to allow mmap */
 	substream->runtime->dma_bytes = params_buffer_bytes(hw_params);
 
-	/* here to allcoate sram to hardware --------------------------- */
-	AudDrv_Allocate_mem_Buffer(mDev, Soc_Aud_Digital_Block_MEM_DL1, substream->runtime->dma_bytes);
-	/* substream->runtime->dma_bytes = AFE_INTERNAL_SRAM_SIZE; */
-	substream->runtime->dma_area = (unsigned char *)Get_Afe_SramBase_Pointer();
-	substream->runtime->dma_addr = AFE_INTERNAL_SRAM_PHY_BASE;
+	if (AllocateAudioSram(&substream->runtime->dma_addr,	 &substream->runtime->dma_area,
+		substream->runtime->dma_bytes, substream) == 0) {
+		AudDrv_Allocate_DL1_Buffer(mDev, substream->runtime->dma_bytes,
+			substream->runtime->dma_addr, substream->runtime->dma_area);
+		SetHighAddr(Soc_Aud_Digital_Block_MEM_DL1, false);
+		/* pr_warn("mtk_pcm_hw_params dma_bytes = %d\n",substream->runtime->dma_bytes); */
+	} else {
+		substream->runtime->dma_area = dl1bt_Playback_dma_buf->area;
+		substream->runtime->dma_addr = dl1bt_Playback_dma_buf->addr;
+		SetHighAddr(Soc_Aud_Digital_Block_MEM_DL1, true);
+
+		SetDL1Buffer(substream, hw_params);
+		mPlaybackDramState = true;
+		AudDrv_Emi_Clk_On();
+	}
 
 	PRINTK_AUDDRV(" dma_bytes = %zu dma_area = %p dma_addr = 0x%lx\n",
 		      substream->runtime->dma_bytes, substream->runtime->dma_area, (long)substream->runtime->dma_addr);
@@ -189,7 +222,12 @@ static int mtk_pcm_dl1bt_hw_params(struct snd_pcm_substream *substream,
 
 static int mtk_pcm_dl1bt_hw_free(struct snd_pcm_substream *substream)
 {
-	PRINTK_AUDDRV("mtk_pcm_dl1bt_hw_free\n");
+	pr_warn("%s substream = %p\n", __func__, substream);
+	if (mPlaybackDramState == true) {
+		AudDrv_Emi_Clk_Off();
+		mPlaybackDramState = false;
+	} else
+		freeAudioSram((void *)substream);
 	return 0;
 }
 
@@ -199,25 +237,13 @@ static struct snd_pcm_hw_constraint_list constraints_dl1_sample_rates = {
 	.mask = 0,
 };
 
-static int mPlaybackSramState;
 static int mtk_dl1bt_pcm_open(struct snd_pcm_substream *substream)
 {
 	int ret = 0;
 	struct snd_pcm_runtime *runtime = substream->runtime;
 
-	AfeControlSramLock();
-	if (GetSramState() == SRAM_STATE_FREE) {
-		mtk_dl1bt_pcm_hardware.buffer_bytes_max = GetPLaybackSramFullSize();
-		mPlaybackSramState = SRAM_STATE_PLAYBACKFULL;
-		SetSramState(mPlaybackSramState);
-	} else {
-		mtk_dl1bt_pcm_hardware.buffer_bytes_max = GetPLaybackSramPartial();
-		mPlaybackSramState = SRAM_STATE_PLAYBACKPARTIAL;
-		SetSramState(mPlaybackSramState);
-	}
-	AfeControlSramUnLock();
-
-	PRINTK_AUDDRV("mtk_dl1bt_pcm_open\n");
+	mPlaybackDramState = false;
+	mtk_dl1bt_pcm_hardware.buffer_bytes_max = GetPLaybackSramFullSize();
 	AudDrv_Clk_On();
 
 	/* get dl1 memconptrol and record substream */
@@ -239,11 +265,6 @@ static int mtk_dl1bt_pcm_open(struct snd_pcm_substream *substream)
 	PRINTK_AUDDRV("mtk_dl1bt_pcm_open runtime rate = %d channels = %d substream->pcm->device = %d\n",
 		      runtime->rate, runtime->channels, substream->pcm->device);
 
-	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
-		PRINTK_AUDDRV("SNDRV_PCM_STREAM_PLAYBACK mtkalsa_playback_constraints\n");
-	else
-
-
 	if (ret < 0) {
 		PRINTK_AUDDRV("mtk_Dl1Bt_close\n");
 		mtk_Dl1Bt_close(substream);
@@ -255,10 +276,6 @@ static int mtk_dl1bt_pcm_open(struct snd_pcm_substream *substream)
 static int mtk_Dl1Bt_close(struct snd_pcm_substream *substream)
 {
 	PRINTK_AUDDRV("%s\n", __func__);
-	AfeControlSramLock();
-	ClearSramState(mPlaybackSramState);
-	mPlaybackSramState = GetSramState();
-	AfeControlSramUnLock();
 	AudDrv_Clk_Off();
 	return 0;
 }
@@ -299,12 +316,10 @@ static int mtk_pcm_dl1bt_start(struct snd_pcm_substream *substream)
 	SetMemifSubStream(Soc_Aud_Digital_Block_MEM_DL1, substream);
 	if (runtime->format == SNDRV_PCM_FORMAT_S32_LE || runtime->format == SNDRV_PCM_FORMAT_U32_LE) {
 		SetMemIfFetchFormatPerSample(Soc_Aud_Digital_Block_MEM_DL1, AFE_WLEN_32_BIT_ALIGN_8BIT_0_24BIT_DATA);
-		SetMemIfFetchFormatPerSample(Soc_Aud_Digital_Block_MEM_DL2, AFE_WLEN_32_BIT_ALIGN_8BIT_0_24BIT_DATA);
 		SetoutputConnectionFormat(OUTPUT_DATA_FORMAT_16BIT, Soc_Aud_InterConnectionOutput_O02);
 		/* BT SCO only support 16 bit */
 	} else {
 		SetMemIfFetchFormatPerSample(Soc_Aud_Digital_Block_MEM_DL1, AFE_WLEN_16_BIT);
-		SetMemIfFetchFormatPerSample(Soc_Aud_Digital_Block_MEM_DL2, AFE_WLEN_16_BIT);
 		SetoutputConnectionFormat(OUTPUT_DATA_FORMAT_16BIT, Soc_Aud_InterConnectionOutput_O02);
 	}
 
@@ -324,9 +339,10 @@ static int mtk_pcm_dl1bt_start(struct snd_pcm_substream *substream)
 	SetMemoryPathEnable(Soc_Aud_Digital_Block_MEM_DL1, true);
 
 	/* here to set interrupt */
-	SetIrqMcuCounter(Soc_Aud_IRQ_MCU_MODE_IRQ1_MCU_MODE, runtime->period_size >> 1);
-	SetIrqMcuSampleRate(Soc_Aud_IRQ_MCU_MODE_IRQ1_MCU_MODE, runtime->rate);
-	SetIrqEnable(Soc_Aud_IRQ_MCU_MODE_IRQ1_MCU_MODE, true);
+	irq_add_user(substream,
+		     Soc_Aud_IRQ_MCU_MODE_IRQ1_MCU_MODE,
+		     substream->runtime->rate,
+		     substream->runtime->period_size >> 1);
 
 	if (GetMemoryPathEnable(Soc_Aud_Digital_Block_DAI_BT) == false) {
 		/* set merge interface */
@@ -562,6 +578,9 @@ static int mtk_asoc_Dl1Bt_pcm_new(struct snd_soc_pcm_runtime *rtd)
 static int mtk_asoc_dl1bt_probe(struct snd_soc_platform *platform)
 {
 	PRINTK_AUDDRV("mtk_asoc_dl1bt_probe\n");
+	AudDrv_Allocate_mem_Buffer(platform->dev, Soc_Aud_Digital_Block_MEM_DL1,
+				   Dl1_MAX_BUFFER_SIZE);
+	dl1bt_Playback_dma_buf =  Get_Mem_Buffer(Soc_Aud_Digital_Block_MEM_DL1);
 	return 0;
 }
 

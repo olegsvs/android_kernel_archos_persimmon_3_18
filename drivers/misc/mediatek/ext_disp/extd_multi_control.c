@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #include <linux/kthread.h>
 /*#include <linux/rtpm_prio.h>*/
 
@@ -19,7 +32,7 @@ static int extd_create_path(enum EXT_DISP_PATH_MODE mode, unsigned int session)
 {
 	int ret = 0;
 
-	MULTI_COTRL_LOG("extd_create_path session:%08x, mode:%d", session, mode);
+	MULTI_COTRL_LOG("extd_create_path session:%08x, mode:%d\n", session, mode);
 
 	ext_disp_path_set_mode(mode, session);
 	ret = ext_disp_init(NULL, session);
@@ -107,7 +120,6 @@ static int create_external_display_path(unsigned int session, int mode)
 		if (path_info.old_session[device_id] == DISP_SESSION_EXTERNAL) {
 			if (EXTD_OVERLAY_CNT < 1) {
 				/*external display has no OVL to use, so no actions for mode switch */
-				MULTI_COTRL_ERR("external display has no OVL to use, so no actions for mode switch\n");
 				return ret;
 			}
 		}

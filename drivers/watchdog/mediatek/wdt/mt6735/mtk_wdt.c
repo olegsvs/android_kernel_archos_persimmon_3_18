@@ -1,3 +1,16 @@
+/*
+* Copyright (C) 2016 MediaTek Inc.
+*
+* This program is free software; you can redistribute it and/or modify
+* it under the terms of the GNU General Public License version 2 as
+* published by the Free Software Foundation.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+* See http://www.gnu.org/licenses/gpl-2.0.html for more details.
+*/
+
 #include <linux/init.h>        /* For init/exit macros */
 #include <linux/module.h>      /* For MODULE_ marcros  */
 #include <linux/kernel.h>
@@ -8,6 +21,7 @@
 #include <linux/spinlock.h>
 #include <linux/watchdog.h>
 #include <linux/platform_device.h>
+#include <linux/cpu.h>
 
 #include <asm/uaccess.h>
 #include <linux/types.h>
@@ -307,13 +321,14 @@ void wdt_arch_reset(char mode)
 #ifdef CONFIG_OF
 	struct device_node *np_rgu;
 #endif
-	pr_debug("wdt_arch_reset called@Kernel mode =%c\n", mode);
 
 #ifdef CONFIG_MTK_MULTIBRIDGE_SUPPORT
-	if (!multibridge_exit)
-		mt8193_bus_clk_switch(false);
+	mt8193_bus_clk_switch_to_26m();
 #endif
 
+	pr_debug("wdt_arch_reset called@Kernel mode =%c\n", mode);
+
+	spin_lock_irq(&rgu_reg_operation_spinlock);
 #ifdef CONFIG_OF
 	np_rgu = of_find_compatible_node(NULL, NULL, rgu_of_match[0].compatible);
 
@@ -324,33 +339,29 @@ void wdt_arch_reset(char mode)
 		pr_debug("RGU base: 0x%p  RGU irq: %d\n", toprgu_base, wdt_irq_id);
 	}
 #endif
-	spin_lock(&rgu_reg_operation_spinlock);
 	/* Watchdog Rest */
 	mt_reg_sync_writel(MTK_WDT_RESTART_KEY, MTK_WDT_RESTART);
 	wdt_mode_val = __raw_readl(MTK_WDT_MODE);
-	pr_debug("wdt_arch_reset called MTK_WDT_MODE =%x\n", wdt_mode_val);
 	/* clear autorestart bit: autoretart: 1, bypass power key, 0: not bypass power key */
 	wdt_mode_val &= (~MTK_WDT_MODE_AUTO_RESTART);
 	/* make sure WDT mode is hw reboot mode, can not config isr mode  */
 	wdt_mode_val &= (~(MTK_WDT_MODE_IRQ|MTK_WDT_MODE_ENABLE | MTK_WDT_MODE_DUAL_MODE));
-	if (mode)
-		/* mode != 0 means by pass power key reboot, We using auto_restart bit as by pass power key flag */
-		wdt_mode_val = wdt_mode_val | (MTK_WDT_MODE_KEY|MTK_WDT_MODE_EXTEN|MTK_WDT_MODE_AUTO_RESTART);
-	else
-		wdt_mode_val = wdt_mode_val | (MTK_WDT_MODE_KEY|MTK_WDT_MODE_EXTEN);
 
+	/* mode != 0 means by pass power key reboot, We using auto_restart bit as by pass power key flag */
+	if (mode)
+		wdt_mode_val |= MTK_WDT_MODE_AUTO_RESTART;
+
+	wdt_mode_val |= (MTK_WDT_MODE_KEY | MTK_WDT_MODE_EXTEN);
 	mt_reg_sync_writel(wdt_mode_val, MTK_WDT_MODE);
-	pr_debug("wdt_arch_reset called end MTK_WDT_MODE =%x\n", wdt_mode_val);
 	udelay(100);
 	mt_reg_sync_writel(MTK_WDT_SWRST_KEY, MTK_WDT_SWRST);
 	pr_debug("wdt_arch_reset: SW_reset happen\n");
-	spin_unlock(&rgu_reg_operation_spinlock);
+	spin_unlock_irq(&rgu_reg_operation_spinlock);
 
 	while (1) {
 		wdt_dump_reg();
 		pr_err("wdt_arch_reset error\n");
 	}
-
 }
 
 int mtk_rgu_dram_reserved(int enable)
@@ -501,6 +512,20 @@ void mtk_wdt_set_c2k_sysrst(unsigned int flag)
 	}
 	spin_unlock(&rgu_reg_operation_spinlock);
 }
+
+void mtk_wdt_cpu_callback(struct task_struct *wk_tsk, unsigned long action, int hotcpu, int kicker_init)
+{
+	switch (action) {
+	case CPU_ONLINE:
+	case CPU_ONLINE_FROZEN:
+		if (1 == kicker_init)
+			pr_debug("[mtk_wdt_cpu_callback]bind kicker thread[%d] to cpu[%d]\n", wk_tsk->pid, hotcpu);
+		break;
+	default:
+		break;
+	}
+}
+EXPORT_SYMBOL(mtk_wdt_cpu_callback);
 
 #else
 /* ------------------------------------------------------------------------------------------------- */
@@ -718,6 +743,7 @@ static void mtk_wdt_shutdown(struct platform_device *dev)
 	/* mtk_wdt_mode_config(TRUE, FALSE, FALSE, FALSE, FALSE); */
 
 	mtk_wdt_restart(WD_TYPE_NORMAL);
+
 	pr_debug("******** MTK WDT driver shutdown done ********\n");
 }
 

@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #ifndef __FDN_H__
 #define __FDN_H__
 
@@ -16,10 +29,10 @@
 
 
 #define FDN_TAG		"<FACE_DOWN> "
-#define FDN_FUN(f)		printk(FDN_TAG"%s\n", __func__)
-#define FDN_ERR(fmt, args...)	printk(FDN_TAG"%s %d : "fmt, __func__, __LINE__, ##args)
-#define FDN_LOG(fmt, args...)	printk(FDN_TAG fmt, ##args)
-#define FDN_VER(fmt, args...)  printk(FDN_TAG"%s: "fmt, __func__, ##args)	/* ((void)0) */
+#define FDN_FUN(f)		pr_debug(FDN_TAG"%s\n", __func__)
+#define FDN_ERR(fmt, args...)	pr_err(FDN_TAG"%s %d : "fmt, __func__, __LINE__, ##args)
+#define FDN_LOG(fmt, args...)	pr_debug(FDN_TAG fmt, ##args)
+#define FDN_VER(fmt, args...)  pr_debug(FDN_TAG"%s: "fmt, __func__, ##args)	/* ((void)0) */
 
 /* #define OP_FDN_DELAY          0X01 */
 #define	OP_FDN_ENABLE		0X02

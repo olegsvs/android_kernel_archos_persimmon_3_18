@@ -1,12 +1,15 @@
 /*
- * MUSB OTG controller driver for Blackfin Processors
- *
- * Copyright 2006-2008 Analog Devices Inc.
- *
- * Enter bugs at http://blackfin.uclinux.org/
- *
- * Licensed under the GPL-2 or later.
- */
+* Copyright (C) 2016 MediaTek Inc.
+*
+* This program is free software; you can redistribute it and/or modify
+* it under the terms of the GNU General Public License version 2 as
+* published by the Free Software Foundation.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+* See http://www.gnu.org/licenses/gpl-2.0.html for more details.
+*/
 
 #ifdef CONFIG_USB_MTK_OTG
 #include <linux/module.h>
@@ -53,6 +56,7 @@ struct pinctrl_state *pinctrl_drvvbus_low;
 struct pinctrl_state *pinctrl_drvvbus_high;
 #endif
 static int usb_iddig_number;
+static ktime_t ktime_start, ktime_end;
 
 static struct musb_fifo_cfg fifo_cfg_host[] = {
 { .hw_ep_num =  1, .style = MUSB_FIFO_TX,   .maxpacket = 512, .mode = MUSB_BUF_SINGLE},
@@ -293,8 +297,23 @@ void musb_session_restart(struct musb *musb)
 	DBG(0, "[MUSB] restart session\n");
 }
 
+static struct workqueue_struct *host_plug_test_wq;
+static struct delayed_work host_plug_test_work;
+int host_plug_test_enable; /* default disable */
+module_param(host_plug_test_enable, int, 0644);
+int host_plug_in_test_period_ms = 7000;
+module_param(host_plug_in_test_period_ms, int, 0644);
+int host_plug_out_test_period_ms = 13000;	/* give AEE 13 seconds */
+module_param(host_plug_out_test_period_ms, int, 0644);
+int host_test_vbus_off_time_us = 3000;
+module_param(host_test_vbus_off_time_us, int, 0644);
+static int host_plug_test_triggered;
 void switch_int_to_device(struct musb *musb)
 {
+	if (host_plug_test_triggered) {
+		DBG(1, "directly return\n");
+		return;
+	}
 #ifdef ID_PIN_USE_EX_EINT
 	irq_set_irq_type(usb_iddig_number, IRQF_TRIGGER_HIGH);
 	enable_irq(usb_iddig_number);
@@ -307,6 +326,10 @@ void switch_int_to_device(struct musb *musb)
 
 void switch_int_to_host(struct musb *musb)
 {
+	if (host_plug_test_triggered) {
+		DBG(1, "directly return\n");
+		return;
+	}
 #ifdef ID_PIN_USE_EX_EINT
 	irq_set_irq_type(usb_iddig_number, IRQF_TRIGGER_LOW);
 	enable_irq(usb_iddig_number);
@@ -320,9 +343,13 @@ void switch_int_to_host(struct musb *musb)
 
 void switch_int_to_host_and_mask(struct musb *musb)
 {
+	if (host_plug_test_triggered) {
+		DBG(1, "directly return\n");
+		return;
+	}
 #ifdef ID_PIN_USE_EX_EINT
-	irq_set_irq_type(usb_iddig_number, IRQF_TRIGGER_LOW);
 	disable_irq(usb_iddig_number);
+	irq_set_irq_type(usb_iddig_number, IRQF_TRIGGER_LOW);
 #else
 	musb_writel(musb->mregs, USB_L1INTM, (~IDDIG_INT_STATUS)&musb_readl(musb->mregs, USB_L1INTM));
 	mb();
@@ -330,30 +357,117 @@ void switch_int_to_host_and_mask(struct musb *musb)
 #endif
 	DBG(0, "swtich_int_to_host_and_mask is done\n");
 }
+static void do_host_plug_test_work(struct work_struct *data)
+{
+	static ktime_t ktime_begin, ktime_end;
+	static s64 diff_time;
 
+	disable_irq(usb_iddig_number);
+	host_plug_test_triggered = 1;
+	mb();
+	DBG(0, "BEGIN");
+	ktime_begin = ktime_get();
+
+	while (1) {
+		if (!musb_is_host())
+			break;
+
+		msleep(50);
+		DBG(1, "mtk_musb->is_host:%d\n", mtk_musb->is_host);
+
+		ktime_end = ktime_get();
+		diff_time = ktime_to_ms(ktime_sub(ktime_end, ktime_begin));
+		if (mtk_musb->is_host && diff_time >= host_plug_in_test_period_ms) {
+			DBG(0, "OFF\n");
+			ktime_begin = ktime_get();
+
+			/* simulate plug out */
+			musb_platform_set_vbus(mtk_musb, 0);
+			udelay(host_test_vbus_off_time_us);
+
+			queue_delayed_work(mtk_musb->st_wq, &mtk_musb->id_pin_work, 0);
+		} else if (!mtk_musb->is_host && diff_time >= host_plug_out_test_period_ms) {
+			DBG(0, "ON\n");
+			ktime_begin = ktime_get();
+			queue_delayed_work(mtk_musb->st_wq, &mtk_musb->id_pin_work, 0);
+		}
+	}
+
+	mb();
+
+	/* make it to ON */
+	if (!mtk_musb->is_host) {
+		DBG(0, "rollback to ON\n");
+		queue_delayed_work(mtk_musb->st_wq, &mtk_musb->id_pin_work, 0);
+		DBG(0, "wait manual begin\n");
+		msleep(1000);	/* wait manual-trigger ip_pin_work done */
+		DBG(0, "wait manual end\n");
+	}
+	host_plug_test_triggered = 0;
+	mb();
+
+	DBG(0, "wait auto begin\n");
+	enable_irq(usb_iddig_number);
+	msleep(1000);	/* wait auto-trigger ip_pin_work done */
+	DBG(0, "wait auto end\n");
+
+	DBG(0, "END\n");
+}
+
+#define ID_PIN_WORK_RECHECK_TIME 30	/* 30 ms */
+#define ID_PIN_WORK_BLOCK_TIMEOUT 30000 /* 30000 ms */
 static void musb_id_pin_work(struct work_struct *data)
 {
 	u8 devctl = 0;
 	unsigned long flags;
+	static int inited, timeout; /* default to 0 */
+	static DEFINE_RATELIMIT_STATE(ratelimit, 1 * HZ, 3);
+	static s64 diff_time;
+
+	/* kernel_init_done should be set in early-init stage through init.$platform.usb.rc */
+	if (!inited && !kernel_init_done && !mtk_musb->is_ready && !timeout) {
+		ktime_end = ktime_get();
+		diff_time = ktime_to_ms(ktime_sub(ktime_end, ktime_start));
+		if (__ratelimit(&ratelimit)) {
+			DBG(0, "init_done:%d, is_ready:%d, inited:%d, TO:%d, diff:%lld\n",
+					kernel_init_done, mtk_musb->is_ready, inited, timeout,
+					diff_time);
+		}
+
+		if (diff_time > ID_PIN_WORK_BLOCK_TIMEOUT) {
+			DBG(0, "diff_time:%lld\n", diff_time);
+			timeout = 1;
+		}
+
+		queue_delayed_work(mtk_musb->st_wq, &mtk_musb->id_pin_work, msecs_to_jiffies(ID_PIN_WORK_RECHECK_TIME));
+		return;
+	} else if (!inited) {
+		DBG(0, "PASS, init_done:%d, is_ready:%d, inited:%d, TO:%d\n",
+				kernel_init_done,  mtk_musb->is_ready, inited, timeout);
+	}
+
+	inited = 1;
 
 	spin_lock_irqsave(&mtk_musb->lock, flags);
 	musb_generic_disable(mtk_musb);
 	spin_unlock_irqrestore(&mtk_musb->lock, flags);
 
 	down(&mtk_musb->musb_lock);
-	DBG(0, "work start, is_host=%d, boot mode(%d)\n", mtk_musb->is_host, get_boot_mode());
-#ifdef CONFIG_MTK_KERNEL_POWER_OFF_CHARGING
-	if (get_boot_mode() == KERNEL_POWER_OFF_CHARGING_BOOT || get_boot_mode() == LOW_POWER_OFF_CHARGING_BOOT) {
-		DBG(0, "do nothing due to in power off charging\n");
-		goto out;
-	}
-#endif
+	DBG(0, "work start, is_host=%d\n", mtk_musb->is_host);
+
 	if (mtk_musb->in_ipo_off) {
 		DBG(0, "do nothing due to in_ipo_off\n");
 		goto out;
 	}
 
-	mtk_musb->is_host = musb_is_host();
+	if (host_plug_test_triggered) {
+		/* flip */
+		if (mtk_musb->is_host)
+			mtk_musb->is_host = false;
+		else
+			mtk_musb->is_host = true;
+	} else
+		mtk_musb->is_host = musb_is_host();
 	DBG(0, "musb is as %s\n", mtk_musb->is_host?"host":"device");
 	switch_set_state((struct switch_dev *)&otg_state, mtk_musb->is_host);
 
@@ -392,8 +506,19 @@ static void musb_id_pin_work(struct work_struct *data)
 		musb_start(mtk_musb);
 		MUSB_HST_MODE(mtk_musb);
 		switch_int_to_device(mtk_musb);
+
+		if (host_plug_test_enable && !host_plug_test_triggered)
+			queue_delayed_work(host_plug_test_wq, &host_plug_test_work, 0);
 	} else {
-		musb_epx_transfer_allowed = 0;
+		/* for device no disconnect interrupt */
+		spin_lock_irqsave(&mtk_musb->lock, flags);
+		if (mtk_musb->is_active) {
+			DBG(0, "for not receiving disconnect interrupt\n");
+			usb_hcd_resume_root_hub(musb_to_hcd(mtk_musb));
+			musb_root_disconnect(mtk_musb);
+		}
+		spin_unlock_irqrestore(&mtk_musb->lock, flags);
+
 		DBG(0, "devctl is %x\n", musb_readb(mtk_musb->mregs, MUSB_DEVCTL));
 		musb_writeb(mtk_musb->mregs, MUSB_DEVCTL, 0);
 		if (wake_lock_active(&mtk_musb->usb_lock))
@@ -423,12 +548,8 @@ out:
 static irqreturn_t mt_usb_ext_iddig_int(int irq, void *dev_id)
 {
 	iddig_cnt++;
-	if (!mtk_musb->is_ready) {
-		/* dealy 5 sec if usb function is not ready */
-		schedule_delayed_work(&mtk_musb->id_pin_work, 5000*HZ/1000);
-	} else {
-		schedule_delayed_work(&mtk_musb->id_pin_work, sw_deboun_time*HZ/1000);
-	}
+
+	queue_delayed_work(mtk_musb->st_wq, &mtk_musb->id_pin_work, msecs_to_jiffies(sw_deboun_time));
 	DBG(0, "id pin interrupt assert\n");
 	disable_irq_nosync(usb_iddig_number);
 	return IRQ_HANDLED;
@@ -447,12 +568,7 @@ void mt_usb_iddig_int(struct musb *musb)
 	musb_writel(musb->mregs, USB_L1INTP, usb_l1_ploy);
 	musb_writel(musb->mregs, USB_L1INTM, (~IDDIG_INT_STATUS)&musb_readl(musb->mregs, USB_L1INTM));
 
-	if (!mtk_musb->is_ready) {
-		/* dealy 5 sec if usb function is not ready */
-		schedule_delayed_work(&mtk_musb->id_pin_work, 5000*HZ/1000);
-	} else {
-		schedule_delayed_work(&mtk_musb->id_pin_work, sw_deboun_time*HZ/1000);
-	}
+	queue_delayed_work(mtk_musb->st_wq, &mtk_musb->id_pin_work, msecs_to_jiffies(sw_deboun_time));
 	DBG(0, "id pin interrupt assert\n");
 }
 
@@ -515,6 +631,21 @@ static void otg_int_init(void)
 
 void mt_usb_otg_init(struct musb *musb)
 {
+	/* BYPASS OTG function in special mode */
+	if (get_boot_mode() == META_BOOT
+#ifdef CONFIG_MTK_KERNEL_POWER_OFF_CHARGING
+			|| get_boot_mode() == KERNEL_POWER_OFF_CHARGING_BOOT
+			|| get_boot_mode() == LOW_POWER_OFF_CHARGING_BOOT
+#endif
+	   ) {
+		DBG(0, "in special mode %d\n", get_boot_mode());
+		return;
+	}
+
+	/* test */
+	host_plug_test_wq = create_singlethread_workqueue("host_plug_test_wq");
+	INIT_DELAYED_WORK(&host_plug_test_work, do_host_plug_test_work);
+
 #ifdef CONFIG_OF
 	usb_node = of_find_compatible_node(NULL, NULL, "mediatek,mt6735-usb20");
 	if (usb_node == NULL) {
@@ -549,6 +680,7 @@ void mt_usb_otg_init(struct musb *musb)
 	mt_usb_init_drvvbus();
 
 	/* init idpin interrupt */
+	ktime_start = ktime_get();
 	INIT_DELAYED_WORK(&musb->id_pin_work, musb_id_pin_work);
 	otg_int_init();
 

@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 /*****************************************************************************
  *
  * Filename:
@@ -3411,10 +3424,10 @@ static kal_uint32 set_max_framerate_by_scenario(MSDK_SCENARIO_ID_ENUM scenario_i
 static kal_uint32 get_default_framerate_by_scenario(MSDK_SCENARIO_ID_ENUM scenario_id, MUINT32 *framerate)
 {
     LOG_INF("scenario_id = %d\n", scenario_id);
-	
+
     switch (scenario_id) {
         case MSDK_SCENARIO_ID_CAMERA_PREVIEW:
-			*framerate = imgsensor_info.pre.max_framerate;
+            *framerate = imgsensor_info.pre.max_framerate;
             break;
         case MSDK_SCENARIO_ID_VIDEO_PREVIEW:
             *framerate = imgsensor_info.normal_video.max_framerate;
@@ -3431,7 +3444,6 @@ static kal_uint32 get_default_framerate_by_scenario(MSDK_SCENARIO_ID_ENUM scenar
         default:
             break;
     }
-
 
     return ERROR_NONE;
 }

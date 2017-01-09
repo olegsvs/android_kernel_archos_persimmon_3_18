@@ -1,17 +1,19 @@
 /*
- * Copyright (C) 2007 The Android Open Source Project
+ * Copyright (C) 2015 MediaTek Inc.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ * You should have received a copy of the GNU General Public License
+ * along with this program
+ * If not, see <http://www.gnu.org/licenses/>.
  */
 /*******************************************************************************
  *
@@ -50,6 +52,7 @@
 #include "AudDrv_Def.h"
 #include <linux/types.h>
 
+static DEFINE_SPINLOCK(afe_set_reg_lock);
 /*****************************************************************************
  *                         D A T A   T Y P E S
  *****************************************************************************/
@@ -121,6 +124,7 @@ void Afe_Set_Reg(uint32 offset, uint32 value, uint32 mask)
 	volatile long address;
 	volatile uint32 *AFE_Register;
 	volatile uint32 val_tmp;
+	unsigned long flags = 0;
 
 	if (CheckOffset(offset) == false)
 		return;
@@ -135,10 +139,12 @@ void Afe_Set_Reg(uint32 offset, uint32 value, uint32 mask)
 	AFE_Register = (volatile uint32 *)address;
 
 	/* PRINTK_AFE_REG("Afe_Set_Reg offset=%x, value=%x, mask=%x\n",offset,value,mask); */
+	spin_lock_irqsave(&afe_set_reg_lock, flags);
 	val_tmp = Afe_Get_Reg(offset);
 	val_tmp &= (~mask);
 	val_tmp |= (value & mask);
 	mt_reg_sync_writel(val_tmp, AFE_Register);
+	spin_unlock_irqrestore(&afe_set_reg_lock, flags);
 }
 EXPORT_SYMBOL(Afe_Set_Reg);
 

@@ -62,9 +62,6 @@ static void __cpuinit write_pen_release(int val)
 
 void __cpuinit mt_smp_secondary_init(unsigned int cpu)
 {
-	pr_debug("Slave cpu init\n");
-	HOTPLUG_INFO("platform_secondary_init, cpu: %d\n", cpu);
-
 #ifndef CONFIG_MTK_GIC
 	mt_gic_secondary_init();
 #endif
@@ -99,8 +96,8 @@ static void __init smp_set_boot_addr(void)
 	/* Write the address of slave startup into boot address
 	   register for bootrom power down mode */
 
-	writel_relaxed(virt_to_phys(mt_secondary_startup),
-			infracfg_ao_base + 0x800);
+	mt_reg_sync_writel(virt_to_phys(mt_secondary_startup),
+			(void *) infracfg_ao_base + 0x800);
 
 	iounmap(infracfg_ao_base);
 }
@@ -108,8 +105,6 @@ static void __init smp_set_boot_addr(void)
 int __cpuinit mt_smp_boot_secondary(unsigned int cpu, struct task_struct *idle)
 {
 	unsigned long timeout;
-
-	pr_crit("Boot slave CPU\n");
 
 	atomic_inc(&hotplug_cpu_count);
 
@@ -119,7 +114,6 @@ int __cpuinit mt_smp_boot_secondary(unsigned int cpu, struct task_struct *idle)
 	 */
 	spin_lock(&boot_lock);
 
-	HOTPLUG_INFO("mt_smp_boot_secondary, cpu: %d\n", cpu);
 	/*
 	 * The secondary processor is waiting to be released from
 	 * the holding pen - release it, then wait for it to flag

@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #include <mt-plat/sync_write.h>
 #include <mt-plat/mt_ccci_common.h>
 #include <linux/slab.h>
@@ -82,10 +95,8 @@ static int get_md_status(int md_id, char val[], int size)
 
 static int trigger_md_boot(int md_id)
 {
-	if ((md_id < MAX_MD_NUM) && (boot_md_func[md_id] != NULL)) {
-		(boot_md_func[md_id]) (md_id);
-		return 0;
-	}
+	if ((md_id < MAX_MD_NUM) && (boot_md_func[md_id] != NULL))
+		return (boot_md_func[md_id]) (md_id);
 
 	return -1;
 }
@@ -120,6 +131,8 @@ static ssize_t boot_status_store(const char *buf, size_t count)
 	if (md_id < MAX_MD_NUM) {
 		if (trigger_md_boot(md_id) != 0)
 			CCCI_UTIL_INF_MSG("md%d n/a\n", md_id + 1);
+		else
+			clear_meta_1st_boot_arg(md_id);
 	} else
 		CCCI_UTIL_INF_MSG("invalid id(%d)\n", md_id + 1);
 	return count;
@@ -146,11 +159,36 @@ static ssize_t ccci_md_enable_show(char *buf)
 
 CCCI_ATTR(md_en, 0660, &ccci_md_enable_show, NULL);
 
+/* Sys -- post fix */
+static ssize_t ccci_md1_post_fix_show(char *buf)
+{
+	get_md_postfix(MD_SYS1, NULL, buf, NULL);
+	return strlen(buf);
+}
+
+CCCI_ATTR(md1_postfix, 0444, &ccci_md1_post_fix_show, NULL);
+
+/* Sys -- dump buff usage */
+static ssize_t ccci_dump_buff_usage_show(char *buf)
+{
+	return get_dump_buf_usage(buf, 4095);
+}
+
+CCCI_ATTR(dump_max, 0660, &ccci_dump_buff_usage_show, NULL);
+
+/* Sys -- ccci stage change(chn) log  */
+static ssize_t ccci_dump_event_show(char *buf)
+{
+	return (ssize_t)ccci_event_log_cpy(buf, 4095);
+}
+
+CCCI_ATTR(md_chn, 0444, &ccci_dump_event_show, NULL);
+
 /* Sys -- Versin */
-static unsigned int ccci_port_ver = 3;
+static unsigned int ccci_port_ver = 6; /* ECCCI_FSM */
 static ssize_t ccci_version_show(char *buf)
 {
-	return snprintf(buf, 16, "%d\n", ccci_port_ver);	/* ECCCI */
+	return snprintf(buf, 16, "%d\n", ccci_port_ver);
 }
 
 void update_ccci_port_ver(unsigned int new_ver)
@@ -175,6 +213,28 @@ static ssize_t debug_enable_store(const char *buf, size_t count)
 }
 
 CCCI_ATTR(debug, 0660, &debug_enable_show, &debug_enable_store);
+/* Sys -- dump lk load md info */
+static ssize_t ccci_lk_load_md_show(char *buf)
+{
+	return get_lk_load_md_info(buf, 4095);
+}
+
+CCCI_ATTR(lk_md, 0444, &ccci_lk_load_md_show, NULL);
+
+/* Sys -- get ccci private feature info */
+/* If platform has special feature setting, platform code will implemet this function */
+int __attribute__((weak)) ccci_get_plat_ft_inf(char buf[], int size);
+static ssize_t ccci_ft_inf_show(char *buf)
+{
+	if (ccci_get_plat_ft_inf) {
+		CCCI_UTIL_INF_MSG("using platform setting\n");
+		return (ssize_t)ccci_get_plat_ft_inf(buf, 4095);
+	}
+	/* Enter here means using default setting */
+	return (ssize_t)snprintf(buf, 4095, "ft_inf_ver:1");
+}
+
+CCCI_ATTR(ft_info, 0444, &ccci_ft_inf_show, NULL);
 
 /* Sys -- Runtime register debug */
 static char aat_cmd[32];
@@ -537,10 +597,11 @@ static ssize_t kcfg_setting_show(char *buf)
 	actual_write = snprintf(&buf[curr], 4096 - curr, "[MTK_LTE_DC_SUPPORT]:0\n");
 #endif
 	curr += actual_write;
-#ifdef CONFIG_MTK_ECCCI_C2K
-	actual_write = snprintf(&buf[curr], 4096 - curr, "[MTK_ECCCI_C2K]:1\n");
-	curr += actual_write;
-#endif
+	if (ccci_get_opt_val("opt_eccci_c2k") > 0) {
+		actual_write = snprintf(&buf[curr], 4096 - curr, "[MTK_ECCCI_C2K]:1\n");
+		curr += actual_write;
+	}
+
 	/* Add total size to tail */
 	actual_write = snprintf(&buf[curr], 4096 - curr, "total:%d\n", curr);
 	curr += actual_write;
@@ -564,6 +625,11 @@ static struct attribute *ccci_default_attrs[] = {
 	&ccci_attr_debug.attr,
 	&ccci_attr_aat.attr,
 	&ccci_attr_kcfg_setting.attr,
+	&ccci_attr_dump_max.attr,
+	&ccci_attr_lk_md.attr,
+	&ccci_attr_md_chn.attr,
+	&ccci_attr_ft_info.attr,
+	&ccci_attr_md1_postfix.attr,
 	NULL
 };
 

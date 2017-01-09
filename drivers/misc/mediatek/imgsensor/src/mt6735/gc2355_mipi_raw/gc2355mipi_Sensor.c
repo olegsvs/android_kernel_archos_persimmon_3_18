@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 /*****************************************************************************
  *
  * Filename:
@@ -639,14 +652,18 @@ static void preview_setting(kal_uint16 currefps)
   if(currefps != 0)
   {
       frame_length = imgsensor_info.pre.pclk / imgsensor.current_fps * 10 / imgsensor_info.pre.linelength;
+      spin_lock(&imgsensor_drv_lock);
       imgsensor.dummy_line = (frame_length > imgsensor_info.pre.framelength) ? (frame_length - imgsensor_info.pre.framelength) : 0;
       imgsensor.frame_length = imgsensor_info.pre.framelength + imgsensor.dummy_line;
       imgsensor.min_frame_length = imgsensor.frame_length;
+	spin_unlock(&imgsensor_drv_lock);
   }
   else
   {
+	spin_lock(&imgsensor_drv_lock);
       imgsensor.dummy_pixel = 0;
       imgsensor.dummy_line = 0;
+	spin_unlock(&imgsensor_drv_lock);
   }
   hb = imgsensor.dummy_pixel + GC2355_DEFAULT_DUMMY_PIXEL_NUMS;
   vb = imgsensor.dummy_line + GC2355_DEFAULT_DUMMY_LINE_NUMS;
@@ -739,15 +756,19 @@ static void normal_video_setting(kal_uint16 currefps)
     if(currefps != 0)
     {
         frame_length = imgsensor_info.normal_video.pclk / imgsensor.current_fps * 10 / imgsensor_info.normal_video.linelength;
+	spin_lock(&imgsensor_drv_lock);
         imgsensor.dummy_line = (frame_length > imgsensor_info.normal_video.framelength) ? (frame_length - imgsensor_info.normal_video.framelength) : 0;
         imgsensor.frame_length = imgsensor_info.normal_video.framelength + imgsensor.dummy_line;
         imgsensor.min_frame_length = imgsensor.frame_length;
+	spin_unlock(&imgsensor_drv_lock);
 
     }
     else
     {
+	spin_lock(&imgsensor_drv_lock);
         imgsensor.dummy_pixel = 0;
         imgsensor.dummy_line = 0;
+	spin_unlock(&imgsensor_drv_lock);
     }
     hb = imgsensor.dummy_pixel + GC2355_DEFAULT_DUMMY_PIXEL_NUMS;
     vb = imgsensor.dummy_line + GC2355_DEFAULT_DUMMY_LINE_NUMS;
@@ -800,14 +821,18 @@ kal_uint32 frame_length;
  if(currefps != 0)
  {
 	 frame_length = imgsensor_info.pre.pclk / imgsensor.current_fps * 10 / imgsensor_info.pre.linelength;
+	spin_lock(&imgsensor_drv_lock);
 	 imgsensor.dummy_line = (frame_length > imgsensor_info.pre.framelength) ? (frame_length - imgsensor_info.pre.framelength) : 0;
 	 imgsensor.frame_length = imgsensor_info.pre.framelength + imgsensor.dummy_line;
 	 imgsensor.min_frame_length = imgsensor.frame_length;
+	spin_unlock(&imgsensor_drv_lock);
  }
  else
  {
+	spin_lock(&imgsensor_drv_lock);
 	 imgsensor.dummy_pixel = 0;
 	 imgsensor.dummy_line = 0;
+	spin_unlock(&imgsensor_drv_lock);
  }
  hb = imgsensor.dummy_pixel + GC2355_DEFAULT_DUMMY_PIXEL_NUMS;
  vb = imgsensor.dummy_line + GC2355_DEFAULT_DUMMY_LINE_NUMS;

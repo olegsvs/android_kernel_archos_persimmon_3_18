@@ -1,17 +1,19 @@
 /*
- * Copyright (C) 2007 The Android Open Source Project
+ * Copyright (C) 2015 MediaTek Inc.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ * You should have received a copy of the GNU General Public License
+ * along with this program
+ * If not, see <http://www.gnu.org/licenses/>.
  */
 /*******************************************************************************
  *
@@ -153,8 +155,7 @@
 #define AFE_VOW_PERIODIC_MON1        ((UINT32)(PMIC_REG_BASE + 0x2000 + 0x00d2))
 
 
-/* TODO: 6328 analog part */
-/* TODO: KC: not used */
+/* not used */
 #define STRUP_CON0  ((UINT32)(PMIC_REG_BASE + 0x0000))
 #define STRUP_CON1  ((UINT32)(PMIC_REG_BASE + 0x0002))
 #define STRUP_CON2  ((UINT32)(PMIC_REG_BASE + 0x0004))
@@ -181,7 +182,7 @@
 #define STRUP_CON23 ((UINT32)(PMIC_REG_BASE + 0x002e))
 #define STRUP_ANA_CON0      ((UINT32)(PMIC_REG_BASE+0x0030))
 #define STRUP_ANA_CON1      ((UINT32)(PMIC_REG_BASE+0x0032))
-/* TODO: KC: not used end */
+/* not used end */
 
 #define HWCID               ((UINT32)(PMIC_REG_BASE+0x0200))
 #define SWCID               ((UINT32)(PMIC_REG_BASE+0x0202))
@@ -189,6 +190,8 @@
 #define TEST_OUT            ((UINT32)(PMIC_REG_BASE+0x0206))
 #define TEST_CON0           ((UINT32)(PMIC_REG_BASE+0x0208))
 #define TEST_CON1           ((UINT32)(PMIC_REG_BASE+0x020A))
+
+#define DRV_CON2            ((UINT32)(PMIC_REG_BASE+0x0230))
 
 #define TOP_STATUS          ((UINT32)(PMIC_REG_BASE+0x0234))
 

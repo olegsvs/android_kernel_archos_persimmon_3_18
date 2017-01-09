@@ -1,3 +1,15 @@
+/*
+* Copyright (C) 2016 MediaTek Inc.
+*
+* This program is free software; you can redistribute it and/or modify
+* it under the terms of the GNU General Public License version 2 as
+* published by the Free Software Foundation.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+* See http://www.gnu.org/licenses/gpl-2.0.html for more details.
+*/
 #ifndef _MT_GPIO_H_
 #define _MT_GPIO_H_
 
@@ -24,6 +36,14 @@ typedef enum {
 	GPIO_MODE_05 = 5,
 	GPIO_MODE_06 = 6,
 	GPIO_MODE_07 = 7,
+	GPIO_MODE_08 = 8,
+	GPIO_MODE_09 = 9,
+	GPIO_MODE_10 = 10,
+	GPIO_MODE_11 = 11,
+	GPIO_MODE_12 = 12,
+	GPIO_MODE_13 = 13,
+	GPIO_MODE_14 = 14,
+	GPIO_MODE_15 = 15,
 	GPIO_MODE_MAX,
 	GPIO_MODE_DEFAULT = GPIO_MODE_01,
 } GPIO_MODE;
@@ -68,6 +88,16 @@ typedef enum {
 	GPIO_IES_DEFAULT = GPIO_IES_ENABLE,
 } GPIO_IES;
 /*----------------------------------------------------------------------------*/
+/* GPIO slew rate*/
+enum GPIO_SLEW_RATE {
+	GPIO_SLEW_RATE_UNSUPPORTED = -1,
+	GPIO_SLEW_RATE_DISABLE = 0,
+	GPIO_SLEW_RATE_ENABLE = 1,
+
+	GPIO_SLEW_RATE_MAX,
+	GPIO_SLEW_RATE_DEFAULT = GPIO_IES_ENABLE,
+};
+/*----------------------------------------------------------------------------*/
 /* GPIO PULL-UP/PULL-DOWN*/
 typedef enum {
 	GPIO_PULL_UNSUPPORTED = -1,
@@ -77,6 +107,16 @@ typedef enum {
 	GPIO_PULL_MAX,
 	GPIO_PULL_DEFAULT = GPIO_PULL_DOWN
 } GPIO_PULL;
+/*----------------------------------------------------------------------------*/
+/* GPIO PULL RESISTOR */
+enum GPIO_PULL_RESISTOR {
+	GPIO_PULL_RESISTOR_UNSUPPORTED = -1,
+	GPIO_PULL_HIGH_Z = 0,
+	GPIO_PULL_R0	= 0x1,
+	GPIO_PULL_R1	= 0x2,
+	GPIO_PULL_RESISTOR_MAX	= 0xff,
+	GPIO_PULL_RESISTOR_DEFAULT = GPIO_PULL_HIGH_Z
+};
 /*----------------------------------------------------------------------------*/
 /* GPIO INVERSION */
 typedef enum {

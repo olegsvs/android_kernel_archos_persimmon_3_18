@@ -1,3 +1,15 @@
+/*
+* Copyright (C) 2016 MediaTek Inc.
+*
+* This program is free software; you can redistribute it and/or modify
+* it under the terms of the GNU General Public License version 2 as
+* published by the Free Software Foundation.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+* See http://www.gnu.org/licenses/gpl-2.0.html for more details.
+*/
 #include "precomp.h"
 #include "p2p_role_state.h"
 
@@ -394,6 +406,11 @@ p2pRoleFsmRunEventDeauthTxDone(IN P_ADAPTER_T prAdapter,
 		}
 
 		prP2pBssInfo = prAdapter->aprBssInfo[prMsduInfo->ucBssIndex];
+		/* Change station state. */
+		cnmStaRecChangeState(prAdapter, prStaRec, STA_STATE_1);
+
+		/* Reset Station Record Status. */
+		p2pFuncResetStaRecStatus(prAdapter, prStaRec);
 
 		/* Try to remove StaRec in BSS client list before free it */
 		bssRemoveClient(prAdapter, prP2pBssInfo, prStaRec);
@@ -617,7 +634,13 @@ VOID p2pRoleFsmRunEventRxDisassociation(IN P_ADAPTER_T prAdapter, IN P_STA_RECOR
 			break;
 		case OP_MODE_P2P_DEVICE:
 		default:
-			ASSERT(FALSE);
+			DBGLOG(P2P, INFO, "RX Disassoc unexpectedly. Current role: %d\n",
+				prP2pBssInfo->eCurrentOPMode);
+			/*
+			 * Can not expect peer not send disassoc to us when we
+			 * are not ready to process disassoc
+			 * ASSERT(FALSE);
+			 */
 			break;
 		}
 
@@ -1418,6 +1441,10 @@ p2pRoleFsmRunEventChnlGrant(IN P_ADAPTER_T prAdapter,
 
 				p2pRoleFsmStateTransition(prAdapter, prP2pRoleFsmInfo, eNextState);
 				break;
+			case P2P_ROLE_STATE_IDLE:
+				DBGLOG(P2P, WARN, "Ignore channel grant event when in ROLE IDLE\n");
+				p2pFuncReleaseCh(prAdapter, prP2pRoleFsmInfo->ucBssIndex, prChnlReqInfo);
+				break;
 			default:
 				/* Channel is granted under unexpected state.
 				 * Driver should cancel channel privileagea before leaving the states.
@@ -1570,13 +1597,14 @@ VOID p2pRoleFsmRunEventSwitchOPMode(IN P_ADAPTER_T prAdapter, IN P_MSG_HDR_T prM
 	P_P2P_ROLE_FSM_INFO_T prP2pRoleFsmInfo = (P_P2P_ROLE_FSM_INFO_T) NULL;
 
 	do {
-		ASSERT(prSwitchOpMode->ucRoleIdx < BSS_P2P_NUM);
-
 		ASSERT_BREAK((prAdapter != NULL) && (prSwitchOpMode != NULL));
 
 		DBGLOG(P2P, TRACE, "p2pRoleFsmRunEventSwitchOPMode\n");
 
-		prP2pRoleFsmInfo = prAdapter->rWifiVar.aprP2pRoleFsmInfo[prSwitchOpMode->ucRoleIdx];
+		if (prSwitchOpMode->ucRoleIdx < BSS_P2P_NUM)
+			prP2pRoleFsmInfo = prAdapter->rWifiVar.aprP2pRoleFsmInfo[prSwitchOpMode->ucRoleIdx];
+		else
+			ASSERT(FALSE);
 
 		ASSERT(prP2pRoleFsmInfo->ucBssIndex < P2P_DEV_BSS_INDEX);
 

@@ -1,17 +1,19 @@
 /*
- * Copyright (C) 2007 The Android Open Source Project
+ * Copyright (C) 2015 MediaTek Inc.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ * You should have received a copy of the GNU General Public License
+ * along with this program
+ * If not, see <http://www.gnu.org/licenses/>.
  */
 /*******************************************************************************
  *
@@ -204,12 +206,6 @@ static int mtk_pcm_fm_i2s_open(struct snd_pcm_substream *substream)
 	ret = snd_pcm_hw_constraint_integer(runtime, SNDRV_PCM_HW_PARAM_PERIODS);
 	if (ret < 0)
 		pr_warn("snd_pcm_hw_constraint_integer failed\n");
-	pr_warn("mtk_pcm_fm_i2s_open runtime rate = %d channels = %d substream->pcm->device = %d\n",
-	       runtime->rate, runtime->channels, substream->pcm->device);
-
-	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
-		pr_warn("SNDRV_PCM_STREAM_PLAYBACK mtkalsa_fm_i2s_playback_constraints\n");
-
 
 	if (ret < 0) {
 		pr_err("mtk_pcm_fm_i2s_close\n");
@@ -234,13 +230,21 @@ static int mtk_pcm_fm_i2s_close(struct snd_pcm_substream *substream)
 	if (GetMemoryPathEnable(Soc_Aud_Digital_Block_I2S_IN_2) == false) {
 		SetI2SASRCEnable(false);
 		SetI2SASRCConfig(false, 0); /* Setting to bypass ASRC */
-		Set2ndI2SInEnable(false);
+		Afe_Set_Reg(AFE_I2S_CON, 0x0, 0x1);
 	}
 
 	SetMemoryPathEnable(Soc_Aud_Digital_Block_I2S_OUT_DAC, false);
-	if (GetI2SDacEnable() == false)
+	if (GetI2SDacEnable() == false) {
+		SetI2SADDAEnable(false);
 		SetI2SDacEnable(false);
+	}
 
+
+#ifdef FM_CONNECT_I2S_OUT_2
+	SetMemoryPathEnable(Soc_Aud_Digital_Block_I2S_OUT_2, false);
+	if (GetMemoryPathEnable(Soc_Aud_Digital_Block_I2S_OUT_2) == false)
+		Afe_Set_Reg(AFE_I2S_CON3, 0x0, 0x1);
+#endif
 	/* interconnection setting */
 	SetConnection(Soc_Aud_InterCon_DisConnect, Soc_Aud_InterConnectionInput_I00,
 		      Soc_Aud_InterConnectionOutput_O13);
@@ -250,6 +254,12 @@ static int mtk_pcm_fm_i2s_close(struct snd_pcm_substream *substream)
 		      Soc_Aud_InterConnectionOutput_O03);
 	SetConnection(Soc_Aud_InterCon_DisConnect, Soc_Aud_InterConnectionInput_I11,
 		      Soc_Aud_InterConnectionOutput_O04);
+#ifdef FM_CONNECT_I2S_OUT_2
+	SetConnection(Soc_Aud_InterCon_DisConnect, Soc_Aud_InterConnectionInput_I10,
+		Soc_Aud_InterConnectionOutput_O00);
+	SetConnection(Soc_Aud_InterCon_DisConnect, Soc_Aud_InterConnectionInput_I11,
+		Soc_Aud_InterConnectionOutput_O01);
+#endif
 
 
 	EnableAfe(false);
@@ -282,6 +292,12 @@ static int mtk_pcm_fm_i2s_prepare(struct snd_pcm_substream *substream)
 		SetConnection(Soc_Aud_InterCon_Connection, Soc_Aud_InterConnectionInput_I11,
 			      Soc_Aud_InterConnectionOutput_O04);
 
+#ifdef FM_CONNECT_I2S_OUT_2
+		SetConnection(Soc_Aud_InterCon_Connection, Soc_Aud_InterConnectionInput_I10,
+			Soc_Aud_InterConnectionOutput_O00);
+		SetConnection(Soc_Aud_InterCon_Connection, Soc_Aud_InterConnectionInput_I11,
+			Soc_Aud_InterConnectionOutput_O01);
+#endif
 		/* Set HW_GAIN */
 		SetHwDigitalGainMode(Soc_Aud_Hw_Digital_Gain_HW_DIGITAL_GAIN1, runtime->rate,
 				     0x40);
@@ -295,9 +311,26 @@ static int mtk_pcm_fm_i2s_prepare(struct snd_pcm_substream *substream)
 			SetI2SDacEnable(true);
 		} else
 			SetMemoryPathEnable(Soc_Aud_Digital_Block_I2S_OUT_DAC, true);
+#ifdef FM_CONNECT_I2S_OUT_2
+		/* start I2S DAC out 2 */
+		if (GetMemoryPathEnable(Soc_Aud_Digital_Block_I2S_OUT_DAC_2) == false) {
+			uint32 u32AudioI2S = 0;
+
+			u32AudioI2S = SampleRateTransform(runtime->rate) << 8;
+			u32AudioI2S |= Soc_Aud_I2S_FORMAT_I2S << 3;
+			u32AudioI2S |= Soc_Aud_I2S_WLEN_WLEN_16BITS << 1;
+			SetMemoryPathEnable(Soc_Aud_Digital_Block_I2S_OUT_DAC_2, true);
+			Afe_Set_Reg(AFE_I2S_CON3, u32AudioI2S | 1, AFE_MASK_ALL);
+		} else
+			SetMemoryPathEnable(Soc_Aud_Digital_Block_I2S_OUT_DAC_2, true);
+#endif
 		if (GetMemoryPathEnable(Soc_Aud_Digital_Block_I2S_IN_2) == false) {
 			/* set merge interface */
 			SetMemoryPathEnable(Soc_Aud_Digital_Block_I2S_IN_2, true);
+
+			/* reset I2S In for 4pin I2S control */
+			if (GetMemoryPathEnable(Soc_Aud_Digital_Block_I2S_4PIN_IN_OUT) == true)
+				Afe_Set_Reg(AFE_I2S_CON, 0x0, 0x1);
 
 			/* Config 2nd I2S IN */
 			memset_io((void *)&m2ndI2SInAttribute, 0, sizeof(m2ndI2SInAttribute));
@@ -314,14 +347,16 @@ static int mtk_pcm_fm_i2s_prepare(struct snd_pcm_substream *substream)
 			if (runtime->rate == 48000)
 				SetI2SASRCConfig(true, 48000);	/* Covert from 32000 Hz to 48000 Hz */
 			else
-			SetI2SASRCConfig(true, 44100);  /* Covert from 32000 Hz to 44100 Hz */
-			SetI2SASRCEnable(true);
+				SetI2SASRCConfig(true, 44100);  /* Covert from 32000 Hz to 44100 Hz */
 
-			Set2ndI2SInEnable(true);
+			SetI2SASRCEnable(true);
+			Afe_Set_Reg(AFE_I2S_CON, 0x1, 0x1);
 		} else
 			SetMemoryPathEnable(Soc_Aud_Digital_Block_I2S_IN_2, true);
 
 		EnableAfe(true);
+		if (GetMemoryPathEnable(Soc_Aud_Digital_Block_I2S_OUT_DAC) == true)
+			SetI2SADDAEnable(true);
 		mPrepareDone = true;
 	}
 	return 0;

@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #ifndef __GLG_H__
 #define __GLG_H__
 
@@ -10,16 +23,15 @@
 #include <linux/workqueue.h>
 #include <linux/slab.h>
 #include <linux/module.h>
-#include <linux/hwmsensor.h>
-#include <linux/earlysuspend.h>
-#include <linux/hwmsen_dev.h>
+#include <hwmsensor.h>
+#include <hwmsen_dev.h>
 
 
 #define GLG_TAG		"<GLANCE_GESTURE> "
-#define GLG_FUN(f)		printk(GLG_TAG"%s\n", __func__)
-#define GLG_ERR(fmt, args...)	printk(GLG_TAG"%s %d : "fmt, __func__, __LINE__, ##args)
-#define GLG_LOG(fmt, args...)	printk(GLG_TAG fmt, ##args)
-#define GLG_VER(fmt, args...)  printk(GLG_TAG"%s: "fmt, __func__, ##args)	/* ((void)0) */
+#define GLG_FUN(f)		pr_debug(GLG_TAG"%s\n", __func__)
+#define GLG_ERR(fmt, args...)	pr_err(GLG_TAG"%s %d : "fmt, __func__, __LINE__, ##args)
+#define GLG_LOG(fmt, args...)	pr_debug(GLG_TAG fmt, ##args)
+#define GLG_VER(fmt, args...)  pr_debug(GLG_TAG"%s: "fmt, __func__, ##args)	/* ((void)0) */
 
 /* #define OP_GLG_DELAY          0X01 */
 #define	OP_GLG_ENABLE		0X02
@@ -51,7 +63,7 @@ struct glg_control_path {
 };
 
 struct glg_data_path {
-	int (*get_data)(u16 *value, int *status);
+	int (*get_data)(int *value, int *status);
 };
 
 struct glg_init_info {
@@ -62,7 +74,7 @@ struct glg_init_info {
 };
 
 struct glg_data {
-	hwm_sensor_data glg_data;
+	struct hwm_sensor_data glg_data;
 	int data_updata;
 	/* struct mutex lock; */
 };
@@ -83,7 +95,6 @@ struct glg_context {
 	atomic_t trace;
 	struct timer_list notify_timer;
 
-	struct early_suspend early_drv;
 	atomic_t early_suspend;
 	atomic_t suspend;
 

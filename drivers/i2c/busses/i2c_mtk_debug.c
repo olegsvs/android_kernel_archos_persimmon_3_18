@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2016 MediaTek Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
+ */
+
 #include <linux/module.h>
 #include <linux/init.h>
 #include <linux/i2c.h>
@@ -29,6 +42,84 @@ int mt_i2c_test(int id, int addr)
 	return ret;
 }
 EXPORT_SYMBOL(mt_i2c_test);
+
+int mt_i2c_test_multi_wr(int id, int addr)
+{
+	int ret;
+	struct i2c_msg msg[12];
+	struct i2c_adapter *adap;
+	char buf0[3] = {0x55, 0x00, 0x01};
+	char buf1[3] = {0x55, 0x01, 0x02};
+	char buf2[3] = {0x55, 0x02, 0x03};
+	char buf3[3] = {0x55, 0x03, 0x04};
+	char buf4[2] = {0x55, 0x00};
+	char buf5[2] = {0xff, 0xff};
+	char buf6[2] = {0x55, 0x01};
+	char buf7[2] = {0xff, 0xff};
+	char buf8[2] = {0x55, 0x02};
+	char buf9[2] = {0xff, 0xff};
+	char buf10[2] = {0x55, 0x03};
+	char buf11[2] = {0xff, 0xff};
+
+	adap = i2c_get_adapter(id);
+	if (!adap)
+		return -1;
+
+	msg[0].addr = addr;
+	msg[0].flags = 0;
+	msg[0].len = 3;
+	msg[0].buf = buf0;
+	msg[1].addr = addr;
+	msg[1].flags = 0;
+	msg[1].len = 3;
+	msg[1].buf = buf1;
+	msg[2].addr = addr;
+	msg[2].flags = 0;
+	msg[2].len = 3;
+	msg[2].buf = buf2;
+	msg[3].addr = addr;
+	msg[3].flags = 0;
+	msg[3].len = 3;
+	msg[3].buf = buf3;
+	msg[4].addr = addr;
+	msg[4].flags = 0;
+	msg[4].len = 2;
+	msg[4].buf = buf4;
+	msg[5].addr = addr;
+	msg[5].flags = I2C_M_RD;
+	msg[5].len = 1;
+	msg[5].buf = buf5;
+	msg[6].addr = addr;
+	msg[6].flags = 0;
+	msg[6].len = 2;
+	msg[6].buf = buf6;
+	msg[7].addr = addr;
+	msg[7].flags = I2C_M_RD;
+	msg[7].len = 1;
+	msg[7].buf = buf7;
+	msg[8].addr = addr;
+	msg[8].flags = 0;
+	msg[8].len = 2;
+	msg[8].buf = buf8;
+	msg[9].addr = addr;
+	msg[9].flags = I2C_M_RD;
+	msg[9].len = 1;
+	msg[9].buf = buf9;
+	msg[10].addr = addr;
+	msg[10].flags = 0;
+	msg[10].len = 2;
+	msg[10].buf = buf10;
+	msg[11].addr = addr;
+	msg[11].flags = I2C_M_RD;
+	msg[11].len = 1;
+	msg[11].buf = buf11;
+	hw_trig_i2c_enable(adap);
+	ret = hw_trig_i2c_transfer(adap, msg, 4);
+	hw_trig_i2c_disable(adap);
+	pr_err("camera  0x5500 : %x 0x5501 : %x 0x5502 : %x 0x5503 : %x .\n",
+		buf5[0], buf7[0], buf9[0], buf11[0]);
+	return ret;
+}
 
 int mt_i2c_test_wrrd(int id, int addr, int wr_len, int rd_len, char *wr_buf, char *rd_buf)
 {
@@ -261,7 +352,7 @@ static ssize_t set_config(struct device *dev, struct device_attribute *attr, con
 
 	pr_alert("%s\n", buf);
 	scanf_ret = sscanf
-	    (buf, "%d %x %d %d %d %s", &bus_id, &address, &operation, &wr_number, &rd_number,
+	    (buf, "%d %x %d %d %d %1023s", &bus_id, &address, &operation, &wr_number, &rd_number,
 	     data_buffer);
 	if (scanf_ret) {
 		pr_alert("bus_id:%d,address:%x,operation:0x%x\n",
@@ -301,7 +392,7 @@ static ssize_t set_config(struct device *dev, struct device_attribute *attr, con
 				}
 				vir_addr_rd = kzalloc(rd_number, GFP_KERNEL);
 				if (vir_addr_rd == NULL) {
-
+					kfree(vir_addr_wr);
 					pr_err("alloc virtual memory failed\n");
 					goto err;
 				}
@@ -323,30 +414,28 @@ static ssize_t set_config(struct device *dev, struct device_attribute *attr, con
 			/* dealing */
 
 			if (ret >= 0) {
-
 				if (operation == 2) {
 					hex2string(vir_addr_rd, tmpbuffer, rd_number);
-					sprintf(data_buffer, "1 %s", tmpbuffer);
+					snprintf(data_buffer, sizeof(data_buffer), "1 %s", tmpbuffer);
 					pr_alert("Actual return Value:%d %s\n", ret, data_buffer);
 				} else if (operation == 0) {
 					hex2string(vir_addr_rd, tmpbuffer, rd_number);
-					sprintf(data_buffer, "1 %s", tmpbuffer);
+					snprintf(data_buffer, sizeof(data_buffer), "1 %s", tmpbuffer);
 					pr_alert("Actual return Value:%d %s\n", ret, data_buffer);
 				} else {
-					sprintf(data_buffer, "1 %s", "00");
+					snprintf(data_buffer, sizeof(data_buffer), "1 %s", "00");
 					pr_alert("Actual return Value:%d %s\n", ret, data_buffer);
 				}
 
 			} else if (ret < 0) {
-
 				if (ret == -EINVAL)
-					sprintf(data_buffer, "0 %s", "Invalid Parameter");
+					snprintf(data_buffer, sizeof(data_buffer), "0 %s", "Invalid Parameter");
 				else if (ret == -ETIMEDOUT)
-					sprintf(data_buffer, "0 %s", "Transfer Timeout");
+					snprintf(data_buffer, sizeof(data_buffer), "0 %s", "Transfer Timeout");
 				else if (ret == -EREMOTEIO)
-					sprintf(data_buffer, "0 %s", "Ack Error");
+					snprintf(data_buffer, sizeof(data_buffer), "0 %s", "Ack Error");
 				else
-					sprintf(data_buffer, "0 %s", "unknown error");
+					snprintf(data_buffer, sizeof(data_buffer), "0 %s", "unknown error");
 				pr_alert("Actual return Value:%d %p\n", ret, data_buffer);
 			}
 			kfree(vir_addr_rd);
@@ -354,33 +443,38 @@ static ssize_t set_config(struct device *dev, struct device_attribute *attr, con
 
 		} else {
 			struct i2c_adapter *adap = i2c_get_adapter(bus_id);
-			struct mt_i2c *i2c = i2c_get_adapdata(adap);
+			if (adap) {
+				struct mt_i2c *i2c = i2c_get_adapdata(adap);
 
-			if (operation == 3) {
-				i2c_dump_info(i2c);
-			} else if (operation == 4) {
-				i2c_test_reg(bus_id, 0);
-				i2c_dump_info(i2c);
-				i2c_test_reg(bus_id, 0xFFFFFFFF);
-				i2c_dump_info(i2c);
-			} else if (operation == 5) {
-				i2c_ext_conf_test(bus_id, address);
-			} else if (operation == 9) {
-				i2c_soft_reset(bus_id);
-				i2c_dump_info(i2c);
-			} else if (operation == 6) {
-				if (bus_id == 0) {
-					/* I2C0 PINMUX2 power on */
-					/* hwPowerOn(MT65XX_POWER_LDO_VMC1,VOL_DEFAULT,"i2c_pinmux"); */
-					/* hwPowerOn(MT65XX_POWER_LDO_VMCH1,VOL_DEFAULT,"i2c_pinmux"); */
+				if (operation == 3) {
+					i2c_dump_info(i2c);
+				} else if (operation == 4) {
+					i2c_test_reg(bus_id, 0);
+					i2c_dump_info(i2c);
+					i2c_test_reg(bus_id, 0xFFFFFFFF);
+					i2c_dump_info(i2c);
+				} else if (operation == 5) {
+					i2c_ext_conf_test(bus_id, address);
+				} else if (operation == 9) {
+					i2c_soft_reset(bus_id);
+					i2c_dump_info(i2c);
+				} else if (operation == 6) {
+					mt_i2c_test_multi_wr(bus_id, address);
+					if (bus_id == 0) {
+						/* I2C0 PINMUX2 power on */
+						/* hwPowerOn(MT65XX_POWER_LDO_VMC1,VOL_DEFAULT,"i2c_pinmux"); */
+						/* hwPowerOn(MT65XX_POWER_LDO_VMCH1,VOL_DEFAULT,"i2c_pinmux"); */
+					}
+
+				} else if (operation == 7) {
+					mt_i2c_test(1, 0x50);
+				} else {
+					dev_err(dev, "i2c debug system: Parameter invalid!\n");
 				}
-
-			} else if (operation == 7) {
-				mt_i2c_test(1, 0x50);
 			} else {
-				dev_err(dev, "i2c debug system: Parameter invalid!\n");
+				/*adap invalid */
+				dev_err(dev, "i2c debug system: get adap fail!\n");
 			}
-
 		}
 	} else {
 		/*parameter invalid */
@@ -398,7 +492,7 @@ static DEVICE_ATTR(ut, 0660, show_config, set_config);
 static int i2c_common_probe(struct platform_device *pdev)
 {
 	int ret = 0;
-	/* your code here£¬your should save client in your own way */
+	/* your code hereÂ£Â¬your should save client in your own way */
 	pr_alert("i2c_common device probe\n");
 	ret = device_create_file(&pdev->dev, &dev_attr_ut);
 	pr_alert("i2c_common device probe ret = %d\n", ret);
@@ -431,9 +525,18 @@ static struct platform_device i2c_common_device = {
 
 static int __init xxx_init(void)
 {
+	int err;
+
 	pr_alert("i2c_common device init\n");
-	platform_device_register(&i2c_common_device);
-	return platform_driver_register(&i2c_common_driver);
+	err = platform_device_register(&i2c_common_device);
+	if (err)
+		return err;
+
+	err = platform_driver_register(&i2c_common_driver);
+	if (err)
+		platform_device_unregister(&i2c_common_device);
+
+	return err;
 }
 
 static void __exit xxx_exit(void)

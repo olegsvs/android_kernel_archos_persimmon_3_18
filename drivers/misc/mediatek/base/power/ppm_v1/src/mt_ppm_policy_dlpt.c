@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 
 #include <linux/kernel.h>
 #include <linux/module.h>
@@ -17,11 +30,11 @@ enum PPM_DLPT_MODE {
 	HW_MODE,	/* use HW OCP only */
 };
 
-static unsigned int ppm_dlpt_calc_trans_precentage(void);
 static unsigned int ppm_dlpt_pwr_budget_preprocess(unsigned int budget);
-#if PPM_HW_OCP_SUPPORT
+#if PPM_DLPT_ENHANCEMENT
 static unsigned int ppm_dlpt_pwr_budget_postprocess(unsigned int budget, unsigned int pwr_idx);
 #else
+static unsigned int ppm_dlpt_calc_trans_precentage(void);
 static unsigned int ppm_dlpt_pwr_budget_postprocess(unsigned int budget);
 #endif
 static void ppm_dlpt_update_limit_cb(enum ppm_power_state new_state);
@@ -44,6 +57,7 @@ static struct ppm_policy_data dlpt_policy = {
 
 };
 
+
 void mt_ppm_dlpt_kick_PBM(struct ppm_cluster_status *cluster_status, unsigned int cluster_num)
 {
 	int power_idx;
@@ -59,40 +73,38 @@ void mt_ppm_dlpt_kick_PBM(struct ppm_cluster_status *cluster_status, unsigned in
 	if (power_idx < 0)
 		goto end;
 
-#if PPM_HW_OCP_SUPPORT
 	for (i = 0; i < cluster_num; i++) {
-		int leakage, total, clkpct;
-
 		total_core += cluster_status[i].core_num;
 		max_volt = MAX(max_volt, cluster_status[i].volt);
-
-		/* read power meter for total power calculation */
-		if (cluster_status[i].core_num) {
-			if (i == PPM_CLUSTER_B) {
-				BigOCPCapture(1, 1, 0, 15);
-				BigOCPCaptureStatus(&leakage, &total, &clkpct);
-			} else {
-				LittleOCPCapture(i, 1, 1, 0, 15);
-				LittleOCPCaptureGet(i, &leakage, &total, &clkpct);
-			}
-			ppm_ver("ocp capture(%d): %d, %d, %d\n", i, leakage, total, clkpct);
-			budget += total;
-		}
 	}
+#if PPM_DLPT_ENHANCEMENT
+
+#if PPM_HW_OCP_SUPPORT
+	budget = ppm_calc_total_power_by_ocp(cluster_status, cluster_num);
+	if (!budget)
+		budget = ppm_calc_total_power(cluster_status, cluster_num, DYNAMIC_TABLE2REAL_PERCENTAGE);
+#else
+	budget = ppm_calc_total_power(cluster_status, cluster_num, DYNAMIC_TABLE2REAL_PERCENTAGE);
+#endif
+	if (!budget)
+		goto end;
+
 	budget = ppm_dlpt_pwr_budget_postprocess(budget, (unsigned int)power_idx);
 #else
-	for (i = 0; i < cluster_num; i++) {
-		total_core += cluster_status[i].core_num;
-		max_volt = MAX(max_volt, cluster_status[i].volt);
-	}
 	budget = ppm_dlpt_pwr_budget_postprocess((unsigned int)power_idx);
 #endif
 
-	ppm_ver("budget = %d(%d), total_core = %d, max_volt = %d\n",
+	ppm_dbg(DLPT, "budget = %d(%d), total_core = %d, max_volt = %d\n",
 		budget, power_idx, total_core, max_volt);
 
 #ifndef DISABLE_PBM_FEATURE
+#ifdef CONFIG_MTK_RAM_CONSOLE
+	aee_rr_rec_ppm_waiting_for_pbm(1);
 	kicker_pbm_by_cpu(budget, total_core, max_volt);
+	aee_rr_rec_ppm_waiting_for_pbm(0);
+#else
+	kicker_pbm_by_cpu(budget, total_core, max_volt);
+#endif
 #endif
 
 end:
@@ -107,7 +119,7 @@ void mt_ppm_dlpt_set_limit_by_pbm(unsigned int limited_power)
 
 	budget = ppm_dlpt_pwr_budget_preprocess(limited_power);
 
-	ppm_ver("Get PBM notifier => budget = %d(%d)\n", budget, limited_power);
+	ppm_dbg(DLPT, "Get PBM notifier => budget = %d(%d)\n", budget, limited_power);
 
 	ppm_lock(&dlpt_policy.lock);
 
@@ -140,19 +152,38 @@ end:
 	FUNC_EXIT(FUNC_LV_POLICY);
 }
 
+#if PPM_DLPT_ENHANCEMENT
+static unsigned int ppm_dlpt_pwr_budget_preprocess(unsigned int budget)
+{
+	unsigned int percentage = dlpt_percentage_to_real_power;
+
+	if (!percentage)
+		percentage = 100;
+
+	return (budget * percentage + (100 - 1)) / 100;
+}
+
+static unsigned int ppm_dlpt_pwr_budget_postprocess(unsigned int budget, unsigned int pwr_idx)
+{
+	/* just calculate new ratio */
+	dlpt_percentage_to_real_power = (pwr_idx * 100 + (budget - 1)) / budget;
+	ppm_dbg(DLPT, "new dlpt ratio = %d (%d/%d)\n", dlpt_percentage_to_real_power, pwr_idx, budget);
+
+	return budget;
+}
+#else
 static unsigned int ppm_dlpt_calc_trans_precentage(void)
 {
 	struct ppm_power_tbl_data power_table = ppm_get_power_table();
 	unsigned int max_pwr_idx = power_table.power_tbl[0].power_idx;
+	unsigned int max_real_power = get_max_real_power_by_segment(ppm_main_info.dvfs_tbl_type);
 
 	/* dvfs table is null means ppm doesn't know chip type now */
 	/* return 100 to make default ratio is 1 and check real ratio next time */
 	if (!ppm_main_info.cluster_info[0].dvfs_tbl)
 		return 100;
 
-	dlpt_percentage_to_real_power = (ppm_main_info.dvfs_tbl_type == DVFS_TABLE_TYPE_FY)
-		? (max_pwr_idx * 100 + (DLPT_MAX_REAL_POWER_FY - 1)) / DLPT_MAX_REAL_POWER_FY
-		: (max_pwr_idx * 100 + (DLPT_MAX_REAL_POWER_SB - 1)) / DLPT_MAX_REAL_POWER_SB;
+	dlpt_percentage_to_real_power = (max_pwr_idx * 100 + (max_real_power - 1)) / max_real_power;
 
 	return dlpt_percentage_to_real_power;
 }
@@ -167,17 +198,6 @@ static unsigned int ppm_dlpt_pwr_budget_preprocess(unsigned int budget)
 	return (budget * percentage + (100 - 1)) / 100;
 }
 
-
-#if PPM_HW_OCP_SUPPORT
-static unsigned int ppm_dlpt_pwr_budget_postprocess(unsigned int budget, unsigned int pwr_idx)
-{
-	/* just calculate new ratio */
-	dlpt_percentage_to_real_power = (pwr_idx * 100 + (budget - 1)) / budget;
-	ppm_ver("new dlpt ratio = %d (%d/%d)\n", dlpt_percentage_to_real_power, pwr_idx, budget);
-
-	return budget;
-}
-#else
 static unsigned int ppm_dlpt_pwr_budget_postprocess(unsigned int budget)
 {
 	unsigned int percentage = dlpt_percentage_to_real_power;
@@ -310,23 +330,6 @@ static int __init ppm_dlpt_policy_init(void)
 			goto out;
 		}
 	}
-
-#if PPM_HW_OCP_SUPPORT
-	/* enable OCP */
-	/* TBD: move these to cpu hotplug? */
-#if 0
-	BigiDVFSEnable(2500, 110000, 120000);	/* idvfs enable 2500MHz, Vproc_x100mv, Vsram_x100mv */
-	BigiDVFSChannel(1, 1);			/* ocp channel enable */
-	BigOCPConfig(300, 10000);		/* cluster 2 Voffset=0.3v_x1000, Vstep=10mv_x1000000 */
-	BigOCPSetTarget(3, 127000);		/* cluster 2 set OCPI/FPI, Target=127 W */
-	BigOCPEnable(3, 1, 625, 0);		/* cluster 2 set OCPI/FPI, Target_unit=mW, CG=6.25%_x100 */
-#endif
-	LittleOCPConfig(300, 10000);		/* cluster 0/1 Voffset=0.5v_x1000, Vstep=6.25mv_x1000000 */
-	LittleOCPSetTarget(0, 127000);		/* cluster 0 Target=127W_x1000 */
-	LittleOCPEnable(0, 1, 625);		/* cluster 0 Target_unit=mW, CG=6.25_x100 */
-	LittleOCPSetTarget(1, 127000);		/* cluster 1 Target=127W_x1000 */
-	LittleOCPEnable(1, 1, 625);		/* cluster 1 Target_unit=mW, CG=6.25_x100 */
-#endif
 
 	if (ppm_main_register_policy(&dlpt_policy)) {
 		ppm_err("@%s: dlpt policy register failed\n", __func__);

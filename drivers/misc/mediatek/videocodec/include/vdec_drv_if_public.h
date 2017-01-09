@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #ifndef _VDEC_DRV_IF_PUBLIC_H_
 #define _VDEC_DRV_IF_PUBLIC_H_
 
@@ -21,6 +34,19 @@ typedef enum _VDEC_DRV_FBSTSTUS {
 	VDEC_DRV_FBSTSTUS_NOT_USED    = (1 << 2),   /* /< not used */
 }
 VDEC_DRV_FBSTSTUS;
+
+/**
+ * @par Enumeration
+ *   VDEC_DRV_FBSTSTUS
+ * @par Description
+ *   This is the item for frame buffer status
+ */
+typedef enum _VDEC_DRV_FBTYPE {
+	VDEC_DRV_FBTYPE_NORMAL      = 0,   /* /< normal type */
+	VDEC_DRV_FBTYPE_3D_SBS      = 1,   /* /< side by side 3D frame */
+	VDEC_DRV_FBTYPE_3D_TAB      = 2,   /* /< top and bottim 3D frame */
+}
+VDEC_DRV_FBTYPE;
 
 
 /**
@@ -60,7 +86,8 @@ typedef enum _VDEC_DRV_VIDEO_FORMAT_T {
 	VDEC_DRV_VIDEO_FORMAT_S263                  = (1 << 26),    /* /< Sorenson Spark */
 	VDEC_DRV_VIDEO_FORMAT_H264HP                = (1 << 27),
 	VDEC_DRV_VIDEO_FORMAT_H264SEC               = (1 << 28),
-	VDEC_DRV_VIDEO_FORMAT_H265SEC               = (1 << 29)
+	VDEC_DRV_VIDEO_FORMAT_H265SEC               = (1 << 29),
+	VDEC_DRV_VIDEO_FORMAT_VP9SEC                = (1 << 30)
 } VDEC_DRV_VIDEO_FORMAT_T;
 
 
@@ -252,6 +279,7 @@ typedef enum _VDEC_DRV_QUERY_TYPE_T {
 	VDEC_DRV_QUERY_TYPE_BUFFER_CONTROL,     /* /< Query VDEC_DRV_QUERY_TYPE_BUFFER_CONTROL */
 	VDEC_DRV_QUERY_TYPE_FEATURE_SUPPORTED,   /* /< Query VDEC_DRV_QUERY_TYPE_FEATURE_SUPPORTED */
 	VDEC_DRV_QUERY_TYPE_CPUCORE_FREQUENCY,   /* /< Query VDEC_DRV_QUERY_TYPE_CPUCORE_FREQUENCY */
+	VDEC_DRV_QUERY_TYPE_UFO_SUPPORT,         /* /< Query VDEC_DRV_QUERY_TYPE_UFO_SUPPORT */
 } VDEC_DRV_QUERY_TYPE_T;
 
 
@@ -419,6 +447,19 @@ typedef enum __VDEC_DRV_MRESULT_T {
 	VDEC_DRV_MRESULT_MAX = 0x0FFFFFFF               /* /< Max Value */
 } VDEC_DRV_MRESULT_T;
 
+typedef enum _VDEC_DRV_COLOR_PRIMARIES_E {
+	COLOR_PRIMARIES_NO_INFO = 0,
+	COLOR_PRIMARIES_BT601,
+	COLOR_PRIMARIES_BT709,
+	COLOR_PRIMARIES_BT2020
+} VDEC_DRV_COLOR_PRIMARIES_E;
+
+typedef struct __VDEC_DRV_COLOR_PRIMARIES_INFO_T {
+	VAL_BOOL_T  bVideoRangeExist;           /* 0: not exist; 1: exist */
+	VAL_UINT32_T u4VideoRange;                 /* 0: narrow; 1: full  */
+	VAL_BOOL_T  bColourPrimariesExist;   /* 0: not exist; 1: exist */
+	VDEC_DRV_COLOR_PRIMARIES_E eColourPrimaries;         /* VDEC_DRV_COLOR_PRIMARIES_E */
+} VDEC_DRV_COLOR_PRIMARIES_INFO_T;
 
 /**
  * @par Structure
@@ -483,6 +524,7 @@ typedef struct __VDEC_DRV_FRAMEBUF_T {
 
 	/* /< [IN/OUT] share handle of rBaseAddr.u4VA (for UT only)  // MTK_SEC_VIDEO_PATH_SUPPORT */
 	VAL_UINT32_T    rFrameBufVaShareHandle;
+	VDEC_DRV_COLOR_PRIMARIES_INFO_T rColorPriInfo;
 } VDEC_DRV_FRAMEBUF_T;
 
 /**

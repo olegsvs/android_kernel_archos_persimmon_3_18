@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #ifndef __MT_RTC_HW_H__
 #define __MT_RTC_HW_H__
 
@@ -254,6 +267,7 @@
 #define RTC_VBAT_LPSTA_RAW        (1U << 0)
 #define RTC_EOSC32_LPEN            (1U << 1)
 #define RTC_XOSC32_LPEN            (1U << 2)
+#define RTC_CON_LPEN            (RTC_XOSC32_LPEN | RTC_EOSC32_LPEN)
 #define RTC_CON_LPRST            (1U << 3)
 #define RTC_CON_CDBO            (1U << 4)
 #define RTC_CON_F32KOB            (1U << 5)    /* 0: RTC_GPIO exports 32K */

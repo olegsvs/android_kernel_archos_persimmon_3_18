@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #ifndef __CLDMA_PLATFORM_H__
 #define __CLDMA_PLATFORM_H__
 
@@ -34,6 +47,7 @@
 /* peer */
 #define AP_MD_PEER_WAKEUP (5)
 #define AP_MD_SEQ_ERROR (6)
+#define AP_MD_CCB_WAKEUP (8)
 
 struct md_hw_info {
 	/* HW info - Register Address */
@@ -70,7 +84,9 @@ int ccci_modem_pm_suspend(struct device *device);
 int ccci_modem_pm_resume(struct device *device);
 int ccci_modem_pm_restore_noirq(struct device *device);
 int md_cd_power_on(struct ccci_modem *md);
-int md_cd_power_off(struct ccci_modem *md, unsigned int timeout);
+int md_cd_power_off(struct ccci_modem *md, unsigned int stop_type);
+int md_cd_soft_power_off(struct ccci_modem *md, unsigned int mode);
+int md_cd_soft_power_on(struct ccci_modem *md, unsigned int mode);
 int md_cd_let_md_go(struct ccci_modem *md);
 void md_cd_lock_cldma_clock_src(int locked);
 void md_cd_lock_modem_clock_src(int locked);
@@ -79,6 +95,7 @@ int md_cd_low_power_notify(struct ccci_modem *md, LOW_POEWR_NOTIFY_TYPE type, in
 int md_cd_get_modem_hw_info(struct platform_device *dev_ptr, struct ccci_dev_cfg *dev_cfg, struct md_hw_info *hw_info);
 int md_cd_io_remap_md_side_register(struct ccci_modem *md);
 void md_cd_dump_debug_register(struct ccci_modem *md);
+void md_cd_dump_md_bootup_status(struct ccci_modem *md);
 void md_cd_check_emi_state(struct ccci_modem *md, int polling);
 void cldma_dump_register(struct ccci_modem *md);
 void md_cldma_hw_reset(struct ccci_modem *md);

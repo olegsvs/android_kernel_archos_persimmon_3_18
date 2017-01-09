@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #ifndef MT8193_CKGEN_H
 #define MT8193_CKGEN_H
 
@@ -151,8 +164,6 @@ u32 mt8193_ckgen_measure_clk(u32 u4Func);
 u32 mt8193_ckgen_reg_rw_test(u16 addr);
 #endif
 
-extern int multibridge_exit;
-
 void mt8193_lvds_sys_spm_control(bool power_on);
 void mt8193_hdmi_sys_spm_control(bool power_on);
 void mt8193_nfi_sys_spm_control(bool power_on);
@@ -166,6 +177,7 @@ void mt8193_spm_control_test(int u4Func);
 u32 mt8193_ckgen_measure_clk(u32 u4Func);
 void mt8193_ckgen_early_suspend(void);
 void mt8193_ckgen_late_resume(void);
+void mt8193_bus_clk_switch_to_26m(void);
 
 #endif
 

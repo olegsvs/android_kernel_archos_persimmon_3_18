@@ -1,17 +1,19 @@
 /*
- * Copyright (C) 2007 The Android Open Source Project
+ * Copyright (C) 2015 MediaTek Inc.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ * You should have received a copy of the GNU General Public License
+ * along with this program
+ * If not, see <http://www.gnu.org/licenses/>.
  */
 /*******************************************************************************
  *
@@ -204,12 +206,6 @@ static int mtk_pcm_fm_i2s_open(struct snd_pcm_substream *substream)
 	ret = snd_pcm_hw_constraint_integer(runtime, SNDRV_PCM_HW_PARAM_PERIODS);
 	if (ret < 0)
 		pr_warn("snd_pcm_hw_constraint_integer failed\n");
-	pr_warn("mtk_pcm_fm_i2s_open runtime rate = %d channels = %d substream->pcm->device = %d\n",
-	       runtime->rate, runtime->channels, substream->pcm->device);
-
-	/*if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
-		pr_warn("SNDRV_PCM_STREAM_PLAYBACK mtkalsa_fm_i2s_playback_constraints\n");*/
-
 
 	if (ret < 0) {
 		pr_err("mtk_pcm_fm_i2s_close\n");
@@ -238,8 +234,10 @@ static int mtk_pcm_fm_i2s_close(struct snd_pcm_substream *substream)
 	}
 
 	SetMemoryPathEnable(Soc_Aud_Digital_Block_I2S_OUT_DAC, false);
-	if (GetI2SDacEnable() == false)
+	if (GetI2SDacEnable() == false) {
+		SetI2SADDAEnable(false);
 		SetI2SDacEnable(false);
+	}
 
 	/* interconnection setting */
 	SetConnection(Soc_Aud_InterCon_DisConnect, Soc_Aud_InterConnectionInput_I00,
@@ -250,7 +248,6 @@ static int mtk_pcm_fm_i2s_close(struct snd_pcm_substream *substream)
 		      Soc_Aud_InterConnectionOutput_O03);
 	SetConnection(Soc_Aud_InterCon_DisConnect, Soc_Aud_InterConnectionInput_I11,
 		      Soc_Aud_InterConnectionOutput_O04);
-
 
 	EnableAfe(false);
 
@@ -281,12 +278,7 @@ static int mtk_pcm_fm_i2s_prepare(struct snd_pcm_substream *substream)
 			      Soc_Aud_InterConnectionOutput_O03);
 		SetConnection(Soc_Aud_InterCon_Connection, Soc_Aud_InterConnectionInput_I11,
 			      Soc_Aud_InterConnectionOutput_O04);
-#if defined (CONFIG_MTK_NXP_TFA9890) || defined (CONFIG_MTK_HIFI_ES9018)
-		//printk("mtkadd+++\n"); //add by major for play fm  use smartpa no sound
-		SetConnection(Soc_Aud_InterCon_Connection, Soc_Aud_InterConnectionInput_I10, Soc_Aud_InterConnectionOutput_O00);
-		SetConnection(Soc_Aud_InterCon_Connection, Soc_Aud_InterConnectionInput_I11, Soc_Aud_InterConnectionOutput_O01);
-		//printk("mtkadd---\n");
-#endif
+
 		/* Set HW_GAIN */
 		SetHwDigitalGainMode(Soc_Aud_Hw_Digital_Gain_HW_DIGITAL_GAIN1, runtime->rate,
 				     0x40);
@@ -327,6 +319,9 @@ static int mtk_pcm_fm_i2s_prepare(struct snd_pcm_substream *substream)
 			SetMemoryPathEnable(Soc_Aud_Digital_Block_I2S_IN_2, true);
 
 		EnableAfe(true);
+
+		if (GetMemoryPathEnable(Soc_Aud_Digital_Block_I2S_OUT_DAC) == true)
+			SetI2SADDAEnable(true);
 		mPrepareDone = true;
 	}
 	return 0;

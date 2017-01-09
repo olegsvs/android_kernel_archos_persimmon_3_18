@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 
 #ifndef __TRUSTZONE_TA_GCPU__
 #define __TRUSTZONE_TA_GCPU__
@@ -13,5 +26,5 @@
 #define TZCMD_GCPU_SUSPEND                  1
 #define TZCMD_GCPU_KERNEL_INIT_DONE         2
 #define TZCMD_GCPU_AES_CBC_PERFORMANCE      3
-
+#define TZCMD_GCPU_RESUME                   4
 #endif				/* __TRUSTZONE_TA_GCPU__ */

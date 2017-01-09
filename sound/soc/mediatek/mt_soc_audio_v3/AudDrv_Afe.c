@@ -1,17 +1,19 @@
 /*
- * Copyright (C) 2007 The Android Open Source Project
+ * Copyright (C) 2015 MediaTek Inc.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ * You should have received a copy of the GNU General Public License
+ * along with this program
+ * If not, see <http://www.gnu.org/licenses/>.
  */
 /*******************************************************************************
  *
@@ -51,7 +53,7 @@
 #include "AudDrv_Def.h"
 #include <linux/types.h>
 
-
+static DEFINE_SPINLOCK(afe_set_reg_lock);
 /*****************************************************************************
  *                         D A T A   T Y P E S
  *****************************************************************************/
@@ -153,6 +155,7 @@ void Afe_Set_Reg(uint32 offset, uint32 value, uint32 mask)
 	volatile long address;
 	volatile uint32 *AFE_Register;
 	volatile uint32 val_tmp;
+	unsigned long flags = 0;
 
 	if (CheckOffset(offset) == false)
 		return;
@@ -166,10 +169,12 @@ void Afe_Set_Reg(uint32 offset, uint32 value, uint32 mask)
 
 	AFE_Register = (volatile uint32 *)address;
 	/* PRINTK_AFE_REG("Afe_Set_Reg offset=%x, value=%x, mask=%x\n",offset,value,mask); */
+	spin_lock_irqsave(&afe_set_reg_lock, flags);
 	val_tmp = Afe_Get_Reg(offset);
 	val_tmp &= (~mask);
 	val_tmp |= (value & mask);
 	mt_reg_sync_writel(val_tmp, AFE_Register);
+	spin_unlock_irqrestore(&afe_set_reg_lock, flags);
 }
 EXPORT_SYMBOL(Afe_Set_Reg);
 
@@ -276,6 +281,21 @@ void Afe_Log_Print(void)
 	pr_debug("AUDIO_TOP_CON1 = 0x%x\n", Afe_Get_Reg(AUDIO_TOP_CON1));
 	pr_debug("AUDIO_TOP_CON2 = 0x%x\n", Afe_Get_Reg(AUDIO_TOP_CON2));
 	pr_debug("AUDIO_TOP_CON3 = 0x%x\n", Afe_Get_Reg(AUDIO_TOP_CON3));
+	pr_debug("AFE_BUS_MON1 = 0x%x\n", Afe_Get_Reg(AFE_BUS_MON1));
+	pr_debug("AFE_CONN_MON0 = 0x%x\n", Afe_Get_Reg(AFE_CONN_MON0));
+	pr_debug("AFE_CONN_MON1 = 0x%x\n", Afe_Get_Reg(AFE_CONN_MON1));
+	pr_debug("AFE_CONN_MON2 = 0x%x\n", Afe_Get_Reg(AFE_CONN_MON2));
+	pr_debug("AFE_CONN_MON3 = 0x%x\n", Afe_Get_Reg(AFE_CONN_MON3));
+	pr_debug("AFE_APB_MON = 0x%x\n", Afe_Get_Reg(AFE_APB_MON));
+	pr_warn("CLK_MISC_CFG_0 = 0x%x\n", GetClkCfg(CLK_MISC_CFG_0));
+	pr_debug("AUDIO_CLK_CFG_4 = 0x%x\n", GetClkCfg(AUDIO_CLK_CFG_4));
+	pr_warn("AUDIO_CLK_CFG_6 = 0x%x\n", GetClkCfg(AUDIO_CLK_CFG_6));
+	pr_debug("APLL1_CON0 = 0x%x\n", GetpllCfg(APLL1_CON0));
+	pr_debug("APLL1_CON1 = 0x%x\n", GetpllCfg(APLL1_CON1));
+	pr_debug("APLL1_CON2 = 0x%x\n", GetpllCfg(APLL1_CON2));
+	pr_debug("APLL1_CON3 = 0x%x\n", GetpllCfg(APLL1_CON3));
+	pr_debug("APLL1_PWR_CON0 = 0x%x\n", GetpllCfg(APLL1_PWR_CON0));
+	pr_warn("INFRA_GLOBALCON_PDN0 = 0x%x\n", GetInfraCfg(INFRA_GLOBALCON_PDN0));
 	pr_debug("AFE_DAC_CON0 = 0x%x\n", Afe_Get_Reg(AFE_DAC_CON0));
 	pr_debug("AFE_DAC_CON1 = 0x%x\n", Afe_Get_Reg(AFE_DAC_CON1));
 	pr_debug("AFE_I2S_CON = 0x%x\n", Afe_Get_Reg(AFE_I2S_CON));

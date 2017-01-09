@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #define pr_fmt(fmt)	"[VcoreFS] " fmt
 
 #include <linux/kernel.h>
@@ -780,8 +793,8 @@ static void set_init_opp_index(struct vcorefs_profile *pwrctrl)
 
 static int late_init_to_lowpwr_opp(void)
 {
-        struct vcorefs_profile *pwrctrl = &vcorefs_ctrl;
-        struct kicker_profile *kicker_ctrl_table = kicker_table;
+	struct vcorefs_profile *pwrctrl = &vcorefs_ctrl;
+	struct kicker_profile *kicker_ctrl_table = kicker_table;
 
 	mutex_lock(&vcorefs_mutex);
 	if (!dram_can_support_fh()) {

@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #include <linux/scatterlist.h>
 #include <linux/mmc/card.h>
 #include <linux/mmc/host.h>
@@ -168,7 +181,7 @@ do { \
 #define AUTOK_ERR()      do {} while (1)
 #endif
 
-#define msdc_retry(expr, retry, cnt, id) \
+#define msdc_sdio_retry(expr, retry, cnt, id) \
 do { \
 	int backup = cnt; \
 	while (retry) { \
@@ -181,15 +194,15 @@ do { \
 	WARN_ON(retry == 0); \
 } while (0)
 
-#define msdc_reset(id) \
+#define msdc_sdio_reset(id) \
 do { \
 	int retry = 3, cnt = 1000; \
 	sdr_set_bits(MSDC_CFG, MSDC_CFG_RST); \
 	mb(); \
-	msdc_retry(sdr_read32(MSDC_CFG) & MSDC_CFG_RST, retry, cnt, id); \
+	msdc_sdio_retry(sdr_read32(MSDC_CFG) & MSDC_CFG_RST, retry, cnt, id); \
 } while (0)
 
-#define msdc_clr_int() \
+#define msdc_sdio_clr_int() \
 do { \
 	volatile u32 val = sdr_read32(MSDC_INT); \
 	sdr_write32(MSDC_INT, val); \
@@ -199,14 +212,14 @@ do { \
 do { \
 	int retry = 3, cnt = 1000; \
 	sdr_set_bits(MSDC_FIFOCS, MSDC_FIFOCS_CLR); \
-	msdc_retry(sdr_read32(MSDC_FIFOCS) & MSDC_FIFOCS_CLR, retry, cnt, id); \
+	msdc_sdio_retry(sdr_read32(MSDC_FIFOCS) & MSDC_FIFOCS_CLR, retry, cnt, id); \
 } while (0)
 
 #define msdc_reset_hw(id) \
 do { \
-	msdc_reset(id); \
+	msdc_sdio_reset(id); \
 	msdc_clr_fifo(id); \
-	msdc_clr_int(); \
+	msdc_sdio_clr_int(); \
 } while (0)
 
 #define msdc_txfifocnt()   ((sdr_read32(MSDC_FIFOCS) & MSDC_FIFOCS_TXCNT) >> 16)
@@ -2659,10 +2672,10 @@ ReTuneMatrix:
 						     AUTOK_TRANS_BOUND_RISING :
 						     AUTOK_TRANS_BOUND_FALLING) + 1;
 
-						if (CMDMatChar
+						/* if (CMDMatChar
 						    [AUTOK_CYC_SCAN_CHNG_EDGE].pad_trans_s1 < 0)
 							CMDMatChar
-							    [AUTOK_CYC_SCAN_CHNG_EDGE].pad_trans_s1;
+							    [AUTOK_CYC_SCAN_CHNG_EDGE].pad_trans_s1; */
 					} else {
 						CMDMatChar[AUTOK_CYC_SCAN_CHNG_EDGE].pad_trans_e1 =
 						    0;
@@ -2701,10 +2714,10 @@ ReTuneMatrix:
 						     AUTOK_TRANS_BOUND_FALLING :
 						     AUTOK_TRANS_BOUND_RISING) + 1;
 
-						if (CMDMatChar[AUTOK_CYC_SCAN_INIT].pad_trans_s1 <
+						/*if (CMDMatChar[AUTOK_CYC_SCAN_INIT].pad_trans_s1 <
 						    0)
 							CMDMatChar
-							    [AUTOK_CYC_SCAN_INIT].pad_trans_s1;
+							    [AUTOK_CYC_SCAN_INIT].pad_trans_s1;*/
 					} else {
 						CMDMatChar[AUTOK_CYC_SCAN_INIT].pad_trans_e1 = 0;
 						CMDMatChar[AUTOK_CYC_SCAN_INIT].pad_trans_s1 = 0;

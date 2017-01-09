@@ -1,17 +1,19 @@
 /*
- * Copyright (C) 2007 The Android Open Source Project
+ * Copyright (C) 2015 MediaTek Inc.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ * You should have received a copy of the GNU General Public License
+ * along with this program
+ * If not, see <http://www.gnu.org/licenses/>.
  */
 /*******************************************************************************
  *
@@ -403,10 +405,6 @@ static int mtk_compr_offload_gdma_int_prepare(struct snd_compr_stream *stream)
 			SetMemoryPathEnable(Soc_Aud_Digital_Block_I2S_OUT_DAC, true);
 		}
 
-		/* here to set interrupt_distributor */
-		SetIrqMcuCounter(Soc_Aud_IRQ_MCU_MODE_IRQ7_MCU_MODE, afe_offload_block.period_size);
-		SetIrqMcuSampleRate(Soc_Aud_IRQ_MCU_MODE_IRQ7_MCU_MODE, afe_offload_block.samplerate);
-
 		mPrepareDone = true;
 	}
 	return 0;
@@ -438,13 +436,19 @@ static int mtk_compr_offload_gdma_int_start(struct snd_compr_stream *stream)
 	SetHwDigitalGain(OffloadService_GetVolume(), Soc_Aud_Hw_Digital_Gain_HW_DIGITAL_GAIN1);
 
 
-	SetIrqEnable(Soc_Aud_IRQ_MCU_MODE_IRQ7_MCU_MODE, true);
+	irq_add_user(&afe_offload_block,
+		     Soc_Aud_IRQ_MCU_MODE_IRQ7_MCU_MODE,
+		     afe_offload_block.samplerate,
+		     afe_offload_block.period_size);
 	SetSampleRate(Soc_Aud_Digital_Block_MEM_DL2, afe_offload_block.samplerate);
 	SetChannels(Soc_Aud_Digital_Block_MEM_DL2, afe_offload_block.channels);
 	SetMemoryPathEnable(Soc_Aud_Digital_Block_MEM_DL2, true);
 	SetOffloadEnableFlag(true);
 
 	EnableAfe(true);
+
+	if (GetMemoryPathEnable(Soc_Aud_Digital_Block_I2S_OUT_DAC) == true)
+		SetI2SADDAEnable(true);
 	return 0;
 }
 
@@ -452,7 +456,10 @@ static int mtk_compr_offload_gdma_int_resume(struct snd_compr_stream *stream)
 {
 	afe_offload_block.state = afe_offload_block.pre_state;
 
-	SetIrqEnable(Soc_Aud_IRQ_MCU_MODE_IRQ7_MCU_MODE, true);
+	irq_add_user(&afe_offload_block,
+		     Soc_Aud_IRQ_MCU_MODE_IRQ7_MCU_MODE,
+		     afe_offload_block.samplerate,
+		     afe_offload_block.period_size);
 	SetMemoryPathEnable(Soc_Aud_Digital_Block_MEM_DL2, true);
 	SetOffloadEnableFlag(true);
 	OffloadService_ReleaseWriteblocked();
@@ -464,7 +471,7 @@ static int mtk_compr_offload_gdma_int_pause(struct snd_compr_stream *stream)
 {
 	afe_offload_block.pre_state = afe_offload_block.state;
 	afe_offload_block.state = OFFLOAD_STATE_PAUSED;
-	SetIrqEnable(Soc_Aud_IRQ_MCU_MODE_IRQ7_MCU_MODE, false);
+	irq_remove_user(&afe_offload_block, Soc_Aud_IRQ_MCU_MODE_IRQ7_MCU_MODE);
 	SetMemoryPathEnable(Soc_Aud_Digital_Block_MEM_DL2, false);
 	SetOffloadEnableFlag(false);
 
@@ -477,7 +484,7 @@ static int mtk_compr_offload_gdma_int_stop(struct snd_compr_stream *stream)
 {
 	pr_warn("%s\n", __func__);
 	afe_offload_block.state = OFFLOAD_STATE_IDLE;
-	SetIrqEnable(Soc_Aud_IRQ_MCU_MODE_IRQ7_MCU_MODE, false);
+	irq_remove_user(&afe_offload_block, Soc_Aud_IRQ_MCU_MODE_IRQ7_MCU_MODE);
 	SetMemoryPathEnable(Soc_Aud_Digital_Block_MEM_DL2, false);
 	SetOffloadEnableFlag(false);
 
@@ -561,8 +568,10 @@ static int mtk_compr_offload_gdma_free(struct snd_compr_stream *stream)
 	if (mPrepareDone == true) {
 		/* stop DAC output */
 		SetMemoryPathEnable(Soc_Aud_Digital_Block_I2S_OUT_DAC, false);
-		if (GetI2SDacEnable() == false)
+		if (GetI2SDacEnable() == false) {
+			SetI2SADDAEnable(false);
 			SetI2SDacEnable(false);
+		}
 
 		SetMemoryPathEnable(Soc_Aud_Digital_Block_I2S_OUT_2, false);
 

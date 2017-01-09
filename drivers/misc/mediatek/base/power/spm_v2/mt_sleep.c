@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
@@ -15,8 +28,11 @@
 #include "mt_spm.h"
 #include "mt_spm_sleep.h"
 #include "mt_spm_idle.h"
-#include "mt_spm_mtcmos.h"
+#if defined(CONFIG_ARCH_MT6797) || defined(CONFIG_ARCH_MT6757)
 #include "mt_clkmgr.h"
+#endif
+
+#include "mt_spm_mtcmos.h"
 #include "mt_spm_misc.h"
 #ifdef CONFIG_MT_SND_SOC_6755
 #include <mt_soc_afe_control.h>
@@ -25,6 +41,7 @@
 /**************************************
  * only for internal debug
  **************************************/
+#if !defined(CONFIG_FPGA_EARLY_PORTING)
 #ifdef CONFIG_MTK_LDVT
 #define SLP_SLEEP_DPIDLE_EN         1
 #define SLP_REPLACE_DEF_WAKESRC     1
@@ -33,6 +50,11 @@
 #define SLP_SLEEP_DPIDLE_EN         1
 #define SLP_REPLACE_DEF_WAKESRC     0
 #define SLP_SUSPEND_LOG_EN          1
+#endif
+#else
+#define SLP_SLEEP_DPIDLE_EN         0
+#define SLP_REPLACE_DEF_WAKESRC     0
+#define SLP_SUSPEND_LOG_EN          0
 #endif
 
 /**************************************
@@ -65,14 +87,15 @@ static DEFINE_SPINLOCK(slp_lock);
 static wake_reason_t slp_wake_reason = WR_NONE;
 
 static bool slp_ck26m_on;
-static bool slp_chk_golden = 1;
+bool slp_chk_golden = 1;
 bool slp_dump_gpio = 0;
 static bool slp_dump_regs = 1;
 static bool slp_check_mtcmos_pll = 1;
 
 static u32 slp_spm_flags = {
+#if !defined(CONFIG_FPGA_EARLY_PORTING)
 #if 0
-	SPM_FLAG_DIS_CPU_PDN |
+	SPM_FLAG_DIS_CPU_PDN  |
 	SPM_FLAG_DIS_INFRA_PDN |
 	SPM_FLAG_DIS_DDRPHY_PDN |
 	SPM_FLAG_DIS_DPD |
@@ -82,17 +105,45 @@ static u32 slp_spm_flags = {
 	#ifdef CONFIG_MTK_ICUSB_SUPPORT
 	SPM_FLAG_DIS_INFRA_PDN |
 	#endif
+	#if defined(CONFIG_ARCH_MT6797)
+	SPM_FLAG_DIS_VCORE_DVS |
+	SPM_FLAG_DIS_VCORE_DFS |
+	SPM_FLAG_DIS_SYSRAM_SLEEP |
+	#if !defined(CONFIG_MTK_TINYSYS_SCP_SUPPORT)
+	SPM_FLAG_EN_HPM_SODI |
+	#endif
+	#endif
 	SPM_FLAG_DIS_DPD
 #endif
+#else
+	SPM_FLAG_DIS_CPU_PDN  |
+	SPM_FLAG_DIS_INFRA_PDN |
+	SPM_FLAG_DIS_DDRPHY_PDN |
+	SPM_FLAG_DIS_VCORE_DVS |
+	SPM_FLAG_DIS_VCORE_DFS |
+	SPM_FLAG_DIS_DPD |
+	SPM_FLAG_DIS_BUS_CLOCK_OFF |
+	SPM_FLAG_DIS_MD_INFRA_PDN |
+	SPM_FLAG_DIS_VPROC_VSRAM_DVS |
+	SPM_FLAG_DIS_SYSRAM_SLEEP
+#endif
 };
-#if defined(CONFIG_ARCH_MT6755)
+
+#if !defined(CONFIG_ARCH_MT6797)
 #if SLP_SLEEP_DPIDLE_EN
 /* sync with mt_idle.c spm_deepidle_flags setting */
 static u32 slp_spm_deepidle_flags = {
+	#if defined(CONFIG_ARCH_MT6797)
+	SPM_FLAG_DIS_VCORE_DVS |
+	SPM_FLAG_DIS_VCORE_DFS |
+	SPM_FLAG_DIS_SYSRAM_SLEEP
+	#else
 	0
+	#endif
 };
 #endif
 #endif
+
 /* static u32 slp_spm_data = 0; */
 u32 slp_spm_data = 0;
 
@@ -106,10 +157,8 @@ static int slp_suspend_ops_valid(suspend_state_t state)
 static int slp_suspend_ops_begin(suspend_state_t state)
 {
 	/* legacy log */
-	slp_notice("@@@@@@@@@@@@@@@@@@@@\n");
-	slp_notice("Chip_pm_begin(%u)(%u)\n", is_cpu_pdn(slp_spm_flags),
-		   is_infra_pdn(slp_spm_flags));
-	slp_notice("@@@@@@@@@@@@@@@@@@@@\n");
+	slp_notice("@@@@@@@@@@@@@@@@@@@@\tChip_pm_begin(%u)(%u)\t@@@@@@@@@@@@@@@@@@@@\n",
+			is_cpu_pdn(slp_spm_flags), is_infra_pdn(slp_spm_flags));
 
 	slp_wake_reason = WR_NONE;
 
@@ -124,14 +173,8 @@ void __attribute__((weak)) mt_power_gs_dump_suspend(void)
 static int slp_suspend_ops_prepare(void)
 {
 	/* legacy log */
-	slp_notice("@@@@@@@@@@@@@@@@@@@@\n");
-	slp_crit2("Chip_pm_prepare\n");
-	slp_notice("@@@@@@@@@@@@@@@@@@@@\n");
+	slp_crit2("@@@@@@@@@@@@@@@@@@@@\tChip_pm_prepare\t@@@@@@@@@@@@@@@@@@@@\n");
 
-#ifndef CONFIG_MTK_FPGA
-	if (slp_chk_golden)
-		mt_power_gs_dump_suspend();
-#endif
 	return 0;
 }
 
@@ -155,9 +198,7 @@ static int enter_pasrdpd(void)
 	int error = 0;
 	u32 sr = 0, dpd = 0;
 
-	slp_notice("@@@@@@@@@@@@@@@@@@@@\n");
-	slp_crit2("[%s]\n", __func__);
-	slp_notice("@@@@@@@@@@@@@@@@@@@@\n");
+	slp_crit2("@@@@@@@@@@@@@@@@@@@@\t[%s]\t@@@@@@@@@@@@@@@@@@@@\n", __func__);
 	/* Setup SPM wakeup event firstly */
 	spm_set_wakeup_src_check();
 
@@ -188,9 +229,7 @@ static int enter_pasrdpd(void)
 
 static void leave_pasrdpd(void)
 {
-	slp_notice("@@@@@@@@@@@@@@@@@@@@\n");
-	slp_crit2("[%s]\n", __func__);
-	slp_notice("@@@@@@@@@@@@@@@@@@@@\n");
+	slp_crit2("@@@@@@@@@@@@@@@@@@@@\t[%s]\t@@@@@@@@@@@@@@@@@@@@\n", __func__);
 
 	/* Disable PASR */
 	exit_pasr_dpd_config();
@@ -207,6 +246,28 @@ bool __attribute__ ((weak)) ConditionEnterSuspend(void)
 	return true;
 }
 
+void __attribute__((weak)) subsys_if_on(void)
+{
+	/* temporarily fix build fail */
+}
+
+void __attribute__((weak)) pll_if_on(void)
+{
+	/* temporarily fix build fail */
+}
+
+bool __attribute__((weak)) spm_cpusys0_can_power_down(void)
+{
+	/* temporarily fix build fail */
+	return false;
+}
+
+bool __attribute__((weak)) spm_cpusys1_can_power_down(void)
+{
+	/* temporarily fix build fail */
+	return false;
+}
+
 #ifdef CONFIG_MTK_SYSTRACKER
 void __attribute__ ((weak)) systracker_enable(void)
 {
@@ -214,12 +275,30 @@ void __attribute__ ((weak)) systracker_enable(void)
 }
 #endif
 
+#define MT_CPIO_INDEX_OFS 0x80000000
+#define MT_GPIO_START (MT_CPIO_INDEX_OFS + 0)
+#define MT_GPIO_MAX (MT_CPIO_INDEX_OFS + 262)
+
+void gpio_dump_regs_func(void)
+{
+	int idx = 0;
+
+	slp_error("PIN: [MODE] [PULL_SEL] [DIN] [DOUT] [PULL EN] [DIR] [IES] [SMT]\n");
+	for (idx = MT_GPIO_START; idx < MT_GPIO_MAX; idx++) {
+		slp_error("idx = %3d: %d %d %d %d %d %d %d %d\n",
+				idx&(~MT_CPIO_INDEX_OFS), mt_get_gpio_mode(idx), mt_get_gpio_pull_select(idx),
+				mt_get_gpio_in(idx), mt_get_gpio_out(idx),
+				mt_get_gpio_pull_enable(idx), mt_get_gpio_dir(idx),
+				mt_get_gpio_ies(idx), mt_get_gpio_smt(idx));
+	}
+}
+
 static int slp_suspend_ops_enter(suspend_state_t state)
 {
 	int ret = 0;
 
 #if SLP_SLEEP_DPIDLE_EN
-#ifdef CONFIG_MT_SND_SOC_6755
+#if defined(CONFIG_MT_SND_SOC_6755) /*|| defined(CONFIG_MT_SND_SOC_6757)*/ || defined(CONFIG_MT_SND_SOC_6797)
 	int fm_radio_is_playing = 0;
 
 	if (ConditionEnterSuspend() == true)
@@ -234,22 +313,34 @@ static int slp_suspend_ops_enter(suspend_state_t state)
 #endif
 
 	/* legacy log */
-	slp_notice("@@@@@@@@@@@@@@@@@@@@\n");
-	slp_crit2("Chip_pm_enter\n");
-	slp_notice("@@@@@@@@@@@@@@@@@@@@\n");
+	slp_crit2("@@@@@@@@@@@@@@@@@@@@\tChip_pm_enter\t@@@@@@@@@@@@@@@@@@@@\n");
 
 	if (slp_dump_gpio)
-		gpio_dump_regs();
+		gpio_dump_regs_func();
 #if 0
 	if (slp_dump_regs)
 		slp_dump_pm_regs();
 #endif
-
-#if 0
-#ifndef CONFIG_MTK_FPGA
+#if defined(CONFIG_ARCH_MT6755)
+#if !defined(CONFIG_FPGA_EARLY_PORTING)
+	pll_if_on();
+	subsys_if_on();
+#endif
+#endif
+#if defined(CONFIG_ARCH_MT6797) || defined(CONFIG_ARCH_MT6757)
+#if !defined(CONFIG_FPGA_EARLY_PORTING)
 	if (slp_check_mtcmos_pll)
 		slp_check_pm_mtcmos_pll();
+#endif
+#endif
+#if !defined(CONFIG_FPGA_EARLY_PORTING)
+#if 0
+	if (slp_check_mtcmos_pll)
+		slp_check_pm_mtcmos_pll();
+#endif
 
+#if defined(CONFIG_ARCH_MT6755) || defined(CONFIG_ARCH_MT6757)
+#if !defined(CONFIG_FPGA_EARLY_PORTING)
 	if (!(spm_cpusys0_can_power_down() || spm_cpusys1_can_power_down())) {
 		slp_error("CANNOT SLEEP DUE TO CPUx PON, PWR_STATUS = 0x%x, PWR_STATUS_2ND = 0x%x\n",
 		     slp_read(PWR_STATUS), slp_read(PWR_STATUS_2ND));
@@ -259,6 +350,7 @@ static int slp_suspend_ops_enter(suspend_state_t state)
 	}
 #endif
 #endif
+#endif
 
 	if (is_infra_pdn(slp_spm_flags) && !is_cpu_pdn(slp_spm_flags)) {
 		slp_error("CANNOT SLEEP DUE TO INFRA PDN BUT CPU PON\n");
@@ -266,14 +358,17 @@ static int slp_suspend_ops_enter(suspend_state_t state)
 		goto LEAVE_SLEEP;
 	}
 
+#if !defined(CONFIG_FPGA_EARLY_PORTING)
 	if (!spm_load_firmware_status()) {
 		slp_error("SPM FIRMWARE IS NOT READY\n");
 		ret = -EPERM;
 		goto LEAVE_SLEEP;
 	}
-#if defined(CONFIG_ARCH_MT6755)
+#endif
+
+#if !defined(CONFIG_ARCH_MT6797)
 #if SLP_SLEEP_DPIDLE_EN
-#ifdef CONFIG_MT_SND_SOC_6755
+#if defined(CONFIG_MT_SND_SOC_6755) /*|| defined(CONFIG_MT_SND_SOC_6757)*/ || defined(CONFIG_MT_SND_SOC_6797)
 	if (slp_ck26m_on | fm_radio_is_playing)
 #else
 	if (slp_ck26m_on)
@@ -282,6 +377,7 @@ static int slp_suspend_ops_enter(suspend_state_t state)
 	else
 #endif
 		slp_wake_reason = spm_go_to_sleep(slp_spm_flags, slp_spm_data);
+
 #endif
 
 LEAVE_SLEEP:
@@ -290,7 +386,7 @@ LEAVE_SLEEP:
 	leave_pasrdpd();
 #endif
 
-#ifndef CONFIG_MTK_FPGA
+#if !defined(CONFIG_FPGA_EARLY_PORTING)
 #ifdef CONFIG_MTK_SYSTRACKER
 	systracker_enable();
 #endif
@@ -302,17 +398,13 @@ LEAVE_SLEEP:
 static void slp_suspend_ops_finish(void)
 {
 	/* legacy log */
-	slp_notice("@@@@@@@@@@@@@@@@@@@@\n");
-	slp_crit2("Chip_pm_finish\n");
-	slp_notice("@@@@@@@@@@@@@@@@@@@@\n");
+	slp_crit2("@@@@@@@@@@@@@@@@@@@@\tChip_pm_finish\t@@@@@@@@@@@@@@@@@@@@\n");
 }
 
 static void slp_suspend_ops_end(void)
 {
 	/* legacy log */
-	slp_notice("@@@@@@@@@@@@@@@@@@@@\n");
-	slp_notice("Chip_pm_end\n");
-	slp_notice("@@@@@@@@@@@@@@@@@@@@\n");
+	slp_notice("@@@@@@@@@@@@@@@@@@@@\tChip_pm_end\t@@@@@@@@@@@@@@@@@@@@\n");
 }
 
 static const struct platform_suspend_ops slp_suspend_ops = {
@@ -394,7 +486,7 @@ void slp_module_init(void)
 	console_suspend_enabled = 0;
 #endif
 
-#ifndef CONFIG_MTK_FPGA
+#if !defined(CONFIG_FPGA_EARLY_PORTING)
 	spm_set_suspned_pcm_init_flag(&slp_spm_flags);
 #endif
 }

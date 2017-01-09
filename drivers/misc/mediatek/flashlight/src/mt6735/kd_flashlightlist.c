@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #ifdef WIN32
 #include "win_test.h"
 #include "stdio.h"
@@ -10,7 +23,6 @@
 
 #endif
 
-#include <linux/proc_fs.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/init.h>
@@ -38,65 +50,9 @@
 #endif
 #include "kd_flashlight.h"
 #include <mach/mt_pbm.h>
-#include <mt-plat/mt_pwm.h>
 
-#include <linux/pinctrl/pinctrl.h> //add by darren
 
-//add by darren beg
-#if defined(CONFIG_DW_PROJECT_AF168) || defined(CONFIG_DW_PROJECT_AF178)
-struct pinctrl *flash_led_pinctrl;
-struct pinctrl_state *flash_led_pin_default;
-struct pinctrl_state *flash_led_pin_mode_out0,*flash_led_pin_mode_out1,*flash_led_pin_en_out0,*flash_led_pin_en_out1;
-#ifdef CONFIG_OF
-struct of_device_id flash_led_of_match[] = {
-		{.compatible = "mediatek,flash_led",},
-		{}
-};
-#endif
 
-#endif //CONFIG_DW_PROJECT_AF168
-//add by darren end
-
-//add by darren beg
-#ifdef CONFIG_DW_PROJECT_ZE168
-struct pinctrl *flash_led_pinctrl;
-struct pinctrl_state *flash_pin_default;
-struct pinctrl_state *flash_pin_enf_out0,*flash_pin_enf_out1,*flash_pin_enm_out0,*flash_pin_enm_out1,*flash_pin_enm_pwm;
-struct pinctrl_state *flash_pin_ctrll_out0,*flash_pin_ctrll_out1,*flash_pin_strobel_out0,*flash_pin_strobel_out1,*flash_pin_txl_out0,*flash_pin_txl_out1;
-struct pinctrl_state *flash_pin_ctrlh_out0,*flash_pin_ctrlh_out1,*flash_pin_strobeh_out0,*flash_pin_strobeh_out1,*flash_pin_txh_out0,*flash_pin_txh_out1;
-#ifdef CONFIG_OF
-struct of_device_id flash_led_of_match[] = {
-		{.compatible = "mediatek,flash_led",},
-		{}
-};
-#endif
-//jeeray
-#include <linux/proc_fs.h>
-#define SUB_STROBE_FILE "sub_strobe"
-#define MAIN_STROBE_FILE "main_strobe"
-static struct proc_dir_entry *sub_strobe_state = NULL;
-static struct proc_dir_entry *main_strobe_state = NULL;
-static int g_sub_strobe_level = 0;
-static int g_main_strobe_level = 0;
-//jeeray
-
-#endif //CONFIG_DW_PROJECT_ZE168
-//add by darren end
-
-//wilson add start
-#ifdef CONFIG_DW_PROJECT_CF168
-struct pinctrl *flash_led_pinctrl;
-struct pinctrl_state *flash_led_pin_default;
-struct pinctrl_state *flash_led_pin_pwm3_out0,*flash_led_pin_pwm3_out1,*flash_led_pin_pwm3_out_pwm;
-struct pinctrl_state *flash_led_pin_en_out0, *flash_led_pin_en_out1, *flash_led_pin_mode_out0, *flash_led_pin_mode_out1;
-#ifdef CONFIG_OF
-struct of_device_id flash_led_of_match[] = {
-		{.compatible = "mediatek,flash_led",},
-		{}
-};
-#endif
-#endif
-//wilson add end
 /******************************************************************************
  * Definition
 ******************************************************************************/
@@ -711,441 +667,6 @@ static struct flashlight_data flashlight_private;
 static dev_t flashlight_devno;
 static struct cdev flashlight_cdev;
 /* ======================================================================== */
-//add by darren beg
-#if defined(CONFIG_DW_PROJECT_AF168) || defined(CONFIG_DW_PROJECT_AF178)
-#define FLASH_GPIO_MODE (42)
-#define FLASH_GPIO_EN (43)
-
-void flash_gpio_output(int pin, int level)
-{
-//	mutex_lock(&flash_set_gpio_mutex);
-	logI("[flash]flash_gpio_output pin = %d, level = %d\n", pin, level);
-	if (pin == FLASH_GPIO_MODE) {
-		if (level)
-			pinctrl_select_state(flash_led_pinctrl, flash_led_pin_mode_out1);
-		else
-			pinctrl_select_state(flash_led_pinctrl, flash_led_pin_mode_out0);
-	} else {
-		if (level)
-			pinctrl_select_state(flash_led_pinctrl, flash_led_pin_en_out1);
-		else
-			pinctrl_select_state(flash_led_pinctrl, flash_led_pin_en_out0);
-	}
-//	mutex_unlock(&flash_set_gpio_mutex);
-}
-
-int flash_get_gpio_info(struct platform_device *pdev)
-{
-	int ret=0;
-	
-	//flash_led_pin_default
-	//flash_led_pin_mode_out0,*flash_led_pin_mode_out1,*flash_led_pin_en_out0,*flash_led_pin_en_out1;
-	//"pin_default", "pin_mode_out0", "pin_mode_out1", "pin_en_out0","pin_en_out1"
-	logI("[flashlight %d] mt_flashlight_pinctrl+++++++++++++++++\n", pdev->id);
-	flash_led_pinctrl = devm_pinctrl_get(&pdev->dev);
-	if (IS_ERR(flash_led_pinctrl)) {
-		ret = PTR_ERR(flash_led_pinctrl);
-		dev_err(&pdev->dev, "fwq Cannot find flash flash_led_pinctrl!\n");
-		return ret;
-	}
-	flash_led_pin_default = pinctrl_lookup_state(flash_led_pinctrl, "pin_default");
-	if (IS_ERR(flash_led_pin_default)) {
-		ret = PTR_ERR(flash_led_pin_default);
-		dev_err(&pdev->dev, "fwq Cannot find flash pinctrl flash_led_pin_default %d!\n", ret);
-	}
-	flash_led_pin_mode_out0 = pinctrl_lookup_state(flash_led_pinctrl, "pin_mode_out0");
-	if (IS_ERR(flash_led_pin_mode_out0)) {
-		ret = PTR_ERR(flash_led_pin_mode_out0);
-		dev_err(&pdev->dev, "fwq Cannot find flash pinctrl flash_led_pin_mode_out0!\n");
-		return ret;
-	}
-	flash_led_pin_mode_out1 = pinctrl_lookup_state(flash_led_pinctrl, "pin_mode_out1");
-	if (IS_ERR(flash_led_pin_mode_out1)) {
-		ret = PTR_ERR(flash_led_pin_mode_out1);
-		dev_err(&pdev->dev, "fwq Cannot find flash pinctrl flash_led_pin_mode_out1!\n");
-		return ret;
-	}
-	flash_led_pin_en_out0 = pinctrl_lookup_state(flash_led_pinctrl, "pin_en_out0");
-	if (IS_ERR(flash_led_pin_en_out0)) {
-		ret = PTR_ERR(flash_led_pin_en_out0);
-		dev_err(&pdev->dev, "fwq Cannot find flash pinctrl flash_led_pin_en_out0!\n");
-		return ret;
-	}
-	flash_led_pin_en_out1 = pinctrl_lookup_state(flash_led_pinctrl, "pin_en_out1");
-	if (IS_ERR(flash_led_pin_en_out1)) {
-		ret = PTR_ERR(flash_led_pin_en_out1);
-		dev_err(&pdev->dev, "fwq Cannot find flash pinctrl flash_led_pin_en_out1!\n");
-		return ret;
-	}
-	
-	logI("[flashlight%d] mt_flashlight_pinctrl----------\n", pdev->id);
-	
-	return ret;
-}
-#endif // CONFIG_DW_PROJECT_AF168
-//add by darren end
-
-#ifdef CONFIG_DW_PROJECT_ZE168
-
-//jeeray
-extern int sub_strobe_onoff(int level);
-static ssize_t set_sub_strobe_level(struct file *file, const char *buffer, size_t count, loff_t *ppos)
-{
-    char *temp;
-    g_sub_strobe_level = (int)simple_strtol(buffer, &temp, 10);
-    printk("dewav--->set_sub_strobe_level:%d\n", g_sub_strobe_level);
-    sub_strobe_onoff(g_sub_strobe_level);
-
-    return count; 
-}
-
-static ssize_t get_sub_strobe_level(struct file *file, char *buffer, size_t count, loff_t *ppos)
-{
-    int ret;
-    char val[4];
-    sprintf(val, "%d\n", g_sub_strobe_level);
-    ret = simple_read_from_buffer(buffer, count, ppos, val, strlen(val));
-    return ret;
-}
-
-static const struct file_operations sub_strobe_proc_fops = {
-    .write = set_sub_strobe_level,
-    .read = get_sub_strobe_level
-};
-
-extern void main_strobe_onoff(int level);
-static ssize_t set_main_strobe_level(struct file *file, const char *buffer, size_t count, loff_t *ppos)
-{
-    char *temp;
-    g_main_strobe_level = (int)simple_strtol(buffer, &temp, 10);
-    printk("dewav--->set_main_strobe_level:%d\n", g_main_strobe_level);
-    main_strobe_onoff(g_main_strobe_level);
-
-    return count; 
-}
-
-static ssize_t get_main_strobe_level(struct file *file, char *buffer, size_t count, loff_t *ppos)
-{
-    int ret;
-    char val[4];
-    sprintf(val, "%d\n", g_main_strobe_level);
-    ret = simple_read_from_buffer(buffer, count, ppos, val, strlen(val));
-    return ret;
-}
-
-static const struct file_operations main_strobe_proc_fops = {
-    .write = set_main_strobe_level,
-    .read = get_main_strobe_level
-};
-//jeeray
-
-#define FLASH_KTD231_ENF (5)
-#define FLASH_KTD231_ENM (59)
-
-#define FLASH_KTD2693_H_CTRL (67)
-#define FLASH_KTD2693_H_STROBE (60)
-#define FLASH_KTD2693_H_TX (68)
-
-#define FLASH_KTD2693_L_CTRL (80)
-#define FLASH_KTD2693_L_STROBE (78)
-#define FLASH_KTD2693_L_TX (79)
-
-void flash_gpio_output(int pin, int level)
-{
-//	mutex_lock(&flash_set_gpio_mutex);
-	logI("[flash]flash_gpio_output pin = %d, level = %d\n", pin, level);
-	if (pin == FLASH_KTD231_ENF) {
-		if (level)
-			pinctrl_select_state(flash_led_pinctrl, flash_pin_enf_out1);
-		else
-			pinctrl_select_state(flash_led_pinctrl, flash_pin_enf_out0);
-	} 
-	else if(pin == FLASH_KTD231_ENM){
-		if (level == 1)
-			pinctrl_select_state(flash_led_pinctrl, flash_pin_enm_out1);
-		else if(level == 0)
-			pinctrl_select_state(flash_led_pinctrl, flash_pin_enm_out0);
-		else if(level ==3)
-			pinctrl_select_state(flash_led_pinctrl, flash_pin_enm_pwm);
-	}
-	else if(pin == FLASH_KTD2693_H_CTRL){
-		if (level)
-			pinctrl_select_state(flash_led_pinctrl, flash_pin_ctrlh_out1);
-		else
-			pinctrl_select_state(flash_led_pinctrl, flash_pin_ctrlh_out0);
-	}
-	else if(pin == FLASH_KTD2693_H_STROBE){
-		if (level)
-			pinctrl_select_state(flash_led_pinctrl, flash_pin_strobeh_out1);
-		else
-			pinctrl_select_state(flash_led_pinctrl, flash_pin_strobeh_out0);
-	}
-	else if(pin == FLASH_KTD2693_H_TX){
-		if (level)
-			pinctrl_select_state(flash_led_pinctrl, flash_pin_txh_out1);
-		else
-			pinctrl_select_state(flash_led_pinctrl, flash_pin_txh_out0);
-	}
-	else if(pin == FLASH_KTD2693_L_CTRL){
-			if (level)
-				pinctrl_select_state(flash_led_pinctrl, flash_pin_ctrll_out1);
-			else
-				pinctrl_select_state(flash_led_pinctrl, flash_pin_ctrll_out0);
-		}
-		else if(pin == FLASH_KTD2693_L_STROBE){
-			if (level)
-				pinctrl_select_state(flash_led_pinctrl, flash_pin_strobel_out1);
-			else
-				pinctrl_select_state(flash_led_pinctrl, flash_pin_strobel_out0);
-		}
-		else if(pin == FLASH_KTD2693_L_TX){
-			if (level)
-				pinctrl_select_state(flash_led_pinctrl, flash_pin_txl_out1);
-			else
-				pinctrl_select_state(flash_led_pinctrl, flash_pin_txl_out0);
-		}
-//	mutex_unlock(&flash_set_gpio_mutex);
-}
-
-int flash_get_gpio_info(struct platform_device *pdev)
-{
-	int ret=0;
-	
-	//flash_pin_default
-	//flash_led_pin_mode_out0,*flash_led_pin_mode_out1,*flash_led_pin_en_out0,*flash_led_pin_en_out1;
-	//"pin_default", "pin_mode_out0", "pin_mode_out1", "pin_en_out0","pin_en_out1"
-	logI("[flashlight %d] mt_flashlight_pinctrl+++++++++++++++++\n", pdev->id);
-	flash_led_pinctrl = devm_pinctrl_get(&pdev->dev);
-	if (IS_ERR(flash_led_pinctrl)) {
-		ret = PTR_ERR(flash_led_pinctrl);
-		dev_err(&pdev->dev, "fwq Cannot find flash flash_led_pinctrl!\n");
-		return ret;
-	}
-	flash_pin_default = pinctrl_lookup_state(flash_led_pinctrl, "flash_default");
-	if (IS_ERR(flash_pin_default)) {
-		ret = PTR_ERR(flash_pin_default);
-		dev_err(&pdev->dev, "fwq Cannot find flash pinctrl flash_pin_default %d!\n", ret);
-	}
-	flash_pin_enf_out1 = pinctrl_lookup_state(flash_led_pinctrl, "flash_enf_out1");
-	if (IS_ERR(flash_pin_enf_out1)) {
-		ret = PTR_ERR(flash_pin_enf_out1);
-		dev_err(&pdev->dev, "fwq Cannot find flash pinctrl flash_pin_enf_out1!\n");
-		return ret;
-	}
-	flash_pin_enf_out0 = pinctrl_lookup_state(flash_led_pinctrl, "flash_enf_out0");
-	if (IS_ERR(flash_pin_enf_out0)) {
-		ret = PTR_ERR(flash_pin_enf_out0);
-		dev_err(&pdev->dev, "fwq Cannot find flash pinctrl flash_led_pin_mode_out1!\n");
-		return ret;
-	}
-	flash_pin_enm_out1 = pinctrl_lookup_state(flash_led_pinctrl, "flash_enm_out1");
-	if (IS_ERR(flash_pin_enm_out1)) {
-		ret = PTR_ERR(flash_pin_enm_out1);
-		dev_err(&pdev->dev, "fwq Cannot find flash pinctrl flash_pin_enm_out1!\n");
-		return ret;
-	}
-	flash_pin_enm_out0 = pinctrl_lookup_state(flash_led_pinctrl, "flash_enm_out0");
-	if (IS_ERR(flash_pin_enm_out0)) {
-		ret = PTR_ERR(flash_pin_enm_out0);
-		dev_err(&pdev->dev, "fwq Cannot find flash pinctrl flash_pin_enm_out0!\n");
-		return ret;
-	}
-	flash_pin_enm_pwm = pinctrl_lookup_state(flash_led_pinctrl, "flash_enm_pwm");
-	if (IS_ERR(flash_pin_enm_pwm)) {
-		ret = PTR_ERR(flash_pin_enm_pwm);
-		dev_err(&pdev->dev, "fwq Cannot find flash pinctrl flash_pin_enm_pwm!\n");
-		return ret;
-	}
-	flash_pin_ctrll_out1 = pinctrl_lookup_state(flash_led_pinctrl, "flash_ctrll_out1");
-	if (IS_ERR(flash_pin_ctrll_out1)) {
-		ret = PTR_ERR(flash_pin_ctrll_out1);
-		dev_err(&pdev->dev, "fwq Cannot find flash pinctrl flash_pin_ctrll_out1!\n");
-		return ret;
-	}
-	flash_pin_ctrll_out0 = pinctrl_lookup_state(flash_led_pinctrl, "flash_ctrll_out0");
-	if (IS_ERR(flash_pin_ctrll_out0)) {
-		ret = PTR_ERR(flash_pin_ctrll_out0);
-		dev_err(&pdev->dev, "fwq Cannot find flash pinctrl flash_pin_ctrll_out0!\n");
-		return ret;
-	}
-	flash_pin_strobel_out1 = pinctrl_lookup_state(flash_led_pinctrl, "flash_strobel_out1");
-	if (IS_ERR(flash_pin_strobel_out1)) {
-		ret = PTR_ERR(flash_pin_strobel_out1);
-		dev_err(&pdev->dev, "fwq Cannot find flash pinctrl flash_pin_strobel_out1!\n");
-		return ret;
-	}
-	flash_pin_strobel_out0 = pinctrl_lookup_state(flash_led_pinctrl, "flash_strobel_out0");
-	if (IS_ERR(flash_pin_strobel_out0)) {
-		ret = PTR_ERR(flash_pin_strobel_out0);
-		dev_err(&pdev->dev, "fwq Cannot find flash pinctrl flash_pin_strobel_out0!\n");
-		return ret;
-	}
-	flash_pin_txl_out0 = pinctrl_lookup_state(flash_led_pinctrl, "flash_txl_out0");
-	if (IS_ERR(flash_pin_txl_out0)) {
-		ret = PTR_ERR(flash_pin_txl_out0);
-		dev_err(&pdev->dev, "fwq Cannot find flash pinctrl flash_pin_txl_out0!\n");
-		return ret;
-	}
-	flash_pin_txl_out1 = pinctrl_lookup_state(flash_led_pinctrl, "flash_txl_out1");
-	if (IS_ERR(flash_pin_txl_out1)) {
-		ret = PTR_ERR(flash_pin_txl_out1);
-		dev_err(&pdev->dev, "fwq Cannot find flash pinctrl flash_pin_txl_out1!\n");
-		return ret;
-	}
-	
-	flash_pin_ctrlh_out1 = pinctrl_lookup_state(flash_led_pinctrl, "flash_ctrlh_out1");
-	if (IS_ERR(flash_pin_ctrlh_out1)) {
-		ret = PTR_ERR(flash_pin_ctrlh_out1);
-		dev_err(&pdev->dev, "fwq Cannot find flash pinctrl flash_pin_ctrlh_out1!\n");
-		return ret;
-	}
-	flash_pin_ctrlh_out0 = pinctrl_lookup_state(flash_led_pinctrl, "flash_ctrlh_out0");
-	if (IS_ERR(flash_pin_ctrlh_out0)) {
-		ret = PTR_ERR(flash_pin_ctrlh_out0);
-		dev_err(&pdev->dev, "fwq Cannot find flash pinctrl flash_pin_ctrlh_out0!\n");
-		return ret;
-	}
-	flash_pin_strobeh_out1 = pinctrl_lookup_state(flash_led_pinctrl, "flash_strobeh_out1");
-	if (IS_ERR(flash_pin_strobeh_out1)) {
-		ret = PTR_ERR(flash_pin_strobeh_out1);
-		dev_err(&pdev->dev, "fwq Cannot find flash pinctrl flash_pin_strobeh_out1!\n");
-		return ret;
-	}
-	flash_pin_strobeh_out0 = pinctrl_lookup_state(flash_led_pinctrl, "flash_strobeh_out0");
-	if (IS_ERR(flash_pin_strobeh_out0)) {
-		ret = PTR_ERR(flash_pin_strobeh_out0);
-		dev_err(&pdev->dev, "fwq Cannot find flash pinctrl flash_pin_strobeh_out0!\n");
-		return ret;
-	}
-	flash_pin_txh_out0 = pinctrl_lookup_state(flash_led_pinctrl, "flash_txh_out0");
-	if (IS_ERR(flash_pin_txh_out0)) {
-		ret = PTR_ERR(flash_pin_txh_out0);
-		dev_err(&pdev->dev, "fwq Cannot find flash pinctrl flash_pin_txh_out0!\n");
-		return ret;
-	}
-	flash_pin_txh_out1 = pinctrl_lookup_state(flash_led_pinctrl, "flash_txh_out1");
-	if (IS_ERR(flash_pin_txh_out1)) {
-		ret = PTR_ERR(flash_pin_txh_out1);
-		dev_err(&pdev->dev, "fwq Cannot find flash pinctrl flash_pin_txh_out1!\n");
-		return ret;
-	}
-	logI("[flashlight%d] mt_flashlight_pinctrl----------\n", pdev->id);
-	
-	return ret;
-}
-
-#endif
-//wilson add start
-#ifdef CONFIG_DW_PROJECT_CF168
-#ifndef CONFIG_DW_PROJECT_CF197
-void flash_gpio_output(int state)
-{
-	if (0 == state)
-		pinctrl_select_state(flash_led_pinctrl, flash_led_pin_pwm3_out0);
-	else if (1 == state)
-		pinctrl_select_state(flash_led_pinctrl, flash_led_pin_pwm3_out1);
-	else if (3 == state)
-		pinctrl_select_state(flash_led_pinctrl, flash_led_pin_pwm3_out_pwm);
-//	mutex_unlock(&flash_set_gpio_mutex);
-}
-#else
-#define FLASH_GPIO_MODE (42)
-#define FLASH_GPIO_EN (43)
-
-void flash_gpio_output(int pin, int level)
-{
-//	mutex_lock(&flash_set_gpio_mutex);
-	logI("[flash]flash_gpio_output pin = %d, level = %d\n", pin, level);
-	if (pin == FLASH_GPIO_MODE) {
-		if (level)
-			pinctrl_select_state(flash_led_pinctrl, flash_led_pin_mode_out1);
-		else
-			pinctrl_select_state(flash_led_pinctrl, flash_led_pin_mode_out0);
-	} else {
-		if (level)
-			pinctrl_select_state(flash_led_pinctrl, flash_led_pin_en_out1);
-		else
-			pinctrl_select_state(flash_led_pinctrl, flash_led_pin_en_out0);
-	}
-//	mutex_unlock(&flash_set_gpio_mutex);
-}
-#endif
-
-int flash_get_gpio_info(struct platform_device *pdev)
-{
-	int ret=0;
-	
-	//flash_led_pin_default
-	//flash_led_pin_mode_out0,*flash_led_pin_mode_out1,*flash_led_pin_en_out0,*flash_led_pin_en_out1;
-	//"pin_default", "pin_mode_out0", "pin_mode_out1", "pin_en_out0","pin_en_out1"
-	logI("[flashlight %d] mt_flashlight_pinctrl+++++++++++++++++\n", pdev->id);
-	flash_led_pinctrl = devm_pinctrl_get(&pdev->dev);
-	if (IS_ERR(flash_led_pinctrl)) {
-		ret = PTR_ERR(flash_led_pinctrl);
-		dev_err(&pdev->dev, "fwq Cannot find flash flash_led_pinctrl!\n");
-		return ret;
-	}
-	flash_led_pin_default = pinctrl_lookup_state(flash_led_pinctrl, "pin_default");
-	if (IS_ERR(flash_led_pin_default)) {
-		ret = PTR_ERR(flash_led_pin_default);
-		dev_err(&pdev->dev, "fwq Cannot find flash pinctrl flash_led_pin_default %d!\n", ret);
-	}
-	flash_led_pin_pwm3_out0 = pinctrl_lookup_state(flash_led_pinctrl, "pin_pwm3_out0");
-	if (IS_ERR(flash_led_pin_pwm3_out0)) {
-		ret = PTR_ERR(flash_led_pin_pwm3_out0);
-		dev_err(&pdev->dev, "fwq Cannot find flash pinctrl flash_led_pin_pwm3_out0!\n");
-		return ret;
-	}
-	flash_led_pin_pwm3_out1 = pinctrl_lookup_state(flash_led_pinctrl, "pin_pwm3_out1");
-	if (IS_ERR(flash_led_pin_pwm3_out1)) {
-		ret = PTR_ERR(flash_led_pin_pwm3_out1);
-		dev_err(&pdev->dev, "fwq Cannot find flash pinctrl flash_led_pin_pwm3_out1!\n");
-		return ret;
-	}
-	flash_led_pin_pwm3_out_pwm = pinctrl_lookup_state(flash_led_pinctrl, "pin_pwm3_out_pwm");
-	if (IS_ERR(flash_led_pin_pwm3_out_pwm)) {
-		ret = PTR_ERR(flash_led_pin_pwm3_out_pwm);
-		dev_err(&pdev->dev, "fwq Cannot find flash pinctrl flash_led_pin_pwm3_out_pwm!\n");
-		return ret;
-	}
-
-
-	flash_led_pin_en_out0 = pinctrl_lookup_state(flash_led_pinctrl, "pin_en_out0");
-	if (IS_ERR(flash_led_pin_en_out0)) {
-		ret = PTR_ERR(flash_led_pin_en_out0);
-		dev_err(&pdev->dev, "fwq Cannot find flash pinctrl flash_led_pin_en_out0!\n");
-		return ret;
-	}
-
-	flash_led_pin_en_out1 = pinctrl_lookup_state(flash_led_pinctrl, "pin_en_out1");
-	if (IS_ERR(flash_led_pin_en_out1)) {
-		ret = PTR_ERR(flash_led_pin_en_out1);
-		dev_err(&pdev->dev, "fwq Cannot find flash pinctrl flash_led_pin_en_out1!\n");
-		return ret;
-	}
-	
-	
-	flash_led_pin_mode_out0 = pinctrl_lookup_state(flash_led_pinctrl, "pin_mode_out0");
-	if (IS_ERR(flash_led_pin_mode_out0)) {
-		ret = PTR_ERR(flash_led_pin_mode_out0);
-		dev_err(&pdev->dev, "fwq Cannot find flash pinctrl flash_led_pin_mode_out0!\n");
-		return ret;
-	}
-	
-	
-	flash_led_pin_mode_out1 = pinctrl_lookup_state(flash_led_pinctrl, "pin_mode_out1");
-	if (IS_ERR(flash_led_pin_mode_out1)) {
-		ret = PTR_ERR(flash_led_pin_mode_out1);
-		dev_err(&pdev->dev, "fwq Cannot find flash pinctrl flash_led_pin_mode_out1!\n");
-		return ret;
-	}
-	
-	logI("[flashlight%d] mt_flashlight_pinctrl----------\n", pdev->id);
-	
-	return ret;
-}
-#endif
-//wilson add end
 #define ALLOC_DEVNO
 static int flashlight_probe(struct platform_device *dev)
 {
@@ -1194,31 +715,7 @@ static int flashlight_probe(struct platform_device *dev)
 		logI("[flashlight_probe] device_create fail ~");
 		goto flashlight_probe_error;
 	}
-	
-	#if defined(CONFIG_DW_PROJECT_AF168) || defined(CONFIG_DW_PROJECT_AF178)
-	flash_get_gpio_info(dev);//add by darren
-	#endif
-	#ifdef CONFIG_DW_PROJECT_ZE168
-	flash_get_gpio_info(dev);//add by darren
-	    //jeeray 
-    sub_strobe_state = proc_create(SUB_STROBE_FILE, 0666, NULL, &sub_strobe_proc_fops);
-    if(sub_strobe_state == NULL)
-    {
-        printk("dewav ----> create sub storbe_state failed\n");
-    }
-    main_strobe_state = proc_create(MAIN_STROBE_FILE, 0666, NULL, &main_strobe_proc_fops);
-    if(main_strobe_state == NULL)
-    {
-        printk("dewav ----> create sub storbe_state failed\n");
-    }
-    //jeeray 
 
-	#endif
-	//wilson add start
-	#ifdef CONFIG_DW_PROJECT_CF168
-	flash_get_gpio_info(dev);//add by darren
-	#endif
-	//wilson add end
 	/* initialize members */
 	spin_lock_init(&flashlight_private.lock);
 	init_waitqueue_head(&flashlight_private.read_wait);
@@ -1274,15 +771,6 @@ static struct platform_driver flashlight_platform_driver = {
 	.driver = {
 		   .name = FLASHLIGHT_DEVNAME,
 		   .owner = THIS_MODULE,
-		   #if defined(CONFIG_DW_PROJECT_AF168) || defined(CONFIG_DW_PROJECT_AF178)
-		   .of_match_table = flash_led_of_match, //add by darren
-		   #endif
-	       #ifdef CONFIG_DW_PROJECT_ZE168
-		   .of_match_table = flash_led_of_match, //add by darren
-		   #endif
-		   #ifdef CONFIG_DW_PROJECT_CF168
-		   .of_match_table = flash_led_of_match, //add by darren
-		   #endif
 		   },
 };
 
@@ -1293,103 +781,6 @@ static struct platform_device flashlight_platform_device = {
 		}
 };
 
-//add by major for led pwm set
-
-//add end 
-#ifdef CONFIG_DW_PROJECT_CF168
-#ifndef CONFIG_DW_PROJECT_CF197
-static int mt_strobe_set_pwm(int duty)
-{
-	struct pwm_spec_config pwm_setting;
-	
-	pwm_setting.pwm_no = PWM4;
-    pwm_setting.mode = PWM_MODE_OLD;
-    
-	/* We won't choose 32K to be the clock src of old mode because of system performance. */
-	/* The setting here will be clock src = 26MHz, CLKSEL = 26M/1625 (i.e. 16K) */
-	pwm_setting.clk_src = PWM_CLK_OLD_MODE_BLOCK;
-
-	if(duty >0 && duty <= 10)
-	{
-				pwm_setting.PWM_MODE_OLD_REGS.THRESH = duty;	
-	}
-	else
-	{
-		pwm_setting.PWM_MODE_OLD_REGS.THRESH = 0;
-	}
-	pwm_setting.clk_div = CLK_DIV128;			
-	pwm_setting.PWM_MODE_OLD_REGS.DATA_WIDTH = 10;
-	
-	pwm_setting.PWM_MODE_FIFO_REGS.IDLE_VALUE = 0;
-	pwm_setting.PWM_MODE_FIFO_REGS.GUARD_VALUE = 0;
-	pwm_setting.PWM_MODE_FIFO_REGS.GDURATION = 0;
-	pwm_setting.PWM_MODE_FIFO_REGS.WAVE_NUM = 0;
-	pwm_set_spec_config(&pwm_setting);
-
-	return 0;
-}
-
-
-static int flashligth_pwm_enable(int duty)
-{
-
-    flash_gpio_output(3);
-	printk("wilson debug FL_Enable\n");
-    mt_strobe_set_pwm(duty);	
-	printk("wilson debug %s, line:%d\n", __func__, __LINE__);				      
-    return 0;
-}
-
-static int flashlight_pwm_disable(void)
-{
-	printk("wilson debug %s, line:%d\n", __func__, __LINE__);
-
-    flash_gpio_output(0);
-    mt_strobe_set_pwm(0);
-	printk("wilson debug %s, line:%d\n", __func__, __LINE__);
-
-    return 0;
-}
-
-
-
-static struct proc_dir_entry *flashlight_pwm = NULL;
-int flashlight_pwm_duty =-1;
-static ssize_t flashlight_pwm_show(struct file *file, char *buffer, size_t count, loff_t *ppos)
-{
-	int ret;
-	char val[4];
-	sprintf(val, "%d\n", flashlight_pwm_duty);
-	ret = simple_read_from_buffer(buffer, count, ppos, val,strlen(val));
-	return ret; 
-}
-static ssize_t flashlight_pwm_store(struct file *file, const char *buffer, size_t count, loff_t *ppos)
-{
-	char *temp;       
-  flashlight_pwm_duty = (int)simple_strtol(buffer, &temp, 10) ;
-
-  if (flashlight_pwm_duty >= 10)
-	  flashlight_pwm_duty=10;
-
-	if (0 < flashlight_pwm_duty)
-	{
-		flashligth_pwm_enable(flashlight_pwm_duty);
-	}else
-	{
-		flashlight_pwm_disable();
-	}
-  return count;
-
-}
-
- static const struct file_operations flashlight_pwm_proc_fops = 
-{
-      .write = flashlight_pwm_store,
-      .read = flashlight_pwm_show
-};
-#endif
-#endif
-//add end 
 static int __init flashlight_init(void)
 {
 	int ret = 0;
@@ -1412,17 +803,7 @@ static int __init flashlight_init(void)
 	register_battery_percent_notify(&bat_per_protection_powerlimit_flashlight,
 					BATTERY_PERCENT_PRIO_FLASHLIGHT);
 /* @@    register_battery_oc_notify(&bat_oc_protection_powerlimit, BATTERY_OC_PRIO_FLASHLIGHT); */
-//add by major for flashlight proc
-#ifdef CONFIG_DW_PROJECT_CF168
-#ifndef CONFIG_DW_PROJECT_CF197
-	flashlight_pwm = proc_create("flashlight_pwm_debug", 0666, NULL, &flashlight_pwm_proc_fops);
-	if (NULL == flashlight_pwm)
-	{
-		logI("[flashlight_probe] flashlight_pwm create fail");
-	}
-#endif
-#endif
-//add end 
+
 	logI("[flashlight_probe] done! ~");
 	return ret;
 }

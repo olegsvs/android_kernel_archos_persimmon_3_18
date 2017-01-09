@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #ifndef __MTK_RAM_CONSOLE_H__
 #define __MTK_RAM_CONSOLE_H__
 
@@ -13,8 +26,8 @@ typedef enum {
 	AEE_FIQ_STEP_WDT_IRQ_INFO = 8,
 	AEE_FIQ_STEP_WDT_IRQ_KICK,
 	AEE_FIQ_STEP_WDT_IRQ_SMP_STOP,
-	AEE_FIQ_STEP_WDT_IRQ_STACK,
 	AEE_FIQ_STEP_WDT_IRQ_TIME,
+	AEE_FIQ_STEP_WDT_IRQ_STACK,
 	AEE_FIQ_STEP_WDT_IRQ_GIC,
 	AEE_FIQ_STEP_WDT_IRQ_LOCALTIMER,
 	AEE_FIQ_STEP_WDT_IRQ_IDLE,
@@ -24,6 +37,7 @@ typedef enum {
 	AEE_FIQ_STEP_KE_WDT_PERCPU,
 	AEE_FIQ_STEP_KE_WDT_LOG,
 	AEE_FIQ_STEP_KE_SCHED_DEBUG,
+	AEE_FIQ_STEP_KE_EINT_DEBUG,
 	AEE_FIQ_STEP_KE_WDT_DONE,
 	AEE_FIQ_STEP_KE_IPANIC_DIE = 32,
 	AEE_FIQ_STEP_KE_IPANIC_START,
@@ -48,16 +62,30 @@ extern void aee_rr_rec_kdump_params(void *params);
 extern void aee_rr_rec_last_irq_enter(int cpu, int irq, u64 j);
 extern void aee_rr_rec_last_irq_exit(int cpu, int irq, u64 j);
 extern void aee_rr_rec_last_sched_jiffies(int cpu, u64 j, const char *comm);
-extern void aee_rr_rec_hoplug(int cpu, u8 data1, u8 data2);
-extern void aee_rr_rec_hotplug(int cpu, u8 data1, u8 data2, unsigned long data3);
 extern void aee_sram_fiq_log(const char *msg);
 extern void ram_console_write(struct console *console, const char *s, unsigned int count);
 extern void aee_sram_fiq_save_bin(const char *buffer, size_t len);
+extern void aee_rr_rec_hotplug_footprint(int cpu, u8 fp);
+extern void aee_rr_rec_hotplug_cpu_event(u8 val);
+extern void aee_rr_rec_hotplug_cb_index(u8 val);
+extern void aee_rr_rec_hotplug_cb_fp(unsigned long val);
 #ifdef CONFIG_MTK_EMMC_SUPPORT
 extern void last_kmsg_store_to_emmc(void);
 #endif
 
 #else
+static inline void aee_rr_rec_hotplug_footprint(int cpu, u8 fp)
+{
+}
+static inline void aee_rr_rec_hotplug_cpu_event(u8 val)
+{
+}
+static inline void aee_rr_rec_hotplug_cb_index(u8 val)
+{
+}
+static inline void aee_rr_rec_hotplug_cb_fp(unsigned long val)
+{
+}
 static inline int aee_rr_curr_fiq_step(void)
 {
 	return 0;
@@ -93,14 +121,6 @@ static inline void aee_rr_rec_last_irq_exit(int cpu, int irq, u64 j)
 }
 
 static inline void aee_rr_rec_last_sched_jiffies(int cpu, u64 j, const char *comm)
-{
-}
-
-static inline void aee_rr_rec_hoplug(int cpu, u8 data1, u8 data2)
-{
-}
-
-static inline void aee_rr_rec_hotplug(int cpu, u8 data1, u8 data2, unsigned long data3)
 {
 }
 

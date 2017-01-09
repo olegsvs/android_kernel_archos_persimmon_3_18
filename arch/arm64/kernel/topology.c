@@ -46,11 +46,6 @@ unsigned long arch_scale_cpu_capacity(struct sched_domain *sd, int cpu)
 	return per_cpu(cpu_scale, cpu);
 }
 
-unsigned long arch_get_max_cpu_capacity(int cpu)
-{
-	return per_cpu(cpu_scale, cpu);
-}
-
 static void set_capacity_scale(unsigned int cpu, unsigned long capacity)
 {
 	per_cpu(cpu_scale, cpu) = capacity;
@@ -277,9 +272,59 @@ static void update_cpu_capacity(unsigned int cpu)
 	capacity /= max_cpu_perf;
 
 	set_capacity_scale(cpu, capacity);
+}
 
-	pr_info("CPU%u: update cpu_capacity %lu\n",
-		cpu, arch_scale_cpu_capacity(NULL, cpu));
+static void __init parse_dt_cpu_capacity(void)
+{
+	const struct cpu_efficiency *cpu_eff;
+	struct device_node *cn = NULL;
+	int cpu = 0, i = 0;
+
+	__cpu_capacity = kcalloc(nr_cpu_ids, sizeof(*__cpu_capacity),
+				 GFP_NOWAIT);
+
+	min_cpu_perf = ULONG_MAX;
+	max_cpu_perf = 0;
+
+	min_cpu_perf = ULONG_MAX;
+	max_cpu_perf = 0;
+	for_each_possible_cpu(cpu) {
+		const u32 *rate;
+		int len;
+		unsigned long cpu_perf;
+
+		/* too early to use cpu->of_node */
+		cn = of_get_cpu_node(cpu, NULL);
+		if (!cn) {
+			pr_err("missing device node for CPU %d\n", cpu);
+			continue;
+		}
+
+		for (cpu_eff = table_efficiency; cpu_eff->compatible; cpu_eff++)
+			if (of_device_is_compatible(cn, cpu_eff->compatible))
+				break;
+
+		if (cpu_eff->compatible == NULL)
+			continue;
+
+		rate = of_get_property(cn, "clock-frequency", &len);
+		if (!rate || len != 4) {
+			pr_err("%s missing clock-frequency property\n",
+				cn->full_name);
+			continue;
+		}
+
+		cpu_perf = ((be32_to_cpup(rate)) >> 20) * cpu_eff->efficiency;
+		cpu_capacity(cpu) = cpu_perf;
+		max_cpu_perf = max(max_cpu_perf, cpu_perf);
+		min_cpu_perf = min(min_cpu_perf, cpu_perf);
+		i++;
+	}
+
+	if (i < num_possible_cpus()) {
+		max_cpu_perf = 0;
+		min_cpu_perf = 0;
+	}
 }
 
 /*
@@ -322,55 +367,19 @@ unsigned long arch_scale_freq_capacity(struct sched_domain *sd, int cpu)
 	return curr;
 }
 
-static void __init parse_dt_cpu_capacity(void)
+unsigned long arch_get_max_cpu_capacity(int cpu)
 {
-	const struct cpu_efficiency *cpu_eff;
-	struct device_node *cn = NULL;
-	int cpu = 0, i = 0;
+	return per_cpu(cpu_scale, cpu);
+}
 
-	__cpu_capacity = kcalloc(nr_cpu_ids, sizeof(*__cpu_capacity),
-				 GFP_NOWAIT);
+unsigned long arch_get_cur_cpu_capacity(int cpu)
+{
+	unsigned long scale_freq = atomic_long_read(&per_cpu(cpu_freq_capacity, cpu));
 
-	min_cpu_perf = ULONG_MAX;
-	max_cpu_perf = 0;
+	if (!scale_freq)
+		scale_freq = SCHED_CAPACITY_SCALE;
 
-	for_each_possible_cpu(cpu) {
-		const u32 *rate;
-		int len;
-		unsigned long cpu_perf;
-
-		/* too early to use cpu->of_node */
-		cn = of_get_cpu_node(cpu, NULL);
-		if (!cn) {
-			pr_err("missing device node for CPU %d\n", cpu);
-			continue;
-		}
-
-		for (cpu_eff = table_efficiency; cpu_eff->compatible; cpu_eff++)
-			if (of_device_is_compatible(cn, cpu_eff->compatible))
-				break;
-
-		if (cpu_eff->compatible == NULL)
-			continue;
-
-		rate = of_get_property(cn, "clock-frequency", &len);
-		if (!rate || len != 4) {
-			pr_err("%s missing clock-frequency property\n",
-				cn->full_name);
-			continue;
-		}
-
-		cpu_perf = ((be32_to_cpup(rate)) >> 20) * cpu_eff->efficiency;
-		cpu_capacity(cpu) = cpu_perf;
-		max_cpu_perf = max(max_cpu_perf, cpu_perf);
-		min_cpu_perf = min(min_cpu_perf, cpu_perf);
-		i++;
-	}
-
-	if (i < num_possible_cpus()) {
-		max_cpu_perf = 0;
-		min_cpu_perf = 0;
-	}
+	return (per_cpu(cpu_scale, cpu) * scale_freq / SCHED_CAPACITY_SCALE);
 }
 
 /*
@@ -593,63 +602,28 @@ int arch_better_capacity(unsigned int cpu)
 }
 
 #ifdef CONFIG_SCHED_HMP
-void __init arch_get_fast_and_slow_cpus(struct cpumask *fast,
-			struct cpumask *slow)
-{
-	struct device_node *cn = NULL;
-	int cpu;
-
-	cpumask_clear(fast);
-	cpumask_clear(slow);
-
-	/* FIXME: temporarily use cluster id to identify cpumask */
-	arch_get_cluster_cpus(slow, 0);
-	arch_get_cluster_cpus(fast, 1);
-/*	for_each_possible_cpu(cpu) {
-		if (arch_cpu_is_little(cpu))
-			cpumask_set_cpu(cpu, slow);
-		else
-			cpumask_set_cpu(cpu, fast);
-	}
-*/
-	if (!cpumask_empty(fast) && !cpumask_empty(slow))
-		return;
-
-	/*
-	 * We didn't find both big and little cores so let's call all cores
-	 * fast as this will keep the system running, with all cores being
-	 * treated equal.
-	 */
-	cpumask_setall(fast);
-	cpumask_clear(slow);
-}
-
-struct cpumask hmp_fast_cpu_mask;
-struct cpumask hmp_slow_cpu_mask;
-
 void __init arch_get_hmp_domains(struct list_head *hmp_domains_list)
 {
 	struct hmp_domain *domain;
+	struct cpumask cpu_mask;
+	int id, maxid;
 
-	arch_get_fast_and_slow_cpus(&hmp_fast_cpu_mask, &hmp_slow_cpu_mask);
+	cpumask_clear(&cpu_mask);
+	maxid = arch_get_nr_clusters();
 
 	/*
 	 * Initialize hmp_domains
 	 * Must be ordered with respect to compute capacity.
 	 * Fastest domain at head of list.
 	 */
-	if (!cpumask_empty(&hmp_slow_cpu_mask)) {
+	for (id = 0; id < maxid; id++) {
+		arch_get_cluster_cpus(&cpu_mask, id);
 		domain = (struct hmp_domain *)
 			kmalloc(sizeof(struct hmp_domain), GFP_KERNEL);
-		cpumask_copy(&domain->possible_cpus, &hmp_slow_cpu_mask);
+		cpumask_copy(&domain->possible_cpus, &cpu_mask);
 		cpumask_and(&domain->cpus, cpu_online_mask, &domain->possible_cpus);
 		list_add(&domain->hmp_domains, hmp_domains_list);
 	}
-	domain = (struct hmp_domain *)
-		kmalloc(sizeof(struct hmp_domain), GFP_KERNEL);
-	cpumask_copy(&domain->possible_cpus, &hmp_fast_cpu_mask);
-	cpumask_and(&domain->cpus, cpu_online_mask, &domain->possible_cpus);
-	list_add(&domain->hmp_domains, hmp_domains_list);
 }
 #else
 void __init arch_get_hmp_domains(struct list_head *hmp_domains_list) {}

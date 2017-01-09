@@ -1,12 +1,19 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #ifndef _CUST_BATTERY_METER_H
 #define _CUST_BATTERY_METER_H
 
-#if defined(CONFIG_MTK_BQ24196_SUPPORT) \
-	|| defined(CONFIG_MTK_BQ24296_SUPPORT) \
-	|| defined(CONFIG_MTK_BQ24261_SUPPORT)
-#define SWCHR_POWER_PATH
-#define EXTERNAL_SWCHR_SUPPORT
-#endif
 
 #if defined(CONFIG_ARCH_MT6735)
 /* ============================================================
@@ -21,6 +28,13 @@
 //#define CONFIG_DIS_CHECK_BATTERY
 //#define FIXED_TBAT_25
 */
+
+#if defined(CONFIG_MTK_BQ24196_SUPPORT) \
+	|| defined(CONFIG_MTK_BQ24296_SUPPORT) \
+	|| defined(CONFIG_MTK_BQ24261_SUPPORT)
+#define SWCHR_POWER_PATH
+#define EXTERNAL_SWCHR_SUPPORT
+#endif
 
 /* ADC resistor  */
 #define R_BAT_SENSE 4
@@ -37,19 +51,6 @@
 #define FG_METER_RESISTANCE 0
 
 /* Qmax for battery  */
-#if defined(CONFIG_DW_PROJECT_AF168) || defined(CONFIG_DW_PROJECT_AF178)
-#define Q_MAX_POS_50	2813
-#define Q_MAX_POS_25	2958
-#define Q_MAX_POS_0		2522
-#define Q_MAX_NEG_10	2376
-
-#define Q_MAX_POS_50_H_CURRENT 2570
-#define Q_MAX_POS_25_H_CURRENT 2425
-#define Q_MAX_POS_0_H_CURRENT 1940
-#define Q_MAX_NEG_10_H_CURRENT 1539
-
-#else
-
 #define Q_MAX_POS_50 1463
 #define Q_MAX_POS_25 1437
 #define Q_MAX_POS_0 1220
@@ -59,7 +60,7 @@
 #define Q_MAX_POS_25_H_CURRENT 1462
 #define Q_MAX_POS_0_H_CURRENT 818
 #define Q_MAX_NEG_10_H_CURRENT 149
-#endif
+
 
 /* Discharge Percentage */
 #define OAM_D5		 1		/*  1 : D5,   0: D2*/
@@ -80,11 +81,8 @@
 #define OCV_BOARD_COMPESATE	0 /*mV */
 #define R_FG_BOARD_BASE 1000
 #define R_FG_BOARD_SLOPE 1000 /*slope*/
-#ifdef CONFIG_MTK_EMI_D1P
-#define CAR_TUNE_VALUE 104 /*1.00*/
-#else
 #define CAR_TUNE_VALUE 86 /*1.00*/
-#endif
+
 
 /* HW Fuel gague  */
 #define CURRENT_DETECT_R_FG 10  /*1mA*/
@@ -104,7 +102,7 @@
 #define BATTERYPSEUDO100		95
 #define BATTERYPSEUDO1			4
 
-#define Q_MAX_BY_SYS
+/* #define Q_MAX_BY_SYS */
 #define Q_MAX_SYS_VOLTAGE		3300
 #define SHUTDOWN_GAUGE0
 #define SHUTDOWN_GAUGE1_XMINS
@@ -166,6 +164,13 @@
 //#define FIXED_TBAT_25
 */
 
+#if defined(CONFIG_MTK_BQ24196_SUPPORT) \
+	|| defined(CONFIG_MTK_BQ24296_SUPPORT) \
+	|| defined(CONFIG_MTK_BQ24261_SUPPORT)
+#define SWCHR_POWER_PATH
+#define EXTERNAL_SWCHR_SUPPORT
+#endif
+
 /* ADC resistor  */
 #define R_BAT_SENSE 4
 #define R_I_SENSE 4
@@ -180,30 +185,7 @@
 
 #define FG_METER_RESISTANCE 0
 
-#ifdef CONFIG_DW_PROJECT_CF168
 /* Qmax for battery  */
-#define Q_MAX_POS_50 2076
-#define Q_MAX_POS_25 2063
-#define Q_MAX_POS_0 1788
-#define Q_MAX_NEG_10 1732
-#define Q_MAX_POS_50_H_CURRENT 2058
-#define Q_MAX_POS_25_H_CURRENT 2054
-#define Q_MAX_POS_0_H_CURRENT 1730
-#define Q_MAX_NEG_10_H_CURRENT 1468
-
-#elif defined(CONFIG_DW_PROJECT_WE161) || defined (CONFIG_DW_PROJECT_WE162)//add by major for we161
-#define Q_MAX_POS_50  2955
-#define Q_MAX_POS_25  2974
-#define Q_MAX_POS_0   2900
-#define Q_MAX_NEG_10  2800
-
-#define Q_MAX_POS_50_H_CURRENT  2933
-#define Q_MAX_POS_25_H_CURRENT  2950
-#define Q_MAX_POS_0_H_CURRENT  2814
-#define Q_MAX_NEG_10_H_CURRENT 2610
-
-
-#else
 #define Q_MAX_POS_50 1463
 #define Q_MAX_POS_25 1437
 #define Q_MAX_POS_0 1220
@@ -213,7 +195,6 @@
 #define Q_MAX_POS_25_H_CURRENT 1462
 #define Q_MAX_POS_0_H_CURRENT 818
 #define Q_MAX_NEG_10_H_CURRENT 149
-#endif
 
 
 /* Discharge Percentage */
@@ -256,7 +237,7 @@
 #define BATTERYPSEUDO100		95
 #define BATTERYPSEUDO1			4
 
-#define Q_MAX_BY_SYS
+/* #define Q_MAX_BY_SYS */
 #define Q_MAX_SYS_VOLTAGE		3300
 #define SHUTDOWN_GAUGE0
 #define SHUTDOWN_GAUGE1_XMINS
@@ -320,6 +301,13 @@
 //#define FIXED_TBAT_25
 */
 
+#if defined(CONFIG_MTK_BQ24196_SUPPORT) \
+	|| defined(CONFIG_MTK_BQ24296_SUPPORT) \
+	|| defined(CONFIG_MTK_BQ24261_SUPPORT)
+#define SWCHR_POWER_PATH
+#define EXTERNAL_SWCHR_SUPPORT
+#endif
+
 /* ADC resistor  */
 #define R_BAT_SENSE 4
 #define R_I_SENSE 4
@@ -335,55 +323,6 @@
 #define FG_METER_RESISTANCE 0
 
 /* Qmax for battery  */
-#if defined(CONFIG_DW_PROJECT_ZE168)
-#define Q_MAX_POS_50	(2449-100)
-#define Q_MAX_POS_25	(2950-100)
-#define Q_MAX_POS_0		(2299-100)
-#define Q_MAX_NEG_10	(1350-100)
-
-#define Q_MAX_POS_50_H_CURRENT	(1458-100)
-#define Q_MAX_POS_25_H_CURRENT	(1458-100)
-#define Q_MAX_POS_0_H_CURRENT	(1458-100)
-#define Q_MAX_NEG_10_H_CURRENT	(1458-100)
-
-#elif defined(CONFIG_DW_PROJECT_BF168) //add by major for bf168
-/* bf168 3000ma **/
-#define Q_MAX_POS_50    3066
-#define Q_MAX_POS_25    3093
-#define Q_MAX_POS_0     3044
-#define Q_MAX_NEG_10    3003
-
-#define Q_MAX_POS_50_H_CURRENT  3049
-#define Q_MAX_POS_25_H_CURRENT  3055
-#define Q_MAX_POS_0_H_CURRENT   2792
-#define Q_MAX_NEG_10_H_CURRENT  2293
-
-/* bf168 6000ma **/
-#define Q_MAX_POS_50_6000       6096
-#define Q_MAX_POS_25_6000       6112
-#define Q_MAX_POS_0_6000        6185
-#define Q_MAX_NEG_10_6000       6136
-
-#define Q_MAX_POS_50_H_CURRENT_6000     6090
-#define Q_MAX_POS_25_H_CURRENT_6000     6089
-#define Q_MAX_POS_0_H_CURRENT_6000      6083
-#define Q_MAX_NEG_10_H_CURRENT_6000     5703
-#define FIXED_TBAT_25 // add by major for bf168 fix temp
-
-#elif defined(CONFIG_DW_PROJECT_WE165) //add by major for we165
-
-#define Q_MAX_POS_50  2955
-#define Q_MAX_POS_25  2974
-#define Q_MAX_POS_0   2900
-#define Q_MAX_NEG_10  2800
-
-#define Q_MAX_POS_50_H_CURRENT  2933
-#define Q_MAX_POS_25_H_CURRENT  2950
-#define Q_MAX_POS_0_H_CURRENT  2814
-#define Q_MAX_NEG_10_H_CURRENT 2610
-
-
-#else
 #define Q_MAX_POS_50 1463
 #define Q_MAX_POS_25 1437
 #define Q_MAX_POS_0 1220
@@ -393,7 +332,7 @@
 #define Q_MAX_POS_25_H_CURRENT 1462
 #define Q_MAX_POS_0_H_CURRENT 818
 #define Q_MAX_NEG_10_H_CURRENT 149
-#endif
+
 
 /* Discharge Percentage */
 #define OAM_D5		 1		/*  1 : D5,   0: D2*/
@@ -435,7 +374,7 @@
 #define BATTERYPSEUDO100		95
 #define BATTERYPSEUDO1			4
 
-#define Q_MAX_BY_SYS
+/* #define Q_MAX_BY_SYS */
 #define Q_MAX_SYS_VOLTAGE		3300
 #define SHUTDOWN_GAUGE0
 #define SHUTDOWN_GAUGE1_XMINS
@@ -452,7 +391,7 @@
 #define DIFFERENCE_HWOCV_VBAT		30
 
 /* fg 1.0 */
-#define CUST_POWERON_DELTA_CAPACITY_TOLRANCE	25
+#define CUST_POWERON_DELTA_CAPACITY_TOLRANCE	40
 #define CUST_POWERON_LOW_CAPACITY_TOLRANCE		5
 #define CUST_POWERON_MAX_VBAT_TOLRANCE			90
 #define CUST_POWERON_DELTA_VBAT_TOLRANCE		30
@@ -482,7 +421,10 @@
 */
 #define FG_BAT_INT
 #define IS_BATTERY_REMOVE_BY_PMIC
+/* #define USE_EMBEDDED_BATTERY */
 
+/* Multi battery */
+/* #define MTK_MULTI_BAT_PROFILE_SUPPORT */
 #endif
 
 #endif	/*#ifndef _CUST_BATTERY_METER_H*/

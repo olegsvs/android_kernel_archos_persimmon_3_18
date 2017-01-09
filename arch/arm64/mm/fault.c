@@ -36,6 +36,7 @@
 #include <asm/system_misc.h>
 #include <asm/pgtable.h>
 #include <asm/tlbflush.h>
+#include <mt-plat/mtk_hooks.h>
 
 static const char *fault_name(unsigned int esr);
 
@@ -114,6 +115,10 @@ static void __do_user_fault(struct task_struct *tsk, unsigned long addr,
 			    struct pt_regs *regs)
 {
 	struct siginfo si;
+
+	if (mem_fault_debug_hook)
+		if (!mem_fault_debug_hook(regs))
+			return;
 
 	if (show_unhandled_signals && unhandled_signal(tsk, sig) &&
 	    printk_ratelimit()) {
@@ -279,6 +284,7 @@ retry:
 			 * starvation.
 			 */
 			mm_flags &= ~FAULT_FLAG_ALLOW_RETRY;
+			mm_flags |= FAULT_FLAG_TRIED;
 			goto retry;
 		}
 	}
@@ -456,6 +462,8 @@ asmlinkage void __exception do_mem_abort(unsigned long addr, unsigned int esr,
 {
 	const struct fault_info *inf = fault_info + (esr & 63);
 	struct siginfo info;
+	unsigned long sctlr = 0;
+	struct mm_struct *mm = NULL;
 
 	if (!inf->fn(addr, esr, regs))
 		return;
@@ -463,6 +471,18 @@ asmlinkage void __exception do_mem_abort(unsigned long addr, unsigned int esr,
 	pr_alert("Unhandled fault: %s (0x%08x) at 0x%016lx\n",
 		 inf->name, esr, addr);
 
+	asm volatile(
+		"MRS %0, sctlr_el1\n\t"
+		: "=r"(sctlr)
+		:
+		:
+		);
+	pr_alert("SCTLR : %lx\n", sctlr);
+
+	if (addr < TASK_SIZE)
+		mm = current->mm;
+
+	show_pte(mm, addr);
 	info.si_signo = inf->sig;
 	info.si_errno = 0;
 	info.si_code  = inf->code;

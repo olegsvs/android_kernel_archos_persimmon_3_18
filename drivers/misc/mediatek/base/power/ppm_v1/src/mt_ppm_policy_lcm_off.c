@@ -1,13 +1,22 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/init.h>
-#ifdef CONFIG_HAS_EARLYSUSPEND
-#include <linux/earlysuspend.h>
-#else
 #include <linux/notifier.h>
 #include <linux/fb.h>
-#endif
 
 #include "mt_ppm_internal.h"
 
@@ -28,6 +37,17 @@ static struct ppm_policy_data lcmoff_policy = {
 	.status_change_cb	= ppm_lcmoff_status_change_cb,
 	.mode_change_cb		= ppm_lcmoff_mode_change_cb,
 };
+
+bool ppm_lcmoff_is_policy_activated(void)
+{
+	bool is_activate;
+
+	ppm_lock(&lcmoff_policy.lock);
+	is_activate = lcmoff_policy.is_activated;
+	ppm_unlock(&lcmoff_policy.lock);
+
+	return is_activate;
+}
 
 static enum ppm_power_state ppm_lcmoff_get_power_state_cb(enum ppm_power_state cur_state)
 {
@@ -97,44 +117,18 @@ static void ppm_lcmoff_switch(int onoff)
 				lcmoff_policy.req.limit[i].min_cpu_core = get_cluster_min_cpu_core(i);
 				lcmoff_policy.req.limit[i].max_cpu_core = get_cluster_max_cpu_core(i);
 			}
-			ppm_unlock(&lcmoff_policy.lock);
-			ppm_task_wakeup();
-		} else
-			ppm_unlock(&lcmoff_policy.lock);
+		}
 	} else {
 		/* activate lcmoff policy */
-		if (lcmoff_policy.is_enabled) {
+		if (lcmoff_policy.is_enabled)
 			lcmoff_policy.is_activated = true;
-			ppm_unlock(&lcmoff_policy.lock);
-			ppm_task_wakeup();
-		} else
-			ppm_unlock(&lcmoff_policy.lock);
 	}
 
+	ppm_unlock(&lcmoff_policy.lock);
+
 	FUNC_EXIT(FUNC_LV_POLICY);
 }
 
-#ifdef CONFIG_HAS_EARLYSUSPEND
-static void ppm_lcmoff_early_suspend(struct early_suspend *h)
-{
-	FUNC_ENTER(FUNC_LV_POLICY);
-	ppm_lcmoff_switch(0);
-	FUNC_EXIT(FUNC_LV_POLICY);
-}
-
-static void ppm_lcmoff_late_resume(struct early_suspend *h)
-{
-	FUNC_ENTER(FUNC_LV_POLICY);
-	ppm_lcmoff_switch(1);
-	FUNC_EXIT(FUNC_LV_POLICY);
-}
-
-static struct early_suspend ppm_lcmoff_es_handler = {
-	.level = EARLY_SUSPEND_LEVEL_DISABLE_FB + 200,
-	.suspend = ppm_lcmoff_early_suspend,
-	.resume = ppm_lcmoff_late_resume,
-};
-#else
 static int ppm_lcmoff_fb_notifier_callback(struct notifier_block *self, unsigned long event, void *data)
 {
 	struct fb_event *evdata = data;
@@ -170,7 +164,6 @@ static int ppm_lcmoff_fb_notifier_callback(struct notifier_block *self, unsigned
 static struct notifier_block ppm_lcmoff_fb_notifier = {
 	.notifier_call = ppm_lcmoff_fb_notifier_callback,
 };
-#endif
 
 static int __init ppm_lcmoff_policy_init(void)
 {
@@ -178,15 +171,11 @@ static int __init ppm_lcmoff_policy_init(void)
 
 	FUNC_ENTER(FUNC_LV_POLICY);
 
-#ifdef CONFIG_HAS_EARLYSUSPEND
-	register_early_suspend(&ppm_lcmoff_es_handler);
-#else
 	if (fb_register_client(&ppm_lcmoff_fb_notifier)) {
 		ppm_err("@%s: lcmoff policy register FB client failed!\n", __func__);
 		ret = -EINVAL;
 		goto out;
 	}
-#endif
 
 	if (ppm_main_register_policy(&lcmoff_policy)) {
 		ppm_err("@%s: lcmoff policy register failed\n", __func__);
@@ -206,21 +195,14 @@ static void __exit ppm_lcmoff_policy_exit(void)
 {
 	FUNC_ENTER(FUNC_LV_POLICY);
 
-#ifdef CONFIG_HAS_EARLYSUSPEND
-	unregister_early_suspend(&ppm_lcmoff_es_handler);
-#else
 	fb_unregister_client(&ppm_lcmoff_fb_notifier);
-#endif
 
 	ppm_main_unregister_policy(&lcmoff_policy);
 
 	FUNC_EXIT(FUNC_LV_POLICY);
 }
-#ifdef CONFIG_HAS_EARLYSUSPEND
-module_init(ppm_lcmoff_policy_init);
-#else
+
 /* Cannot init before FB driver */
 late_initcall(ppm_lcmoff_policy_init);
-#endif
 module_exit(ppm_lcmoff_policy_exit);
 

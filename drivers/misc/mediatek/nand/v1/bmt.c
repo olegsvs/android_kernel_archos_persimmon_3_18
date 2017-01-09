@@ -12,7 +12,7 @@
  */
 
 #include <mach/mtk_nand.h>
-#include <mtk_nand_util.h>
+#include "mtk_nand_util.h"
 #include "bmt.h"
 #include <linux/module.h>
 #include <linux/slab.h>
@@ -72,6 +72,7 @@ static int page_per_block;	/* page per count */
 
 static u32 bmt_block_index;	/* bmt block index */
 static bmt_struct bmt;		/* dynamic created global bmt table */
+
 
 static u8 dat_buf[MAX_DAT_SIZE];
 static u8 oob_buf[MAX_OOB_SIZE];
@@ -263,14 +264,14 @@ static int load_bmt_data(int start, int pool_size)
 #endif
 		pr_warn("[load_bmt_data] datbuf 0x%lx oobbuf 0x%lx\n", (unsigned long)dat_buf, (unsigned long)oob_buf);
 		if (!nand_read_page_bmt(PAGE_ADDR(bmt_index), dat_buf, oob_buf)) {
-			MSG(INIT, "Error found when read block %d\n", bmt_index);
+			pr_debug("Error found when read block %d\n", bmt_index);
 			continue;
 		}
 
 		if (!match_bmt_signature(dat_buf, oob_buf))
 			continue;
 
-		MSG(INIT, "Match bmt signature @ block: 0x%x\n", bmt_index);
+		pr_debug("Match bmt signature @ block: %d, %d\n", bmt_index, PAGE_ADDR(bmt_index));
 
 		memcpy(phys_table, dat_buf + MAIN_SIGNATURE_OFFSET, sizeof(struct phys_bmt_struct));
 
@@ -345,6 +346,7 @@ static int find_available_block(bool start_from_end)
 		if (!nand_erase_bmt(((u64)block) * (gn_devinfo.blocksize * 1024))) {
 			MSG(INIT, "Erase block 0x%x failed\n", block);
 			mark_block_bad_bmt(((u64)block) * (gn_devinfo.blocksize * 1024));
+			continue;
 		}
 #endif
 
@@ -358,7 +360,7 @@ static int find_available_block(bool start_from_end)
 static unsigned short get_bad_index_from_oob(u8 *oob_buf)
 {
 	unsigned short index;
-
+	pr_err("OOB_INDEX_OFFSET %d\n", OOB_INDEX_OFFSET);
 	if (2048 == PAGE_SIZE_BMT)
 		memcpy(&index, oob_buf + 13, OOB_INDEX_SIZE);
 	else
@@ -415,7 +417,8 @@ static int migrate_from_bad(u64 offset, u8 *write_dat, u8 *write_oob)
 				}
 			}
 		}
-		tlc_mode_block = mtk_block_istlc(orig_block * (gn_devinfo.blocksize * 1024));
+		temp = (u64)orig_block & 0xFFFFFFFF;
+		tlc_mode_block = mtk_block_istlc(temp * (gn_devinfo.blocksize * 1024));
 		if (!tlc_mode_block) {
 			gn_devinfo.tlcControl.slcopmodeEn = true; /*slc mode*/
 			tick = 3;
@@ -433,7 +436,8 @@ static int migrate_from_bad(u64 offset, u8 *write_dat, u8 *write_oob)
 			set_bad_index_to_oob(oob_buf, error_block);
 		memcpy(nand_chip_bmt->oob_poi, oob_buf, mtd_bmt->oobsize);
 		nand_erase_bmt(((u64)to_index) * (gn_devinfo.blocksize * 1024));
-		bRet = mtk_nand_write_tlc_block_hw(mtd_bmt, nand_chip_bmt, write_dat, to_index);
+		bRet = mtk_nand_write_tlc_block_hw(mtd_bmt, nand_chip_bmt,
+			write_dat, to_index, 0, (gn_devinfo.blocksize * 1024));
 		if (bRet != 0) {
 			MSG(INIT, "Write to page 0x%x fail\n", PAGE_ADDR(to_index) + error_page);
 #if defined(CONFIG_MTK_TLC_NAND_SUPPORT)
@@ -566,6 +570,7 @@ bmt_struct *reconstruct_bmt(bmt_struct *bmt)
 	int index = system_block_count;
 	unsigned short bad_index;
 	int mapped;
+	int ret;
 
 	/* init everything in BMT struct */
 	bmt->version = BMT_VERSION;
@@ -582,12 +587,18 @@ bmt_struct *reconstruct_bmt(bmt_struct *bmt)
 		}
 
 		MSG(INIT, "read page: 0x%x\n", PAGE_ADDR(index));
-		nand_read_page_bmt(PAGE_ADDR(index), dat_buf, oob_buf);
-		/* if (mtk_nand_read_page_hw(PAGE_ADDR(index), dat_buf))
-		{
-		MSG(INIT, "Error when read block %d\n", bmt_block_index);
-		continue;
-		} */
+		ret = nand_read_page_bmt(PAGE_ADDR(index), dat_buf, oob_buf);
+		if (ret != 1) {
+			MSG(INIT, "Error when read block %d, try tlc mode\n", bmt_block_index);
+			gn_devinfo.tlcControl.slcopmodeEn = FALSE;
+			ret = nand_read_page_bmt(PAGE_ADDR(index), dat_buf, oob_buf);
+			if (ret != 1) {
+				gn_devinfo.tlcControl.slcopmodeEn = TRUE;
+				MSG(INIT, "Error when read block %d in try tlc mode continue\n", bmt_block_index);
+				continue;
+			}
+			gn_devinfo.tlcControl.slcopmodeEn = TRUE;
+		}
 		bad_index = get_bad_index_from_oob(oob_buf);
 		if (bad_index >= system_block_count) {
 			MSG(INIT, "get bad index: 0x%x\n", bad_index);
@@ -627,11 +638,11 @@ bmt_struct *reconstruct_bmt(bmt_struct *bmt)
 	/* fill NAND BMT buffer */
 	memset(oob_buf, 0xFF, sizeof(oob_buf));
 	fill_nand_bmt_buffer(bmt, dat_buf, oob_buf);
-
+#if 0
 	/* write BMT back */
 	if (!write_bmt_to_flash(dat_buf, oob_buf))
 		MSG(INIT, "TRAGEDY: cannot find a place to write BMT!!!!\n");
-
+#endif
 	return bmt;
 }
 

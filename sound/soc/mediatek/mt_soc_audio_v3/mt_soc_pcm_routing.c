@@ -1,17 +1,19 @@
 /*
- * Copyright (C) 2007 The Android Open Source Project
+ * Copyright (C) 2015 MediaTek Inc.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ * You should have received a copy of the GNU General Public License
+ * along with this program
+ * If not, see <http://www.gnu.org/licenses/>.
  */
 /*******************************************************************************
  *
@@ -82,6 +84,11 @@
 #include <cust_gpio_usage.h>
 #endif
 */
+
+#ifdef CONFIG_COMPAT
+#include <linux/compat.h>
+#endif
+
 /*
  *    function implementation
  */
@@ -593,51 +600,26 @@ static int Audio_Mode_Set(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
-static int Audio_Irqcnt1_Get(struct snd_kcontrol *kcontrol,
-			     struct snd_ctl_elem_value *ucontrol)
+#ifdef AUDIO_DL2_ISR_COPY_SUPPORT
+
+static int Audio_DL2_DataTransfer(struct snd_kcontrol *kcontrol,
+			struct snd_ctl_elem_value *ucontrol)
 {
-	pr_warn("Audio_Irqcnt1_Get\n");
-	AudDrv_Clk_On();
-	ucontrol->value.integer.value[0] =   Afe_Get_Reg(AFE_IRQ_MCU_CNT1);
-	AudDrv_Clk_Off();
+#ifdef CONFIG_COMPAT
+	void *addr =  compat_ptr(ucontrol->value.integer.value[0]);
+#else
+	void *addr =  (void *)ucontrol->value.integer.value[0];
+#endif
+
+	uint32 size =  ucontrol->value.integer.value[1];
+
+	/* pr_warn("%s(), addr 0x%x, size %d\n", __func__, (int)addr, size); */
+
+	mtk_dl2_copy2buffer(addr, size);
 	return 0;
 }
 
-static int Audio_Irqcnt1_Set(struct snd_kcontrol *kcontrol,
-			     struct snd_ctl_elem_value *ucontrol)
-{
-	uint32 irq1_cnt =  ucontrol->value.integer.value[0];
-
-	pr_warn("%s()\n", __func__);
-	AudDrv_Clk_On();
-	/* Afe_Set_Reg(AFE_IRQ_MCU_CNT1, irq1_cnt, 0xffffffff); */
-	SetIrqMcuCounter(Soc_Aud_IRQ_MCU_MODE_IRQ1_MCU_MODE, irq1_cnt);
-	AudDrv_Clk_Off();
-	return 0;
-}
-
-static int Audio_Irqcnt2_Get(struct snd_kcontrol *kcontrol,
-			     struct snd_ctl_elem_value *ucontrol)
-{
-	pr_warn("Audio_Irqcnt2_Get\n");
-	AudDrv_Clk_On();
-	ucontrol->value.integer.value[0] =   Afe_Get_Reg(AFE_IRQ_MCU_CNT2);
-	AudDrv_Clk_Off();
-	return 0;
-}
-
-static int Audio_Irqcnt2_Set(struct snd_kcontrol *kcontrol,
-			     struct snd_ctl_elem_value *ucontrol)
-{
-	uint32 irq1_cnt =  ucontrol->value.integer.value[0];
-
-	pr_warn("%s()\n", __func__);
-	AudDrv_Clk_On();
-	/* Afe_Set_Reg(AFE_IRQ_MCU_CNT2, irq1_cnt, 0xffffffff); */
-	SetIrqMcuCounter(Soc_Aud_IRQ_MCU_MODE_IRQ2_MCU_MODE, irq1_cnt);
-	AudDrv_Clk_Off();
-	return 0;
-}
+#endif
 
 /* static struct snd_dma_buffer *Dl1_Playback_dma_buf  = NULL; */
 
@@ -844,10 +826,6 @@ static const struct snd_kcontrol_new Audio_snd_routing_controls[] = {
 	Audio_SideTone_Get, Audio_SideTone_Set),
 	SOC_ENUM_EXT("Audio_Mode_Switch", Audio_Routing_Enum[4],
 	Audio_Mode_Get, Audio_Mode_Set),
-	SOC_SINGLE_EXT("Audio IRQ1 CNT", SND_SOC_NOPM, 0, 65536, 0,
-	Audio_Irqcnt1_Get, Audio_Irqcnt1_Set),
-	SOC_SINGLE_EXT("Audio IRQ2 CNT", SND_SOC_NOPM, 0, 65536, 0,
-	Audio_Irqcnt2_Get, Audio_Irqcnt2_Set),
 	SOC_SINGLE_EXT("Audio HPL Offset", SND_SOC_NOPM, 0 , 0x20000, 0,
 	Audio_Hpl_Offset_Get, Audio_Hpl_Offset_Set),
 	SOC_SINGLE_EXT("Audio HPR Offset", SND_SOC_NOPM, 0, 0x20000, 0,
@@ -858,6 +836,10 @@ static const struct snd_kcontrol_new Audio_snd_routing_controls[] = {
 	Audio_Ipoh_Setting_Get, Audio_Ipoh_Setting_Set),
 	SOC_ENUM_EXT("Audio_I2S1_Setting", Audio_Routing_Enum[8],
 	AudioI2S1_Setting_Get, AudioI2S1_Setting_Set),
+#ifdef AUDIO_DL2_ISR_COPY_SUPPORT
+	SOC_DOUBLE_EXT("Audio_DL2_DataTransfer", SND_SOC_NOPM, 0, 1, 65536, 0,
+	NULL, Audio_DL2_DataTransfer),
+#endif
 };
 
 
@@ -908,7 +890,6 @@ static struct snd_pcm_hw_constraint_list constraints_sample_rates = {
 static int mtk_routing_pcm_open(struct snd_pcm_substream *substream)
 {
 	struct snd_pcm_runtime *runtime = substream->runtime;
-	int err = 0;
 	int ret = 0;
 
 	pr_warn("mtk_routing_pcm_open\n");
@@ -932,10 +913,10 @@ static int mtk_routing_pcm_open(struct snd_pcm_substream *substream)
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
 		pr_warn("SNDRV_PCM_STREAM_PLAYBACK mtkalsa_playback_constraints\n");
 
-	if (err < 0) {
+	if (ret < 0) {
 		pr_warn("mtk_routing_pcm_close\n");
 		mtk_routing_pcm_close(substream);
-		return err;
+		return ret;
 	}
 	pr_warn("mtk_routing_pcm_open return\n");
 	return 0;

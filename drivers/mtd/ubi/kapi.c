@@ -489,6 +489,7 @@ int ubi_leb_write(struct ubi_volume_desc *desc, int lnum, const void *buf,
 
 			return ubi_wl_archive_leb(ubi, vol, lnum);
 		}
+		ubi_trigger_archive_by_slc(ubi);
 	}
 #endif
 
@@ -543,6 +544,7 @@ int ubi_leb_change(struct ubi_volume_desc *desc, int lnum, const void *buf,
 				return -EINVAL;
 			return ubi_wl_archive_leb(ubi, vol, lnum);
 		}
+		ubi_trigger_archive_by_slc(ubi);
 	}
 #endif
 	return ubi_eba_atomic_leb_change(ubi, vol, lnum, buf, len);

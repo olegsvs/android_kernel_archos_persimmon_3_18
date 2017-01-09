@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #ifndef __MT_MSDC_DEUBG__
 #define __MT_MSDC_DEUBG__
 #include "mt_sd.h"
@@ -169,8 +182,6 @@ extern u32 sdio_clk_drv;
 extern u32 sdio_cmd_drv;
 extern u32 sdio_data_drv;
 extern u32 sdio_tune_flag;
-
-int msdc_debug_proc_init(void);
 
 extern void GPT_GetCounter64(u32 *cntL32, u32 *cntH32);
 u32 msdc_time_calc(u32 old_L32, u32 old_H32, u32 new_L32, u32 new_H32);

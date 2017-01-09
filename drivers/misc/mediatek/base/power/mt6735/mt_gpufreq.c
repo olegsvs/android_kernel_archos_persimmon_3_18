@@ -213,7 +213,7 @@ static struct mt_gpufreq_table_info mt_gpufreq_opp_tbl_e1_2[] = {
 	GPUOP(GPU_DVFS_FREQ2, GPU_DVFS_VOLT1),
 };
 
-/* LV3: 600MHz with 3 OPP lv */
+/* LV3: 550MHz with 3 OPP lv */
 static struct mt_gpufreq_table_info mt_gpufreq_opp_tbl_e1_3[] = {
 	GPUOP(GPU_DVFS_FREQ0_1, GPU_DVFS_VOLT0),
 	GPUOP(GPU_DVFS_FREQ1, GPU_DVFS_VOLT0),
@@ -358,13 +358,13 @@ static unsigned int _mt_gpufreq_get_dvfs_table_type(void)
 	node = of_find_matching_node(NULL, gpu_ids);
 	if (!node) {
 		gpufreq_err("@%s: find GPU node failed\n", __func__);
-		gpu_speed = GPU_DEFAULT_MAX_FREQ_MHZ;	// default speed
+		gpu_speed = GPU_DEFAULT_MAX_FREQ_MHZ;	/* default speed */
 	} else {
 		if (!of_property_read_u32(node, "clock-frequency", &gpu_speed)) {
-			gpu_speed = gpu_speed / 1000 / 1000;	// MHz
+			gpu_speed = gpu_speed / 1000 / 1000;	/* MHz */
 		} else {
 			gpufreq_err("@%s: missing clock-frequency property, use default GPU level\n", __func__);
-			gpu_speed = GPU_DEFAULT_MAX_FREQ_MHZ;	// default speed
+			gpu_speed = GPU_DEFAULT_MAX_FREQ_MHZ;	/* default speed */
 		}
 	}
 	gpufreq_info("GPU clock-frequency from DT = %d MHz\n", gpu_speed);
@@ -401,7 +401,7 @@ static unsigned int _mt_gpufreq_get_dvfs_table_type(void)
 		case 0x43:
 			return 2;	/* 37T: 600M with 3 OPP*/
 		case 0x49:
-			return 1;	/* 37M: 450M */
+			return 3;	/* 37M: 550M */
 		case 0x4A:
 		case 0x4B:
 #ifdef CONFIG_ARCH_MT6735M
@@ -410,7 +410,7 @@ static unsigned int _mt_gpufreq_get_dvfs_table_type(void)
 #endif
 			return 0;	/* 35M+: 550M */
 		case 0x51:
-			return 0;	/* 37: 600M */
+			return 1;	/* 37: 450M */
 		case 0x52:
 		case 0x53:
 #ifdef CONFIG_MTK_EFUSE_DOWNGRADE
@@ -886,14 +886,15 @@ static int _mt_gpufreq_set_cur_volt(unsigned int new_oppidx)
 	case GPU_DVFS_FREQ0_0:
 	case GPU_DVFS_FREQ0:
 		g_last_gpu_dvs_result = vcorefs_request_dvfs_opp(KIR_GPU, OPPI_PERF_ULTRA);
+		break;
 #else
 	case GPU_DVFS_FREQ0:
 #ifdef CONFIG_ARCH_MT6735
 	case GPU_DVFS_FREQ0_1:
 #endif
 		g_last_gpu_dvs_result = vcorefs_request_dvfs_opp(KIR_GPU, OPPI_PERF);
-#endif
 		break;
+#endif
 	case GPU_DVFS_FREQ1:
 #ifdef CONFIG_ARCH_MT6753
 		g_last_gpu_dvs_result = vcorefs_request_dvfs_opp(KIR_GPU, OPPI_LOW_PWR);
@@ -921,7 +922,7 @@ static int _mt_gpufreq_set_cur_volt(unsigned int new_oppidx)
 		if (NULL != g_pVoltSampler)
 			g_pVoltSampler(volt_new);
 	} else
-		gpufreq_warn("@%s: GPU DVS failed, ret = %d\n", __func__, g_last_gpu_dvs_result);
+		gpufreq_dbg("@%s: GPU DVS failed, ret = %d\n", __func__, g_last_gpu_dvs_result);
 
 	return g_last_gpu_dvs_result;
 }
@@ -1720,7 +1721,7 @@ int mt_gpufreq_voltage_enable_set(unsigned int enable)
 		if (ret) {
 			unsigned int cur_freq = _mt_gpufreq_get_cur_freq();
 
-			gpufreq_err("@%s: Set Vcore to %dmV failed! ret = 0x%x, cur_freq = %d\n",
+			gpufreq_dbg("@%s: Set Vcore to %dmV failed! ret = 0x%x, cur_freq = %d\n",
 					__func__,
 					mt_gpufreqs[g_cur_gpu_OPPidx].gpufreq_volt / 100,
 					ret,
@@ -2521,7 +2522,8 @@ static ssize_t mt_gpufreq_opp_freq_proc_write(struct file *file, const char __us
 			* If 550MHz is exist, mask it when vcorefs is disabled
 			*************************************************/
 			g_is_vcorefs_on = is_vcorefs_can_work();
-			if ((!can_do_gpu_dvs()) && (mt_gpufreq_dvfs_table_type == 0 || mt_gpufreq_dvfs_table_type == 2)) {
+			if ((!can_do_gpu_dvs())
+					&& (mt_gpufreq_dvfs_table_type == 0 || mt_gpufreq_dvfs_table_type == 2)) {
 				unsigned int limited_freq =
 					mt_gpufreqs[g_gpufreq_max_id_vcorefs_off].gpufreq_khz;
 

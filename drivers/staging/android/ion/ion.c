@@ -214,13 +214,13 @@ static struct ion_buffer *ion_buffer_create(struct ion_heap *heap,
 
 	if (ret) {
 		if (!(heap->flags & ION_HEAP_FLAG_DEFER_FREE))
-			goto err2;
+			goto err1;
 
 		ion_heap_freelist_drain(heap, 0);
 		ret = heap->ops->allocate(heap, buffer, len, align,
 					  flags);
 		if (ret)
-			goto err2;
+			goto err1;
 	}
 
 	buffer->dev = dev;
@@ -245,7 +245,7 @@ static struct ion_buffer *ion_buffer_create(struct ion_heap *heap,
 		if (!buffer->pages) {
 			IONMSG("%s vamlloc failed pages is null.\n", __func__);
 			ret = -ENOMEM;
-			goto err1;
+			goto err;
 		}
 
 		for_each_sg(table->sgl, sg, table->nents, i) {
@@ -254,9 +254,6 @@ static struct ion_buffer *ion_buffer_create(struct ion_heap *heap,
 			for (j = 0; j < sg->length / PAGE_SIZE; j++)
 				buffer->pages[k++] = page++;
 		}
-
-		if (ret)
-			goto err;
 	}
 
 	buffer->dev = dev;
@@ -295,10 +292,9 @@ static struct ion_buffer *ion_buffer_create(struct ion_heap *heap,
 err:
 	heap->ops->unmap_dma(heap, buffer);
 	heap->ops->free(buffer);
-err1:
 	if (buffer->pages)
 		vfree(buffer->pages);
-err2:
+err1:
 	kfree(buffer);
 	return ERR_PTR(ret);
 }
@@ -966,7 +962,7 @@ void ion_client_destroy(struct ion_client *client)
 		struct ion_handle *handle = rb_entry(n, struct ion_handle,
 						     node);
 		mutex_lock(&client->lock);
-		IONMSG("warning: release handle @ client destroy: handle=%p, buf=%p, ref=%d, size=%zu, kmap=%d\n",
+		pr_err_ratelimited("[ION]warning: release handle @ client destroy: handle=%p, buf=%p, ref=%d, size=%zu, kmap=%d\n",
 				handle, handle->buffer, atomic_read(&handle->buffer->ref.refcount),
 				handle->buffer->size,  handle->buffer->kmap_cnt);
 		ion_handle_destroy(&handle->ref);
@@ -1375,8 +1371,13 @@ static int ion_sync_for_device(struct ion_client *client, int fd)
 	}
 	buffer = dmabuf->priv;
 
-	dma_sync_sg_for_device(NULL, buffer->sg_table->sgl,
-			       buffer->sg_table->nents, DMA_BIDIRECTIONAL);
+	if (buffer->heap->type != (int)ION_HEAP_TYPE_FB)
+		dma_sync_sg_for_device(NULL, buffer->sg_table->sgl,
+			buffer->sg_table->nents, DMA_BIDIRECTIONAL);
+	else
+		pr_err("%s: can not sync support heap type(%d) to sync\n",
+		       __func__, buffer->heap->type);
+
 	dma_buf_put(dmabuf);
 	return 0;
 }
@@ -1570,7 +1571,9 @@ static size_t ion_debug_heap_total(struct ion_client *client,
 		struct ion_handle *handle = rb_entry(n,
 						     struct ion_handle,
 						     node);
-		if (handle->buffer->heap->id == id)
+		if ((handle->buffer->heap->id == id)
+			|| ((id == ION_HEAP_TYPE_MULTIMEDIA)
+				&& (handle->buffer->heap->id == ION_HEAP_TYPE_MULTIMEDIA_FOR_CAMERA)))
 			size += handle->buffer->size;
 	}
 	mutex_unlock(&client->lock);
@@ -1583,6 +1586,7 @@ static int ion_debug_heap_show(struct seq_file *s, void *unused)
 	struct ion_device *dev = heap->dev;
 	struct rb_node *n;
 	size_t total_size = 0;
+	size_t camera_total_size = 0;
 	size_t total_orphaned_size = 0;
 
 	seq_printf(s, "%16.s(%16.s) %16.s %16.s %s\n", "client", "dbg_name", "pid", "size", "address");
@@ -1615,8 +1619,13 @@ static int ion_debug_heap_show(struct seq_file *s, void *unused)
 	for (n = rb_first(&dev->buffers); n; n = rb_next(n)) {
 		struct ion_buffer *buffer = rb_entry(n, struct ion_buffer,
 						     node);
-		if (buffer->heap->id != heap->id)
-			continue;
+		if (buffer->heap->id != heap->id) {
+			if ((heap->id == ION_HEAP_TYPE_MULTIMEDIA)
+				&& (buffer->heap->id == ION_HEAP_TYPE_MULTIMEDIA_FOR_CAMERA))
+				camera_total_size += buffer->size;
+			else
+				continue;
+		}
 		total_size += buffer->size;
 		if (!buffer->handle_count) {
 			seq_printf(s, "%16.s %16u %16zu %d %d\n",
@@ -1631,6 +1640,8 @@ static int ion_debug_heap_show(struct seq_file *s, void *unused)
 	seq_printf(s, "%16.s %16zu\n", "total orphaned",
 		   total_orphaned_size);
 	seq_printf(s, "%16.s %16zu\n", "total ", total_size);
+	if (heap->id == ION_HEAP_TYPE_MULTIMEDIA)
+		seq_printf(s, "%16.s %16zu\n", "camera total ", camera_total_size);
 	if (heap->flags & ION_HEAP_FLAG_DEFER_FREE)
 		seq_printf(s, "%16.s %16zu\n", "deferred free",
 				heap->free_list_size);
@@ -1919,23 +1930,6 @@ struct ion_handle *ion_drv_get_handle(struct ion_client *client, int user_handle
 int ion_drv_put_kernel_handle(void *kernel_handle)
 {
 	return ion_handle_put(kernel_handle);
-}
-
-int ion_device_destroy_heaps(struct ion_device *dev, int need_lock)
-{
-	struct ion_heap *heap, *tmp;
-
-	if (need_lock)
-		down_write(&dev->lock);
-
-	plist_for_each_entry_safe(heap, tmp, &dev->heaps, node) {
-		plist_del((struct plist_node *)heap, &dev->heaps);
-		ion_heap_destroy(heap);
-	}
-
-	if (need_lock)
-		up_write(&dev->lock);
-	return 0;
 }
 
 struct ion_heap *ion_drv_get_heap(struct ion_device *dev, int heap_id, int need_lock)

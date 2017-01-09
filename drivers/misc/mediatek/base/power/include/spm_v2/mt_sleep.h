@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #ifndef _MT_SLEEP_
 #define _MT_SLEEP_
 
@@ -19,5 +32,8 @@ extern void slp_start_auto_suspend_resume_timer(u32 sec);
 extern void slp_create_auto_suspend_resume_thread(void);
 
 extern void slp_module_init(void);
-
+#if defined(CONFIG_ARCH_MT6755)
+extern void subsys_if_on(void);
+extern void pll_if_on(void);
+#endif
 #endif

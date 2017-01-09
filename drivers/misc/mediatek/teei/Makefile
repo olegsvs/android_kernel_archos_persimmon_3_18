@@ -1,1 +1,4 @@
-obj-$(CONFIG_MICROTRUST_TEE_SUPPORT) += V1.0/
+ifeq ($(CONFIG_MICROTRUST_TEE_SUPPORT), y)
+obj-y += V1.0/
+endif
+

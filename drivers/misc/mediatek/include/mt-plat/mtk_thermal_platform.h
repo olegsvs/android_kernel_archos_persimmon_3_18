@@ -1,8 +1,21 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #ifndef _MTK_THERMAL_PLATFORM_H
 #define _MTK_THERMAL_PLATFORM_H
 
 #include <linux/thermal.h>
-#include <mtk_thermal_typedefs.h>
+#include "mtk_thermal_typedefs.h"
 
 extern
 int mtk_thermal_get_cpu_info(int *nocores, int **cpufreq, int **cpuloading);
@@ -30,12 +43,6 @@ unsigned int mtk_thermal_set_user_scenarios(unsigned int mask);
 
 extern
 unsigned int mtk_thermal_clear_user_scenarios(unsigned int mask);
-
-
-#if defined(CONFIG_MTK_SMART_BATTERY)
-/* global variable from battery driver... */
-extern kal_bool gFG_Is_Charging;
-#endif
 
 extern int force_get_tbat(void);
 #endif				/* _MTK_THERMAL_PLATFORM_H */

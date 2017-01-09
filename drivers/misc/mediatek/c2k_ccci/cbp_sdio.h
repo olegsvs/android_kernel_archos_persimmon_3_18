@@ -194,7 +194,7 @@ extern struct clk *clk_scp_sys_md2_main;
 #endif
 
 extern struct sdio_modem *c2k_modem;
-
+extern void modem_pre_stop(void);
 extern void modem_reset_handler(void);
 
 #ifndef CONFIG_EVDO_DT_VIA_SUPPORT
@@ -209,7 +209,7 @@ extern void SRC_trigger_signal(int i_on);
 #endif
 
 extern void c2k_modem_reset_platform(void);
-extern void c2k_reset_modem(void);
+extern void c2k_reset_modem(int type);
 
 extern void c2k_platform_restore_first_init(void);
 extern void enable_c2k_jtag(int mode);

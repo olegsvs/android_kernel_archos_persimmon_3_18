@@ -1,17 +1,14 @@
 /*
- * Copyright (C) 2007 The Android Open Source Project
+ * Copyright (C) 2015 MediaTek Inc.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
  */
 /*******************************************************************************
  *
@@ -71,9 +68,11 @@
 #include <linux/string.h>
 #include <linux/mutex.h>
 /* #include <linux/xlog.h> */
+#ifndef _IRQS_H_NOT_SUPPORT
 #include <mach/irqs.h>
 /* #include <mach/mt_irq.h> */
 #include <mach/irqs.h>
+#endif
 #include <asm/uaccess.h>
 #include <asm/irq.h>
 #include <asm/io.h>
@@ -814,10 +813,10 @@ static ssize_t AudDrv_btcvsd_write(struct file *fp, const char __user *data,
 	unsigned long flags;
 	char *data_w_ptr = (char *)data;
 	kal_uint64 write_timeout_limit;
+	int max_timeout_trial = 2;
 
-	if ((btsco.pTX == NULL) || (btsco.pTX->PacketBuf == NULL)
-	    || (btsco.pTX->u4BufferSize == 0)) {
-		pr_err("AudDrv_btcvsd_write btsco.pTX||btsco.pTX->PacketBuf==NULL||pTX->u4BufferSize==0!!!\n");
+	if ((btsco.pTX == NULL) || (btsco.pTX->u4BufferSize == 0)) {
+		pr_err("AudDrv_btcvsd_write btsco.pTX||pTX->u4BufferSize==0!!!\n");
 		msleep(60);
 		return written_size;
 	}
@@ -949,15 +948,49 @@ static ssize_t AudDrv_btcvsd_write(struct file *fp, const char __user *data,
 			BTCVSD_write_wait_queue_flag = 0;
 			ret = wait_event_interruptible_timeout(BTCVSD_Write_Wait_Queue,
 							       BTCVSD_write_wait_queue_flag,
-							       write_timeout_limit / 1000000 / 10);
+							       nsecs_to_jiffies(write_timeout_limit));
 			t2 = sched_clock();
 			/*pr_debug("AudDrv_btcvsd_write WAKEUP...count=%d\n",count);*/
 			t2 = t2 - t1;	/* in ns (10^9) */
+
+			PRINTK_AUDDRV("%s(), WAKEUP...wait event interrupt, ret = %d, flag = %d\n",
+			      __func__,
+			      ret,
+			      BTCVSD_write_wait_queue_flag);
+
 			if (t2 > write_timeout_limit) {
-				pr_debug
-				    ("AudDrv_btcvsd_write timeout, [Warning](%llu)ns, write_timeout_limit(%llu)\n",
-				     t2, write_timeout_limit);
-				return written_size;
+				pr_warn("%s timeout, %llu ns, timeout_limit %llu, ret %d, flag %d\n",
+					__func__,
+					t2, write_timeout_limit,
+					ret,
+					BTCVSD_write_wait_queue_flag);
+			}
+
+			if (ret < 0) {
+				/* error, -ERESTARTSYS if it was interrupted by a signal */
+				max_timeout_trial--;
+				pr_err("%s(), error, trial left %d, written_size %d\n",
+				       __func__,
+				       max_timeout_trial,
+				       written_size);
+
+				if (max_timeout_trial <= 0)
+					return written_size;
+			} else if (ret == 0) {
+				/* conidtion is false after timeout */
+				max_timeout_trial--;
+				pr_err("%s(), error, timeout, condition is false, trial left %d, written_size %d\n",
+				       __func__,
+				       max_timeout_trial,
+				       written_size);
+
+				if (max_timeout_trial <= 0)
+					return written_size;
+			} else if (ret == 1) {
+				/* condition is true after timeout */
+				pr_debug("%s(), timeout, condition is true\n", __func__);
+			} else {
+				pr_debug("%s(), condition is true before timeout\n", __func__);
 			}
 		}
 		/* here need to wait for interrupt handler */
@@ -972,14 +1005,15 @@ static ssize_t AudDrv_btcvsd_read(struct file *fp, char __user *data,
 				  size_t count, loff_t *offset)
 {
 	char *Read_Data_Ptr = (char *)data;
-	ssize_t ret, read_size = 0, read_count = 0, BTSCORX_ReadIdx_tmp;
+	int ret;
+	ssize_t read_size = 0, read_count = 0, BTSCORX_ReadIdx_tmp;
 	unsigned long u4DataRemained;
 	unsigned long flags;
 	kal_uint64 read_timeout_limit;
+	int max_timeout_trial = 2;
 
-	if ((btsco.pRX == NULL) || (btsco.pRX->PacketBuf == NULL)
-	    || (btsco.pRX->u4BufferSize == 0)) {
-		pr_err("AudDrv_btcvsd_read btsco.pRX|| btsco.pRX->PacketBuf==NULL||pRX->u4BufferSize == 0!\n");
+	if ((btsco.pRX == NULL) || (btsco.pRX->u4BufferSize == 0)) {
+		pr_err("AudDrv_btcvsd_read btsco.pRX || pRX->u4BufferSize == 0!\n");
 		msleep(60);
 		return -1;
 	}
@@ -1097,15 +1131,51 @@ static ssize_t AudDrv_btcvsd_read(struct file *fp, char __user *data,
 			BTCVSD_read_wait_queue_flag = 0;
 			ret = wait_event_interruptible_timeout(BTCVSD_Read_Wait_Queue,
 							       BTCVSD_read_wait_queue_flag,
-							       read_timeout_limit / 1000000 / 10);
+							       nsecs_to_jiffies(read_timeout_limit));
 			t2 = sched_clock();
 			PRINTK_AUDDRV("AudDrv_btcvsd_read WAKEUP...count=%zu\n", count);
 			t2 = t2 - t1;	/* in ns (10^9) */
+
+			PRINTK_AUDDRV("%s(), WAKEUP...wait event interrupt, ret = %d, flag = %d\n",
+			      __func__,
+			      ret,
+			      BTCVSD_read_wait_queue_flag);
+
 			if (t2 > read_timeout_limit) {
-				pr_debug("AudDrv_btcvsd_read timeout, [Warning](%llu)ns, read_timeout_limit(%llu)\n",
-				     t2, read_timeout_limit);
-				return read_count;
+				pr_warn("%s timeout, %llu ns, timeout_limit %llu, ret %d, flag %d\n",
+					__func__,
+					t2, read_timeout_limit,
+					ret,
+					BTCVSD_read_wait_queue_flag);
 			}
+
+			if (ret < 0) {
+				/* error, -ERESTARTSYS if it was interrupted by a signal */
+				max_timeout_trial--;
+				pr_err("%s(), error, trial left %d, read_count %zd\n",
+				       __func__,
+				       max_timeout_trial,
+				       read_count);
+
+				if (max_timeout_trial <= 0)
+					return read_count;
+			} else if (ret == 0) {
+				/* conidtion is false after timeout */
+				max_timeout_trial--;
+				pr_err("%s(), error, timeout, condition is false, trial left %d, read_count %zd\n",
+				       __func__,
+				       max_timeout_trial,
+				       read_count);
+
+				if (max_timeout_trial <= 0)
+					return read_count;
+			} else if (ret == 1) {
+				/* condition is true after timeout */
+				pr_debug("%s(), timeout, condition is true\n", __func__);
+			} else {
+				pr_debug("%s(), condition is true before timeout\n", __func__);
+			}
+
 		}
 	}
 	PRINTK_AUDDRV("AudDrv_btcvsd_read read_count = %zu,read_timeout_limit=%llu\n",

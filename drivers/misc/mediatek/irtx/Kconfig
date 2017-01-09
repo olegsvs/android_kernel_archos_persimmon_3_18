@@ -9,4 +9,3 @@ config MTK_IRTX_PWM_SUPPORT
 	default n
 	---help---
 	  IRTX driver support for MediaTek PWM only solution
-

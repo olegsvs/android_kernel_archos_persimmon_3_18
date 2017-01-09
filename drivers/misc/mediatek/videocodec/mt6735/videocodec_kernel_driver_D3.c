@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
@@ -287,6 +300,7 @@ static DEFINE_MUTEX(EncHWLockEventTimeoutLock);
 
 static DEFINE_MUTEX(VdecPWRLock);
 static DEFINE_MUTEX(VencPWRLock);
+static DEFINE_MUTEX(LogCountLock);
 
 static DEFINE_SPINLOCK(DecIsrLock);
 static DEFINE_SPINLOCK(EncIsrLock);
@@ -310,6 +324,9 @@ static VAL_UINT32_T gu4HwVencIrqStatus; /* hardware VENC IRQ status (VP8/H264) *
 
 static VAL_UINT32_T gu4VdecPWRCounter;  /* mutex : VdecPWRLock */
 static VAL_UINT32_T gu4VencPWRCounter;  /* mutex : VencPWRLock */
+
+static VAL_UINT32_T gu4LogCountUser;  /* mutex : LogCountLock */
+static VAL_UINT32_T gu4LogCount;
 
 static VAL_UINT32_T gLockTimeOutCount;
 
@@ -1314,6 +1331,7 @@ static long vcodec_unlocked_ioctl(struct file *file, unsigned int cmd, unsigned 
 	VAL_VCODEC_CPU_OPP_LIMIT_T rCpuOppLimit;
 	VAL_INT32_T temp_nr_cpu_ids;
 	VAL_POWER_T rPowerParam;
+	VAL_BOOL_T rIncLogCount;
 
 #if 0
 	VCODEC_DRV_CMD_QUEUE_T rDrvCmdQueue;
@@ -1534,6 +1552,7 @@ static long vcodec_unlocked_ioctl(struct file *file, unsigned int cmd, unsigned 
 	}
 	break;
 
+#if 0
 	case VCODEC_GET_CPU_LOADING_INFO: {
 		VAL_UINT8_T *user_data_addr;
 		VAL_VCODEC_CPU_LOADING_INFO_T _temp;
@@ -1558,6 +1577,7 @@ static long vcodec_unlocked_ioctl(struct file *file, unsigned int cmd, unsigned 
 		MODULE_MFV_LOGD("VCODEC_GET_CPU_LOADING_INFO -\n");
 	}
 	break;
+#endif
 
 	case VCODEC_GET_CORE_LOADING: {
 		MODULE_MFV_LOGD("VCODEC_GET_CORE_LOADING + - tid = %d\n", current->pid);
@@ -1618,6 +1638,38 @@ static long vcodec_unlocked_ioctl(struct file *file, unsigned int cmd, unsigned 
 
 	case VCODEC_MB: {
 		mb();
+	}
+	break;
+
+	case VCODEC_SET_LOG_COUNT:
+	{
+		MODULE_MFV_LOGD("VCODEC_SET_LOG_COUNT + tid = %d\n", current->pid);
+
+		mutex_lock(&LogCountLock);
+		user_data_addr = (VAL_UINT8_T *)arg;
+		ret = copy_from_user(&rIncLogCount, user_data_addr, sizeof(VAL_BOOL_T));
+		if (ret) {
+			MODULE_MFV_LOGE("[ERROR] VCODEC_SET_LOG_COUNT, copy_from_user failed: %lu\n", ret);
+			mutex_unlock(&LogCountLock);
+			return -EFAULT;
+		}
+
+		if (rIncLogCount == VAL_TRUE) {
+			if (gu4LogCountUser == 0) {
+				gu4LogCount = get_detect_count();
+				set_detect_count(gu4LogCount + 100);
+			}
+			gu4LogCountUser++;
+		} else {
+			gu4LogCountUser--;
+			if (gu4LogCountUser == 0) {
+				set_detect_count(gu4LogCount);
+				gu4LogCount = 0;
+			}
+		}
+		mutex_unlock(&LogCountLock);
+
+		MODULE_MFV_LOGD("VCODEC_SET_LOG_COUNT - tid = %d\n", current->pid);
 	}
 	break;
 
@@ -2109,7 +2161,7 @@ static int vcodec_open(struct inode *inode, struct file *file)
 static int vcodec_flush(struct file *file, fl_owner_t id)
 {
 	MODULE_MFV_LOGD("vcodec_flush, curr_tid =%d\n", current->pid);
-	MODULE_MFV_LOGE("vcodec_flush pid = %d, Driver_Open_Count %d\n", current->pid, Driver_Open_Count);
+	MODULE_MFV_LOGD("vcodec_flush pid = %d, Driver_Open_Count %d\n", current->pid, Driver_Open_Count);
 
 	return 0;
 }
@@ -2261,7 +2313,7 @@ static int vcodec_mmap(struct file *file, struct vm_area_struct *vma)
 	}
 #endif
 	vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
-	MODULE_MFV_LOGE("[VCODEC][mmap] vma->start 0x%lx, vma->end 0x%lx, vma->pgoff 0x%lx\n",
+	MODULE_MFV_LOGD("[VCODEC][mmap] vma->start 0x%lx, vma->end 0x%lx, vma->pgoff 0x%lx\n",
 		 (VAL_ULONG_T)vma->vm_start, (VAL_ULONG_T)vma->vm_end, (VAL_ULONG_T)vma->vm_pgoff);
 	if (remap_pfn_range(vma, vma->vm_start, vma->vm_pgoff,
 			    vma->vm_end - vma->vm_start, vma->vm_page_prot)) {
@@ -2483,6 +2535,11 @@ static int __init vcodec_driver_init(void)
 	mutex_lock(&DriverOpenCountLock);
 	Driver_Open_Count = 0;
 	mutex_unlock(&DriverOpenCountLock);
+
+	mutex_lock(&LogCountLock);
+	gu4LogCountUser = 0;
+	gu4LogCount = 0;
+	mutex_unlock(&LogCountLock);
 
 	{
 		struct device_node *node = NULL;

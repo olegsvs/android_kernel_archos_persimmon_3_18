@@ -95,7 +95,7 @@ static LCM_UTIL_FUNCS lcm_util = {0};
 #define UDELAY(n) 										(lcm_util.udelay(n))
 #define MDELAY(n) 										(lcm_util.mdelay(n))
 
-static unsigned int lcm_esd_test = FALSE;      ///only for ESD test
+//static unsigned int lcm_esd_test = FALSE;      ///only for ESD test
 
 // ---------------------------------------------------------------------------
 //  Local Functions
@@ -114,7 +114,7 @@ static unsigned int lcm_esd_test = FALSE;      ///only for ESD test
     unsigned char para_list[64];
 };
 
-static struct LCM_setting_table lcm_initialization_setting[] = {
+/*static struct LCM_setting_table lcm_initialization_setting[] = {
 // Set EXTC
 {0xB9, 3, {0xFF,0x83,0x94}},
 
@@ -183,10 +183,10 @@ static struct LCM_setting_table lcm_initialization_setting[] = {
 {0x29,  0,  {0x00}},
 {REGFLAG_DELAY, 20, {0}},
 };
+*/
 
 
-
-static struct LCM_setting_table lcm_sleep_out_setting[] = {
+/*static struct LCM_setting_table lcm_sleep_out_setting[] = {
     // Sleep Out
 	{0x11, 1, {0x00}},
 	{REGFLAG_DELAY, 150, {}},
@@ -197,9 +197,9 @@ static struct LCM_setting_table lcm_sleep_out_setting[] = {
 	{REGFLAG_DELAY, 200, {}},
 	{REGFLAG_END_OF_TABLE, 0x00, {}}
 };
+*/
 
-
-static struct LCM_setting_table lcm_deep_sleep_mode_in_setting[] = {
+/*static struct LCM_setting_table lcm_deep_sleep_mode_in_setting[] = {
 	// Display off sequence
 	{0x28, 1, {0x00}},
     {REGFLAG_DELAY, 150, {}},
@@ -223,8 +223,8 @@ static struct LCM_setting_table lcm_backlight_level_setting[] = {
 	{REGFLAG_END_OF_TABLE, 0x00, {}}
 };
 
-
-static void push_table(struct LCM_setting_table *table, unsigned int count, unsigned char force_update)
+*/
+/*static void push_table(struct LCM_setting_table *table, unsigned int count, unsigned char force_update)
 {
 	unsigned int i;
 
@@ -248,7 +248,7 @@ static void push_table(struct LCM_setting_table *table, unsigned int count, unsi
     }
 	
 }
-
+*/
 
 // ---------------------------------------------------------------------------
 //  LCM Driver Implementations
@@ -301,7 +301,7 @@ static void lcm_get_params(LCM_PARAMS *params)
 	params->dsi.PLL_CLOCK=205;//227;//254;//254//247  240
 }
 
-static unsigned int lcm_init_resgister(void)
+static void lcm_init_resgister(void)
 {
      unsigned int data_array[16];
   
@@ -477,7 +477,7 @@ static void lcm_resume(void)
 
 
 
-static unsigned int lcm_esd_check(void)
+/*static unsigned int lcm_esd_check(void)
 {
 #ifndef BUILD_LK
 	int array[4];
@@ -493,14 +493,13 @@ static unsigned int lcm_esd_check(void)
 	/// if you want to change it, you can refer to the following marked code
 	/// but read_reg currently only support read no more than 4 bytes....
 	/// if you need to read more, please let BinHan knows.
-	/*
-	        unsigned int data_array[16];
+		        unsigned int data_array[16];
 	        unsigned int max_return_size = 1;
 	        
 	        data_array[0]= 0x00003700 | (max_return_size << 16);    
 	        
 	        dsi_set_cmdq(&data_array, 1, 1);
-	*/
+	
 
 	array[0]=0x00043902;
 	array[1]=0x9483FFB9;// page enable
@@ -532,12 +531,12 @@ static unsigned int lcm_esd_check(void)
 	}
 #endif
 }
-
-static unsigned int lcm_esd_recover(void)
+*/
+/*static unsigned int lcm_esd_recover(void)
 {
 	lcm_init();
 	return TRUE;
-}
+}*/
 	
 static unsigned int lcm_compare_id(void)
 {

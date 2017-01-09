@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #ifndef _CUST_PMIC_H_
 #define _CUST_PMIC_H_
 
@@ -40,7 +53,7 @@
 #define POWEROFF_BAT_CURRENT 3000
 #define DLPT_POWER_OFF_THD 100
 
-#define BATTERY_MODULE_INIT
+/*#define BATTERY_MODULE_INIT*/
 
 /* ADC Channel Number */
 enum {

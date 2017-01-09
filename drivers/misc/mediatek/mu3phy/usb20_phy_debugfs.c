@@ -1,3 +1,16 @@
+/*
+* Copyright (C) 2016 MediaTek Inc.
+*
+* This program is free software; you can redistribute it and/or modify
+* it under the terms of the GNU General Public License version 2 as
+* published by the Free Software Foundation.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+* See http://www.gnu.org/licenses/gpl-2.0.html for more details.
+*/
+
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/init.h>
@@ -6,12 +19,12 @@
 #include <asm/uaccess.h>
 #include "musb_core.h"
 #include "mtk-phy.h"
-#define USBPHY_READ8(offset)					U3PhyReadReg8((u3phy_addr_t)u3_sif2_base+0x800+offset)
-#define USBPHY_WRITE8(offset, value)	U3PhyWriteReg8((u3phy_addr_t)u3_sif2_base+0x800+offset, value)
+#define USBPHY_READ8(offset)					U3PhyReadReg8((u3phy_addr_t)(uintptr_t)u3_sif2_base+0x800+offset)
+#define USBPHY_WRITE8(offset, value)	U3PhyWriteReg8((u3phy_addr_t)(uintptr_t)u3_sif2_base+0x800+offset, value)
 #define USBPHY_SET8(offset, mask) \
-U3PhyWriteReg8((u3phy_addr_t)u3_sif2_base+0x800+offset, U3PhyReadReg8((u3phy_addr_t)u3_sif2_base+0x800+offset)|(mask))
+U3PhyWriteReg8((u3phy_addr_t)(uintptr_t)u3_sif2_base+0x800+offset, U3PhyReadReg8((u3phy_addr_t)(uintptr_t)u3_sif2_base+0x800+offset)|(mask))
 #define USBPHY_CLR8(offset, mask) \
-U3PhyWriteReg8((u3phy_addr_t)u3_sif2_base+0x800+offset, U3PhyReadReg8((u3phy_addr_t)u3_sif2_base+0x800+offset)&(~mask))
+U3PhyWriteReg8((u3phy_addr_t)(uintptr_t)u3_sif2_base+0x800+offset, U3PhyReadReg8((u3phy_addr_t)(uintptr_t)u3_sif2_base+0x800+offset)&(~mask))
 #define MYDBG(fmt, args...) pr_warn("MTK_ICUSB [DBG], <%s(), %d> " fmt, __func__, __LINE__, ## args)
 
 /* general */

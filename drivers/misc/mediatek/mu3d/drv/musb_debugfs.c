@@ -353,7 +353,7 @@ static const struct file_operations musb_usb_reg_fops = {
 };
 #endif
 
-#ifdef CONFIG_MTK_FPGA
+#ifdef CONFIG_FPGA_EARLY_PORTING
 static int musb_scan_phase_show(struct seq_file *s, void *unused)
 {
 	seq_puts(s, "#echo scan l=[0|1] d=[0~3] > scan_phase\n");
@@ -558,6 +558,18 @@ static const struct file_operations musb_phy_reg_fops = {
 };
 #endif
 
+#ifdef CONFIG_U3_PHY_SMT_LOOP_BACK_SUPPORT
+static int smt_err_count_get(void *data, u64 *val)
+{
+	*val = u3_loop_back_test();
+
+	os_printk(K_DEBUG, "smt_err_count_get %llu\n", *val);
+
+	return 0;
+}
+DEFINE_SIMPLE_ATTRIBUTE(smt_err_count, smt_err_count_get, NULL, "%llu\n");
+#endif
+
 int musb_init_debugfs(struct musb *musb)
 {
 	struct dentry *root;
@@ -588,8 +600,15 @@ int musb_init_debugfs(struct musb *musb)
 		goto err1;
 	}
 #endif
-
-#ifdef CONFIG_MTK_FPGA
+#ifdef CONFIG_U3_PHY_SMT_LOOP_BACK_SUPPORT
+	file = debugfs_create_file("smt_err_count", S_IRUGO, root, musb,
+					&smt_err_count);
+	if (!file) {
+		ret = -ENOMEM;
+		goto err1;
+	}
+#endif
+#ifdef CONFIG_FPGA_EARLY_PORTING
 	file = debugfs_create_file("scan_phase", S_IRUGO | S_IWUSR,
 				   root, musb, &musb_scan_phase_fops);
 	if (!file) {

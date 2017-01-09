@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #ifndef __MMPROFILE_H__
 #define __MMPROFILE_H__
 #include "mmprofile_static_event.h"
@@ -46,6 +59,16 @@ typedef struct {
 	unsigned int size;          /* meta data size */
 	void *pData;                /* meta data pointer */
 } MMP_MetaData_t;
+
+#ifdef CONFIG_COMPAT
+struct Compat_MMP_MetaData_t {
+	unsigned int data1;         /* data1 (user defined) */
+	unsigned int data2;         /* data2 (user defined) */
+	MMP_MetaDataType data_type; /* meta data type */
+	unsigned int size;          /* meta data size */
+	unsigned int pData;        /* meta data pointer */
+};
+#endif
 
 typedef struct {
 	unsigned int data1;         /* data1 (user defined) */

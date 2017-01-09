@@ -32,11 +32,13 @@ int __init __weak early_init_dt_alloc_reserved_memory_arch(phys_addr_t size,
 	phys_addr_t align, phys_addr_t start, phys_addr_t end, bool nomap,
 	phys_addr_t *res_base)
 {
+	phys_addr_t base;
 	/*
 	 * We use __memblock_alloc_base() because memblock_alloc_base()
 	 * panic()s on allocation failure.
 	 */
-	phys_addr_t base = __memblock_alloc_base(size, align, end);
+	end = !end ? MEMBLOCK_ALLOC_ANYWHERE : end;
+	base = __memblock_alloc_base(size, align, end);
 	if (!base)
 		return -ENOMEM;
 
@@ -168,13 +170,16 @@ static int __init __reserved_mem_alloc_size(unsigned long node,
 	*res_base = base;
 	*res_size = size;
 
-	if (nomap)
+	if (nomap) {
+		mtk_memcfg_write_memory_layout_info(MTK_MEMCFG_MEMBLOCK_PHY,
+				uname, base, size);
 		MTK_MEMCFG_LOG_AND_PRINTK(
 			"[PHY layout]%s   :   0x%08llx - 0x%08llx (0x%llx)\n",
 			uname,
 			(unsigned long long)base,
 			(unsigned long long)base + size - 1,
 			(unsigned long long)size);
+	}
 
 	return 0;
 }

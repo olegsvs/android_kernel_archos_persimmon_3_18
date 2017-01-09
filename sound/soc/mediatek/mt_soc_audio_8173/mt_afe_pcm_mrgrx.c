@@ -188,8 +188,9 @@ static int mt_pcm_mrgrx_prepare(struct snd_pcm_substream *substream)
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct mt_pcm_mrgrx_priv *priv = snd_soc_platform_get_drvdata(rtd->platform);
 
-	pr_debug("%s rate = %u channels = %u period_size = %lu\n",
-		__func__, runtime->rate, runtime->channels, runtime->period_size);
+	pr_debug("%s rate = %u channels = %u format = %d period_size = %lu\n",
+		 __func__, runtime->rate, runtime->channels,
+		 runtime->format, runtime->period_size);
 
 	if (priv->prepare_done == false) {
 		mtk_wcn_cmb_stub_audio_ctrl((CMB_STUB_AIF_X) CMB_STUB_AIF_3);
@@ -207,7 +208,8 @@ static int mt_pcm_mrgrx_prepare(struct snd_pcm_substream *substream)
 
 		/* start I2S DAC out */
 		if (mt_afe_get_memory_path_state(MT_AFE_DIGITAL_BLOCK_I2S_OUT_DAC) == false) {
-			mt_afe_set_i2s_dac_out(runtime->rate);
+			mt_afe_set_i2s_dac_out(runtime->rate, MT_AFE_NORMAL_CLOCK,
+					MT_AFE_I2S_WLEN_16BITS);
 			mt_afe_enable_memory_path(MT_AFE_DIGITAL_BLOCK_I2S_OUT_DAC);
 			mt_afe_enable_i2s_dac();
 		} else {

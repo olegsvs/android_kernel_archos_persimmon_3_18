@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/kdev_t.h>
@@ -25,6 +38,8 @@
 
 #include <mt-plat/sync_write.h>
 
+#include <mt_smi.h>
+
 #ifdef CONFIG_MTK_CLKMGR
 #include "mach/mt_clkmgr.h"
 #else
@@ -37,8 +52,8 @@
 
 /* LOG */
 #define MJC_ASSERT(x) {if (!(x)) pr_error("MJC assert fail, file:%s, line:%d", __FILE__, __LINE__); }
-#define MTK_MJC_DBG
 
+/*#define MTK_MJC_DBG */
 #ifdef MTK_MJC_DBG
 #define MJCDBG(string, args...)       pr_debug("MJC [pid=%d]"string, current->tgid, ##args)
 #else
@@ -66,7 +81,6 @@
 #define MTK_MJC_DEV_MAJOR_NUMBER 168
 #define MJC_FORCE_REG_NUM 100
 
-
 /* variable */
 static DEFINE_SPINLOCK(ContextLock);
 static DEFINE_SPINLOCK(HWLock);
@@ -87,6 +101,11 @@ static struct clk *clk_MJC_TOP_CLK_0;
 static struct clk *clk_MJC_TOP_CLK_1;
 static struct clk *clk_MJC_TOP_CLK_2;
 static struct clk *clk_MJC_LARB4_ASIF;
+static struct clk *clk_SCP_SYS_DIS;
+static struct clk *clk_SCP_SYS_MJC;
+static struct clk *clk_TOP_MUX_MJC;
+static struct clk *clk_TOP_IMGPLL_CK;
+static struct clk *clk_TOP_UNIVPLL_D5;
 #endif
 
 unsigned long gulRegister, gu1PaReg, gu1PaSize, gulCGRegister;
@@ -230,14 +249,14 @@ static int _mjc_SetEvent(MJC_EVENT_T *a_prParam)
  * RETURNS
  *    None.
  ****************************************************************************/
-static void _mjc_m4uConfigPort(void)
+static void _mjc_m4uConfigPort(bool isOpen)
 {
 	int u4Status;
 	M4U_PORT_STRUCT rM4uPort;
 
 	rM4uPort.Virtuality = 1;
 	rM4uPort.Security = 0;
-	rM4uPort.Distance = 0;
+	rM4uPort.Distance = isOpen ? 0 : 1;
 	rM4uPort.Direction = 0;
 	rM4uPort.domain = 3;
 
@@ -346,6 +365,18 @@ static int mjc_open(struct inode *pInode, struct file *pFile)
 	enable_clock(MT_CG_MJC_TOP_GROUP2, "mjc");
 	enable_clock(MT_CG_MJC_LARB4_AXI_ASIF, "mjc");
 #else
+	ret = clk_prepare_enable(clk_SCP_SYS_DIS);
+	if (ret) {
+		/* print error log & error handling */
+		MJCMSG("[ERROR] mjc_open() clk_SCP_SYS_DIS is not enabled, ret = %d\n", ret);
+	}
+
+	ret = clk_prepare_enable(clk_SCP_SYS_MJC);
+	if (ret) {
+		/* print error log & error handling */
+		MJCMSG("[ERROR] mjc_open() clk_SCP_SYS_MJC is not enabled, ret = %d\n", ret);
+	}
+
 	ret = clk_prepare_enable(clk_MM_SMI_COMMON);
 	if (ret) {
 		/* print error log & error handling */
@@ -396,7 +427,7 @@ static int mjc_open(struct inode *pInode, struct file *pFile)
 #endif
 
 #ifdef CONFIG_FPGA_EARLY_PORTING
-	node = of_find_compatible_node(NULL, NULL, "mediatek,-mjc_config-v1");
+	node = of_find_compatible_node(NULL, NULL, "mediatek,mjc_config-v1");
 	gulCGRegister = (unsigned long)of_iomap(node, 0);
 	MJC_WriteReg32((gulCGRegister+8), 0xffffffff);
 #endif
@@ -410,7 +441,7 @@ static int mjc_open(struct inode *pInode, struct file *pFile)
 	grHWLockContext.rEvent.u4TimeoutMs = 0xFFFFFFFF;
 	spin_unlock_irqrestore(&HWLock, ulFlags);
 
-	_mjc_m4uConfigPort();
+	_mjc_m4uConfigPort(true);
 
 	m4u_register_fault_callback(M4U_PORT_MJC_MV_RD, mjc_m4u_fault_callback, (void *)0);
 	m4u_register_fault_callback(M4U_PORT_MJC_MV_WR, mjc_m4u_fault_callback, (void *)0);
@@ -435,7 +466,30 @@ static int mjc_open(struct inode *pInode, struct file *pFile)
  ****************************************************************************/
 static int mjc_release(struct inode *pInode, struct file *pFile)
 {
+	int ret;
 	MJCDBG("mjc_release() pid = %d\n", current->pid);
+
+	_mjc_m4uConfigPort(false);
+
+	ret = clk_prepare_enable(clk_TOP_MUX_MJC);
+	if (ret) {
+		/* print error log & error handling */
+		MJCMSG("[ERROR] mjc_open() clk_TOP_MUX_MJC is not enabled, ret = %d\n", ret);
+	}
+	ret = clk_set_parent(clk_TOP_MUX_MJC, clk_TOP_UNIVPLL_D5); /* UNIVPLL_D5 (250) */
+	if (ret) {
+		/* print error log & error handling */
+		MJCMSG("[ERROR] mjc_ioctl() TOP_UNIVPLL_D5 is not enabled, ret = %d\n", ret);
+	}
+	clk_disable_unprepare(clk_TOP_MUX_MJC);
+
+#ifdef CONFIG_MTK_SMI_EXT
+	ret = mmdvfs_set_step(SMI_BWC_SCEN_VPMJC, MMDVFS_VOLTAGE_LOW);
+	if (0 != ret) {
+		/* Add one line comment for avoid kernel coding style, WARNING:BRACES: */
+		MJCMSG("[ERROR] mjc_ioctl() OOPS: mmdvfs_set_step error!");
+	}
+#endif
 
 	m4u_unregister_fault_callback(M4U_PORT_MJC_MV_RD);
 	m4u_unregister_fault_callback(M4U_PORT_MJC_MV_WR);
@@ -460,6 +514,8 @@ static int mjc_release(struct inode *pInode, struct file *pFile)
 	clk_disable_unprepare(clk_MJC_TOP_CLK_1);
 	clk_disable_unprepare(clk_MJC_TOP_CLK_2);
 	clk_disable_unprepare(clk_MJC_LARB4_ASIF);
+	clk_disable_unprepare(clk_SCP_SYS_MJC);
+	clk_disable_unprepare(clk_SCP_SYS_DIS);
 #endif
 	return 0;
 }
@@ -480,16 +536,12 @@ static long mjc_ioctl(struct file *pfile, unsigned int u4cmd, unsigned long u4ar
 	int u4FirstUse;
 	unsigned long ulAdd;
 	unsigned long ulFlags;
-	unsigned int u4efuse;
-#ifdef CONFIG_MTK_SEGMENT_TEST
-	unsigned int u4TestValue;
-#endif
+
 	MJC_IOCTL_LOCK_HW_T rLockHW;
 	MJC_IOCTL_ISR_T rIsr;
 	MJC_READ_REG_T rReadReg;
 	MJC_WRITE_REG_T rWriteReg;
 	MJC_IOCTL_SRC_CLK_T rSrcClk;
-	MJC_IOCTL_EFUSE_INFO_T rEFuseInfo;
 	MJC_IOCTL_REG_INFO_T rRegInfo;
 
 	int cnt = 0;
@@ -698,58 +750,46 @@ static long mjc_ioctl(struct file *pfile, unsigned int u4cmd, unsigned long u4ar
 			}
 
 			MJCDBG(" frame rate =%d\n", rSrcClk.u2OutputFramerate);
+
+			ret = clk_prepare_enable(clk_TOP_MUX_MJC);
+			if (ret) {
+				/* print error log & error handling */
+				MJCMSG("[ERROR] mjc_open() clk_TOP_MUX_MJC is not enabled, ret = %d\n", ret);
+			}
+
 			if (rSrcClk.u2OutputFramerate == 600) {	/* frame rate 60 case */
-				/* clkmux_sel(MT_MUX_MJC, 7, "mjc");  SYSPLL_D5 (218.4) */
+#ifdef CONFIG_MTK_SMI_EXT
+				ret = mmdvfs_set_step(SMI_BWC_SCEN_VPMJC, MMDVFS_VOLTAGE_LOW);
+				if (0 != ret) {
+					/* Add one line comment for avoid kernel coding style, WARNING:BRACES: */
+					MJCMSG("[ERROR] mjc_ioctl() OOPS: mmdvfs_set_step error!");
+				}
+#endif
+				ret = clk_set_parent(clk_TOP_MUX_MJC, clk_TOP_UNIVPLL_D5); /* UNIVPLL_D5 (250) */
+				if (ret) {
+					/* print error log & error handling */
+					MJCMSG("[ERROR] mjc_ioctl() TOP_UNIVPLL_D5 is not enabled, ret = %d\n", ret);
+				}
 			} else if (rSrcClk.u2OutputFramerate == 1200) {	/* frame rate 120 case */
-				/* clkmux_sel(MT_MUX_MJC, 1, "mjc");  UNIVPLL_D3 (416) */
+#ifdef CONFIG_MTK_SMI_EXT
+				ret = mmdvfs_set_step(SMI_BWC_SCEN_VPMJC, MMDVFS_VOLTAGE_HIGH);
+				if (0 != ret) {
+					/* Add one line comment for avoid kernel coding style, WARNING:BRACES: */
+					MJCMSG("[ERROR] mjc_ioctl() OOPS: mmdvfs_set_step error!");
+				}
+#endif
+				ret = clk_set_parent(clk_TOP_MUX_MJC, clk_TOP_IMGPLL_CK); /* IMGPLL (450) */
+				if (ret) {
+					/* print error log & error handling */
+					MJCMSG("[ERROR] mjc_ioctl() TOP_IMGPLL_CK is not enabled, ret = %d\n", ret);
+				}
 			} else {
+				clk_disable_unprepare(clk_TOP_MUX_MJC);
 				MJCMSG("[ERROR] mjc_ioctl() MJC_SOURCE_CLK fail frame rate : %d\n",
 				       rSrcClk.u2OutputFramerate);
 				return -1;
 			}
-		}
-		break;
-	case MJC_EFUSE_INFO:
-		{
-			MJCDBG("mjc_ioctl() MJC_EFUSE_INFO + tid = %d\n", current->pid);
-
-			if (copy_from_user
-			    (&rEFuseInfo, (void __user *)u4arg, sizeof(MJC_IOCTL_SRC_CLK_T))) {
-				MJCMSG("[ERROR] mjc_ioctl() MJC_EFUSE_INFO copy_from_user fail\n");
-				return -1;
-			}
-
-			if (sizeof(MJC_IOCTL_SRC_CLK_T) != rEFuseInfo.u4StructSize) {
-				MJCMSG
-				    ("[ERROR] mjc_ioctl() MJC_EFUSE_INFO context size mismatch (user:%d, kernel:%ld)\n",
-				     rEFuseInfo.u4StructSize, sizeof(MJC_IOCTL_SRC_CLK_T));
-				return -1;
-			}
-
-			MJCDBG(" EFUSE_MJC_IDX =%d, EFUSE_MJC_BIT =%d\n",
-			rEFuseInfo.u1EFuseIndex, rEFuseInfo.u4EFuseBit);
-
-#ifndef CONFIG_MTK_SEGMENT_TEST
-			u4efuse = get_devinfo_with_index(rEFuseInfo.u1EFuseIndex);
-
-			if ((u4efuse & rEFuseInfo.u4EFuseBit) != 0) {
-				MJCMSG("[ERROR] mjc efuse no support %d\n", u4efuse);
-				return -1;
-			}
-#else
-			u4TestValue = MJC_Reg32((gulRegister + 4));
-			MJCDBG("Pre-Read: 0x%x\n", u4TestValue);
-			MJC_WriteReg32((gulRegister + 4), 0x123456);
-			MJC_WriteReg32((gulRegister + 4), 0x123456);
-			u4TestValue = MJC_Reg32((gulRegister + 4));
-			MJCDBG("Read: 0x%x\n", u4TestValue);
-			if (u4TestValue == 0x123456) {
-				MJCMSG("[MJC efuse] HW enable\n");
-			} else {
-				MJCMSG("[MJC efuse] HW disable\n");
-				return -1;
-			}
-#endif
+			clk_disable_unprepare(clk_TOP_MUX_MJC);
 		}
 		break;
 
@@ -994,6 +1034,36 @@ static int mjc_probe(struct platform_device *pDev)
 	if (IS_ERR(clk_MJC_LARB4_ASIF)) {
 		MJCMSG("[ERROR] Unable to devm_clk_get MJC_LARB4_ASIF\n");
 		return PTR_ERR(clk_MJC_LARB4_ASIF);
+	}
+
+	clk_SCP_SYS_DIS = devm_clk_get(&pDev->dev, "mtcmos-dis");
+	if (IS_ERR(clk_SCP_SYS_DIS)) {
+		MJCMSG("[ERROR] Unable to devm_clk_get SCP_SYS_DIS\n");
+		return PTR_ERR(clk_SCP_SYS_DIS);
+	}
+
+	clk_SCP_SYS_MJC = devm_clk_get(&pDev->dev, "mtcmos-mjc");
+	if (IS_ERR(clk_SCP_SYS_MJC)) {
+		MJCMSG("[ERROR] Unable to devm_clk_get SCP_SYS_MJC\n");
+		return PTR_ERR(clk_SCP_SYS_MJC);
+	}
+
+	clk_TOP_MUX_MJC = devm_clk_get(&pDev->dev, "mux_mjc");
+	if (IS_ERR(clk_TOP_MUX_MJC)) {
+		MJCMSG("[ERROR] Unable to devm_clk_get TOP_MUX_MJC\n");
+		return PTR_ERR(clk_TOP_MUX_MJC);
+	}
+
+	clk_TOP_IMGPLL_CK = devm_clk_get(&pDev->dev, "imgpll_ck");
+	if (IS_ERR(clk_TOP_IMGPLL_CK)) {
+		MJCMSG("[ERROR] Unable to devm_clk_get clk_TOP_IMGPLL_CK\n");
+		return PTR_ERR(clk_TOP_IMGPLL_CK);
+	}
+
+	clk_TOP_UNIVPLL_D5 = devm_clk_get(&pDev->dev, "univpll_d5");
+	if (IS_ERR(clk_TOP_UNIVPLL_D5)) {
+		MJCMSG("[ERROR] Unable to devm_clk_get TOP_SYSPLL_D2\n");
+		return PTR_ERR(clk_TOP_UNIVPLL_D5);
 	}
 #endif
 

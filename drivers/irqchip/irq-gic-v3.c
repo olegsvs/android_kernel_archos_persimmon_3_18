@@ -34,8 +34,16 @@
 #include "irq-gic-common.h"
 #include "irqchip.h"
 
-#include <mach/mt_secure_api.h>
 #define IOMEM(x)        ((void __force __iomem *)(x))
+
+#ifndef writeq_relaxed
+/* for some kernel config, writeq not exist, aarch32 */
+static inline void writeq_relaxed(u64 val, void __iomem *addr)
+{
+	writel((u32) (val), addr);
+	writel((u32) (val >> 32), (addr + 4));
+}
+#endif
 
 struct gic_chip_data {
 	void __iomem		*dist_base;
@@ -107,57 +115,6 @@ static void gic_redist_wait_for_rwp(void)
 	gic_do_wait_for_rwp(gic_data_rdist_rd_base());
 }
 
-/* Low level accessors */
-static u64 gic_read_iar(void)
-{
-	u64 irqstat;
-
-	asm volatile("mrs_s %0, " __stringify(ICC_IAR1_EL1) : "=r" (irqstat));
-	return irqstat;
-}
-
-static void gic_write_pmr(u64 val)
-{
-	asm volatile("msr_s " __stringify(ICC_PMR_EL1) ", %0" : : "r" (val));
-}
-
-static void gic_write_ctlr(u64 val)
-{
-	asm volatile("msr_s " __stringify(ICC_CTLR_EL1) ", %0" : : "r" (val));
-	isb();
-}
-
-static void gic_write_grpen1(u64 val)
-{
-	asm volatile("msr_s " __stringify(ICC_GRPEN1_EL1) ", %0" : : "r" (val));
-	isb();
-}
-
-static void gic_write_sgi1r(u64 val)
-{
-	asm volatile("msr_s " __stringify(ICC_SGI1R_EL1) ", %0" : : "r" (val));
-}
-
-static void gic_enable_sre(void)
-{
-	u64 val;
-
-	asm volatile("mrs_s %0, " __stringify(ICC_SRE_EL1) : "=r" (val));
-	val |= ICC_SRE_EL1_SRE;
-	asm volatile("msr_s " __stringify(ICC_SRE_EL1) ", %0" : : "r" (val));
-	isb();
-
-	/*
-	 * Need to check that the SRE bit has actually been set. If
-	 * not, it means that SRE is disabled at EL2. We're going to
-	 * die painfully, and there is nothing we can do about it.
-	 *
-	 * Kindly inform the luser.
-	 */
-	asm volatile("mrs_s %0, " __stringify(ICC_SRE_EL1) : "=r" (val));
-	if (!(val & ICC_SRE_EL1_SRE))
-		pr_err("GIC: unable to set SRE (disabled at EL2), panic ahead\n");
-}
 
 static void gic_enable_redist(void)
 {
@@ -232,46 +189,9 @@ static void gic_eoi_irq(struct irq_data *d)
 	gic_write_eoir(gic_irq(d));
 }
 
-void __iomem *INT_POL_CTL_REG;
-
-__weak void _mt_set_pol_reg(u32 reg_index, u32 value)
+/* should be define in mtk-gic-v3-extend.c */
+__weak void _mt_irq_set_polarity(unsigned int irq, unsigned int polarity)
 {
-	writel_relaxed(value, (INT_POL_CTL_REG + (reg_index * 4)));
-}
-
-
-void _mt_irq_set_polarity(unsigned int irq, unsigned int polarity)
-{
-	u32 offset, reg_index, value;
-
-	if (irq < 32) {
-		pr_err("Fail to set polarity of interrupt %d\n", irq);
-		return;
-	}
-
-	offset = (irq - 32) & 0x1F;
-	reg_index = (irq - 32) >> 5;
-
-	/* tmp hack for everest, non-continuous POL registers allocations */
-	if (reg_index >= 8) {
-		reg_index -= 8;
-		reg_index += 0x70/4;
-	}
-
-	if (polarity == 0) {
-		/* active low */
-		value = readl_relaxed(IOMEM(INT_POL_CTL_REG + (reg_index * 4)));
-		value |= (1 << offset);
-		/* some platforms has to write POL register in secure world.
-		USE PHYSICALL ADDRESS */
-		_mt_set_pol_reg(reg_index, value);
-	} else {
-		/* active high */
-		value = readl_relaxed(IOMEM(INT_POL_CTL_REG + (reg_index * 4)));
-		value &= ~(0x1 << offset);
-		/* some platforms has to write POL register in secure world */
-		_mt_set_pol_reg(reg_index, value);
-	}
 }
 
 static int gic_set_type(struct irq_data *d, unsigned int type)
@@ -304,11 +224,11 @@ static int gic_set_type(struct irq_data *d, unsigned int type)
 	return 0;
 }
 
-static u64 gic_mpidr_to_affinity(u64 mpidr)
+static u64 gic_mpidr_to_affinity(unsigned long mpidr)
 {
 	u64 aff;
 
-	aff = (MPIDR_AFFINITY_LEVEL(mpidr, 3) << 32 |
+	aff = ((u64)MPIDR_AFFINITY_LEVEL(mpidr, 3) << 32 |
 	       MPIDR_AFFINITY_LEVEL(mpidr, 2) << 16 |
 	       MPIDR_AFFINITY_LEVEL(mpidr, 1) << 8  |
 	       MPIDR_AFFINITY_LEVEL(mpidr, 0));
@@ -319,7 +239,7 @@ static u64 gic_mpidr_to_affinity(u64 mpidr)
 static asmlinkage
 void __exception_irq_entry gic_handle_irq(struct pt_regs *regs)
 {
-	u64 irqnr;
+	u32 irqnr;
 
 	do {
 		irqnr = gic_read_iar();
@@ -337,6 +257,13 @@ void __exception_irq_entry gic_handle_irq(struct pt_regs *regs)
 		if (irqnr < 16) {
 			gic_write_eoir(irqnr);
 #ifdef CONFIG_SMP
+			/*
+			 * Unlike GICv2, we don't need an smp_rmb() here.
+			 * The control dependency from gic_read_iar to
+			 * the ISB in gic_write_eoir is enough to ensure
+			 * that any shared data read by handle_IPI will
+			 * be read after the ACK.
+			 */
 			handle_IPI(irqnr, regs);
 #else
 			WARN_ONCE(true, "Unexpected SGI received!\n");
@@ -349,7 +276,9 @@ void __exception_irq_entry gic_handle_irq(struct pt_regs *regs)
 static void __init gic_dist_init(void)
 {
 	unsigned int i;
+#ifndef CONFIG_MTK_IRQ_NEW_DESIGN
 	u64 affinity;
+#endif
 	void __iomem *base = gic_data.dist_base;
 
 	/* Disable the distributor */
@@ -362,6 +291,7 @@ static void __init gic_dist_init(void)
 	writel_relaxed(GICD_CTLR_ARE_NS | GICD_CTLR_ENABLE_G1A |
 			GICD_CTLR_ENABLE_G1, base + GICD_CTLR);
 
+#ifndef CONFIG_MTK_IRQ_NEW_DESIGN
 	/*
 	 * Set all global interrupts to the boot CPU only. ARE must be
 	 * enabled.
@@ -369,11 +299,17 @@ static void __init gic_dist_init(void)
 	affinity = gic_mpidr_to_affinity(cpu_logical_map(smp_processor_id()));
 	for (i = 32; i < gic_data.irq_nr; i++)
 		writeq_relaxed(affinity, base + GICD_IROUTER + i * 8);
+#else
+	/* default set target all for all SPI */
+	for (i = 32; i < gic_data.irq_nr; i++)
+		writeq_relaxed(GICD_IROUTER_SPI_MODE_ANY,
+				base + GICD_IROUTER + i * 8);
+#endif
 }
 
 static int gic_populate_rdist(void)
 {
-	u64 mpidr = cpu_logical_map(smp_processor_id());
+	unsigned long mpidr = cpu_logical_map(smp_processor_id());
 	u64 typer;
 	u32 aff;
 	int i;
@@ -399,12 +335,12 @@ static int gic_populate_rdist(void)
 		}
 
 		do {
-			typer = readq_relaxed(ptr + GICR_TYPER);
+			typer = gic_read_typer(ptr + GICR_TYPER);
 			if ((typer >> 32) == aff) {
 				gic_data_rdist_rd_base() = ptr;
-				pr_info("CPU%d: found redistributor %llx @%p\n",
+				pr_info("CPU%d: found redistributor %lx @%p\n",
 					smp_processor_id(),
-					(unsigned long long)mpidr, ptr);
+					mpidr, ptr);
 				return 0;
 			}
 
@@ -420,8 +356,8 @@ static int gic_populate_rdist(void)
 	}
 
 	/* We couldn't even deal with ourselves... */
-	WARN(true, "CPU%d: mpidr %llx has no re-distributor!\n",
-	     smp_processor_id(), (unsigned long long)mpidr);
+	WARN(true, "CPU%d: mpidr %lx has no re-distributor!\n",
+	     smp_processor_id(), mpidr);
 	return -ENODEV;
 }
 
@@ -486,10 +422,10 @@ static struct notifier_block gic_cpu_notifier = {
 };
 
 static u16 gic_compute_target_list(int *base_cpu, const struct cpumask *mask,
-				   u64 cluster_id)
+				   unsigned long cluster_id)
 {
 	int cpu = *base_cpu;
-	u64 mpidr = cpu_logical_map(cpu);
+	unsigned long mpidr = cpu_logical_map(cpu);
 	u16 tlist = 0;
 
 	while (cpu < nr_cpu_ids) {
@@ -546,7 +482,7 @@ static void gic_raise_softirq(const struct cpumask *mask, unsigned int irq)
 	smp_wmb();
 
 	for_each_cpu_mask(cpu, *mask) {
-		u64 cluster_id = cpu_logical_map(cpu) & ~0xffUL;
+		unsigned long cluster_id = cpu_logical_map(cpu) & ~0xffUL;
 		u16 tlist;
 
 		tlist = gic_compute_target_list(&cpu, mask, cluster_id);
@@ -571,6 +507,7 @@ static int gic_set_affinity(struct irq_data *d, const struct cpumask *mask_val,
 	int enabled;
 	u64 val;
 
+#ifndef CONFIG_MTK_IRQ_NEW_DESIGN
 	if (gic_irq_in_rdist(d))
 		return -EINVAL;
 
@@ -581,6 +518,50 @@ static int gic_set_affinity(struct irq_data *d, const struct cpumask *mask_val,
 
 	reg = gic_dist_base(d) + GICD_IROUTER + (gic_irq(d) * 8);
 	val = gic_mpidr_to_affinity(cpu_logical_map(cpu));
+
+	gic_write_irouter(val, reg);
+
+	/*
+	 * If the interrupt was enabled, enabled it again. Otherwise,
+	 * just wait for the distributor to have digested our changes.
+	 */
+	if (enabled)
+		gic_unmask_irq(d);
+	else
+		gic_dist_wait_for_rwp();
+
+	return IRQ_SET_MASK_OK;
+#else
+	/*
+	 * no need to update when:
+	 * input mask is equal to the current setting
+	 */
+	if (cpumask_equal(d->affinity, mask_val))
+		return IRQ_SET_MASK_OK_NOCOPY;
+
+	/*
+	 * cpumask_first_and() returns >= nr_cpu_ids when the intersection
+	 * of inputs is an empty set -> return error when this is not a "forced" update
+	 */
+	if (!force && (cpumask_first_and(mask_val, cpu_online_mask) >= nr_cpu_ids))
+		return -EINVAL;
+
+	if (gic_irq_in_rdist(d))
+		return -EINVAL;
+
+	/* If interrupt was enabled, disable it first */
+	enabled = gic_peek_irq(d, GICD_ISENABLER);
+	if (enabled)
+		gic_mask_irq(d);
+
+
+	reg = gic_dist_base(d) + GICD_IROUTER + (gic_irq(d) * 8);
+
+	/* GICv3 supports target is 1 or all */
+	if (cpumask_weight(mask_val) > 1)
+		val = GICD_IROUTER_SPI_MODE_ANY;
+	else
+		val = gic_mpidr_to_affinity(cpu_logical_map(cpu));
 
 	writeq_relaxed(val, reg);
 
@@ -594,6 +575,7 @@ static int gic_set_affinity(struct irq_data *d, const struct cpumask *mask_val,
 		gic_dist_wait_for_rwp();
 
 	return IRQ_SET_MASK_OK;
+#endif
 }
 #else
 #define gic_set_affinity	NULL
@@ -672,13 +654,13 @@ static const struct irq_domain_ops gic_irq_domain_ops = {
 	.xlate = gic_irq_domain_xlate,
 };
 
+__weak int __init mt_gic_ext_init(void) { return 0; }
+
 static int __init gic_of_init(struct device_node *node,
 				struct device_node *parent)
 {
 	void __iomem *dist_base;
 	void __iomem **redist_base;
-	void __iomem *pol_base;
-	struct resource res;
 
 	u64 redist_stride;
 	u32 redist_regions;
@@ -722,12 +704,6 @@ static int __init gic_of_init(struct device_node *node,
 			goto out_unmap_rdist;
 		}
 	}
-
-	pol_base = of_iomap(node, redist_regions+1);
-	WARN(!pol_base, "unable to map pol registers\n");
-	INT_POL_CTL_REG = pol_base;
-	if (of_address_to_resource(node, redist_regions+1, &res))
-		WARN(!pol_base, "unable to map pol registers\n");
 
 	if (of_property_read_u64(node, "redistributor-stride", &redist_stride))
 		redist_stride = 0;
@@ -773,6 +749,8 @@ static int __init gic_of_init(struct device_node *node,
 	gic_dist_init();
 	gic_cpu_init();
 
+	mt_gic_ext_init();
+
 	mt_gic_irqs = gic_data.irq_nr;
 
 	return 0;
@@ -793,77 +771,3 @@ out_unmap_dist:
 
 IRQCHIP_DECLARE(gic_v3, "arm,gic-v3", gic_of_init);
 
-#ifndef CONFIG_MTK_GIC
-char *mt_irq_dump_status_buf(int irq, char *buf)
-{
-	int rc;
-	unsigned int result;
-	char *ptr = buf;
-
-	if (!ptr)
-		return NULL;
-
-	ptr += sprintf(ptr, "[mt gic dump] irq = %d\n", irq);
-#if defined(CONFIG_ARM_PSCI) || defined(CONFIG_MTK_PSCI)
-	rc = mt_secure_call(MTK_SIP_KERNEL_GIC_DUMP, irq, 0, 0);
-#else
-	rc = -1;
-#endif
-	if (rc < 0) {
-		ptr += sprintf(ptr, "[mt gic dump] not allowed to dump!\n");
-		return ptr;
-	}
-
-	/* get mask */
-	result = rc & 0x1;
-	ptr += sprintf(ptr, "[mt gic dump] enable = %d\n", result);
-
-	/* get group */
-	result = (rc >> 1) & 0x1;
-	ptr += sprintf(ptr, "[mt gic dump] group = %x (0x1:irq,0x0:fiq)\n",
-			result);
-
-	/* get priority */
-	result = (rc >> 2) & 0xff;
-	ptr += sprintf(ptr, "[mt gic dump] priority = %x\n", result);
-
-	/* get sensitivity */
-	result = (rc >> 10) & 0x1;
-	ptr += sprintf(ptr, "[mt gic dump] sensitivity = %x ", result);
-	ptr += sprintf(ptr, "(edge:0x1, level:0x0)\n");
-
-	/* get pending status */
-	result = (rc >> 11) & 0x1;
-	ptr += sprintf(ptr, "[mt gic dump] pending = %x\n", result);
-
-	/* get active status */
-	result = (rc >> 12) & 0x1;
-	ptr += sprintf(ptr, "[mt gic dump] active status = %x\n", result);
-
-	/* get polarity */
-	result = (rc >> 13) & 0x1;
-	ptr += sprintf(ptr,
-		"[mt gic dump] polarity = %x (0x0: high, 0x1:low)\n",
-		result);
-
-	/* get target cpu mask */
-	result = (rc >> 14) & 0xff;
-	ptr += sprintf(ptr, "[mt gic dump] tartget cpu mask = 0x%x\n", result);
-
-	return ptr;
-}
-
-void mt_irq_dump_status(int irq)
-{
-	char *buf = kmalloc(2048, GFP_KERNEL);
-
-	if (!buf)
-		return;
-
-	if (mt_irq_dump_status_buf(irq, buf))
-		pr_debug("%s", buf);
-
-	kfree(buf);
-}
-EXPORT_SYMBOL(mt_irq_dump_status);
-#endif

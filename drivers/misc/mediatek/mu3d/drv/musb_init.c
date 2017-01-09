@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 
 #include <linux/module.h>
 #include <linux/kernel.h>
@@ -22,6 +35,11 @@
 #ifdef CONFIG_PROJECT_PHY
 #include "mtk-phy-asic.h"
 #endif
+
+#ifdef CONFIG_MTK_USB2JTAG_SUPPORT
+#include <mt-plat/mt_usb2jtag.h>
+#endif
+
 
 #ifdef CONFIG_OF
 #include <linux/of_device.h>
@@ -62,7 +80,7 @@ static struct musb_hdrc_config mtu3d_config = {
 	.fifo_cfg_size = ARRAY_SIZE(mtu3d_cfg),
 };
 
-#ifdef CONFIG_USB_MTK_DUALMODE
+#if defined(CONFIG_USB_MTK_DUALMODE) && !defined(CONFIG_USB_MTK_OTG_SWITCH)
 static struct pinctrl *pinctrl;
 static struct pinctrl_state *pinctrl_iddig;
 #endif
@@ -125,7 +143,7 @@ void init_check_ltssm_work(void)
 void check_ltssm_work(struct work_struct *data)
 {
 	/* struct musb *musb = container_of(to_delayed_work(data), struct musb, check_ltssm_work); */
-#ifndef CONFIG_USBIF_COMPLIANCE
+#if !defined(CONFIG_USBIF_COMPLIANCE) && !defined(U3_COMPLIANCE)
 	os_printk(K_INFO, "%s %x\n", __func__, sts_ltssm);
 
 	if (sts_ltssm == RXDET_SUCCESS_INTR) {
@@ -149,10 +167,16 @@ void reconnect_work(struct work_struct *data)
 	os_printk(K_INFO, "%s\n", __func__);
 
 	/* Disable U2 detect */
-	mu3d_hal_u3dev_dis();
-	mu3d_hal_u2dev_disconn();
-	mdelay(1000);
-	mu3d_hal_u3dev_en();
+#ifdef SUPPORT_U3
+	if (musb_speed) {
+#endif
+		mu3d_hal_u3dev_dis();
+		mu3d_hal_u2dev_disconn();
+		mdelay(1000);
+		mu3d_hal_u3dev_en();
+#ifdef SUPPORT_U3
+	}
+#endif
 }
 #endif
 
@@ -280,7 +304,7 @@ static inline void mtu3d_u3_ltssm_intr_handler(struct musb *musb, u32 dwLtssmVal
 		   If LTSSM state is still at RxDet. Clear USB3_EN and set again. */
 		os_printk(K_INFO, "LTSSM: RXDET_SUCCESS_INTR\n");
 		sts_ltssm = RXDET_SUCCESS_INTR;
-		schedule_delayed_work_on(0, &musb->check_ltssm_work, msecs_to_jiffies(1000));
+		schedule_delayed_work(&musb->check_ltssm_work, msecs_to_jiffies(1000));
 	}
 }
 
@@ -392,7 +416,7 @@ static inline void mtu3d_link_intr_handler(struct musb *musb, u32 dwLinkIntValue
 			if (timespec_compare(&ss_timestamp, &tmp) > 0) {
 				os_printk(K_INFO, "queue reconnect work\n");
 
-				schedule_delayed_work_on(0, &musb->reconnect_work, 0);
+				schedule_delayed_work(&musb->reconnect_work, 0);
 			}
 		}
 		speed_last = speed;
@@ -423,6 +447,8 @@ static inline void mtu3d_link_intr_handler(struct musb *musb, u32 dwLinkIntValue
 	case SSUSB_SPEED_SUPER:
 		os_printk(K_ALET, "USB Speed = Super Speed\n");
 #ifndef CONFIG_USBIF_COMPLIANCE
+		if (speed == SSUSB_SPEED_INACTIVE)
+			musb_g_reset(musb);
 		speed_last = speed;
 		speed = SSUSB_SPEED_SUPER;
 		ss_timestamp = CURRENT_TIME;
@@ -616,12 +642,12 @@ static irqreturn_t generic_interrupt(int irq, void *__hci)
 
 static void mtu3d_musb_enable(struct musb *musb)
 {
-	os_printk(K_INFO, "%s\n", __func__);
+	os_printk(K_DEBUG, "%s\n", __func__);
 }
 
 static void mtu3d_musb_disable(struct musb *musb)
 {
-	os_printk(K_INFO, "%s\n", __func__);
+	os_printk(K_DEBUG, "%s\n", __func__);
 
 #ifdef CONFIG_PROJECT_PHY
 	/* Comment from CC Chou.
@@ -681,7 +707,7 @@ static void mtu3d_musb_reg_init(struct musb *musb)
 	if (!u3phy_ops)
 		ret = u3phy_init();
 
-	if (ret || u3phy_ops) {
+	if (u3phy_ops) {
 
 #ifdef CONFIG_MTK_UART_USB_SWITCH
 		if (usb_phy_check_in_uart_mode()) {
@@ -696,7 +722,7 @@ static void mtu3d_musb_reg_init(struct musb *musb)
 
 		musb->is_clk_on = 1;
 
-#ifndef CONFIG_MTK_FPGA
+#ifndef CONFIG_FPGA_EARLY_PORTING
 		usb_phy_recover(musb->is_clk_on);
 #endif
 		/* USB 2.0 slew rate calibration */
@@ -731,6 +757,14 @@ static int mtu3d_probe(struct platform_device *pdev)
 	int ret = -ENOMEM;
 
 	os_printk(K_DEBUG, "%s\n", __func__);
+
+#ifdef CONFIG_MTK_USB2JTAG_SUPPORT
+	if (usb2jtag_mode()) {
+		pr_err("[USB2JTAG] in usb2jtag mode, not to initialize usb driver\n");
+		return 0;
+	}
+#endif
+
 
 	glue = kzalloc(sizeof(*glue), GFP_KERNEL);
 	if (!glue) {
@@ -776,7 +810,7 @@ static int mtu3d_probe(struct platform_device *pdev)
 		goto err2;
 	}
 
-#ifdef CONFIG_USB_MTK_DUALMODE
+#if defined(CONFIG_USB_MTK_DUALMODE) && !defined(CONFIG_USB_MTK_OTG_SWITCH)
 	pinctrl = devm_pinctrl_get(&pdev->dev);
 	if (IS_ERR(pinctrl))
 		dev_err(&pdev->dev, "Cannot find usb pinctrl!\n");
@@ -785,8 +819,12 @@ static int mtu3d_probe(struct platform_device *pdev)
 		if (IS_ERR(pinctrl_iddig))
 			dev_err(&pdev->dev, "Cannot find usb pinctrl iddig_init\n");
 		else
-		pinctrl_select_state(pinctrl, pinctrl_iddig);
+			pinctrl_select_state(pinctrl, pinctrl_iddig);
 	}
+#endif
+
+#if defined(CONFIG_FPGA_EARLY_PORTING) || defined(U3_COMPLIANCE) || defined(FOR_BRING_UP)
+	mu3d_force_on = 1;
 #endif
 
 	return 0;

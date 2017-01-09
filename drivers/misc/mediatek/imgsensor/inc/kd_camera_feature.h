@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #ifndef _KD_CAMERA_FEATURE_H_
 #define _KD_CAMERA_FEATURE_H_
 
@@ -30,7 +43,7 @@ typedef enum {
 	DUAL_CAMERA_MAIN_2_SENSOR = 4,
 	/* for backward compatible */
 	DUAL_CAMERA_MAIN_SECOND_SENSOR = 4,
-	/* DUAL_CAMERA_SUB_2_SENSOR   = 16, */
+	DUAL_CAMERA_SUB_2_SENSOR   = 8,
 	DUAL_CAMERA_SENSOR_MAX
 } CAMERA_DUAL_CAMERA_SENSOR_ENUM;
 

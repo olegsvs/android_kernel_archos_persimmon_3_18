@@ -573,7 +573,7 @@ static s32 mt_set_pwm_GuardDur(u32 pwm_no, u16 DurVal)
 * pwm_no: pwm1~pwm7 (0~6)
 * addr: data address
 ******************************************************/
-s32 mt_set_pwm_buf0_addr(u32 pwm_no, u32 *addr)
+s32 mt_set_pwm_buf0_addr(u32 pwm_no, dma_addr_t addr)
 {
 	unsigned long flags;
 
@@ -1712,7 +1712,7 @@ static ssize_t pwm_debug_store(struct device *dev, struct device_attribute *attr
 static ssize_t pwm_debug_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
 	pwm_debug_show_hal();
-	return sprintf(buf, "%s\n", buf);
+	return snprintf(buf, 32, "pwm power_flag = 0x%08x\n", (unsigned int)pwm_dev->power_flag);
 }
 
 static DEVICE_ATTR(pwm_debug, 0644, pwm_debug_show, pwm_debug_store);
@@ -1792,8 +1792,10 @@ static void mt_pwm_shutdown(struct platform_device *pdev)
 #ifdef CONFIG_OF
 static const struct of_device_id pwm_of_match[] = {
 	{.compatible = "mediatek,pwm",},
+	{.compatible = "mediatek,mt8163-pwm",},
 	{.compatible = "mediatek,mt8173-pwm",},
 	{.compatible = "mediatek,mt8127-pwm",},
+	{.compatible = "mediatek,mt2701-pwm",},
 	{},
 };
 #endif

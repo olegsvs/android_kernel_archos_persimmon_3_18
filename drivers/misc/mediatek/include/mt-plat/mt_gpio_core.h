@@ -1,3 +1,15 @@
+/*
+* Copyright (C) 2016 MediaTek Inc.
+*
+* This program is free software; you can redistribute it and/or modify
+* it under the terms of the GNU General Public License version 2 as
+* published by the Free Software Foundation.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+* See http://www.gnu.org/licenses/gpl-2.0.html for more details.
+*/
 #ifndef _MT_GPIO_CORE_H_
 #define _MT_GPIO_CORE_H_
 /*
@@ -21,9 +33,9 @@
 #define VERSION     GPIO_DEVICE
 
 #define GPIOTAG                "[GPIO] "
-#define GPIOLOG(fmt, arg...)   printk(GPIOTAG fmt, ##arg)
-#define GPIOMSG(fmt, arg...)   printk(fmt, ##arg)
-#define GPIOERR(fmt, arg...)   printk(GPIOTAG "%5d: "fmt, __LINE__, ##arg)
+#define GPIOLOG(fmt, arg...)   pr_debug(GPIOTAG fmt, ##arg)
+#define GPIOMSG(fmt, arg...)   pr_warn(fmt, ##arg)
+#define GPIOERR(fmt, arg...)   pr_err(GPIOTAG "%5d: "fmt, __LINE__, ##arg)
 #define GPIOFUC(fmt, arg...)	/* printk(GPIOTAG "%s\n", __FUNCTION__) */
 /*----------------------------------------------------------------------------*/
 /* Error Code No. */
@@ -105,8 +117,12 @@ int mt_set_gpio_smt_base(unsigned long pin, unsigned long enable);
 int mt_get_gpio_smt_base(unsigned long pin);
 int mt_set_gpio_ies_base(unsigned long pin, unsigned long enable);
 int mt_get_gpio_ies_base(unsigned long pin);
+int mt_set_gpio_slew_rate_base(unsigned long pin, unsigned long enable);
+int mt_get_gpio_slew_rate_base(unsigned long pin);
 int mt_set_gpio_pull_select_base(unsigned long pin, unsigned long select);
 int mt_get_gpio_pull_select_base(unsigned long pin);
+int mt_set_gpio_pull_resistor_base(unsigned long pin, unsigned long resistors);
+int mt_get_gpio_pull_resistor_base(unsigned long pin);
 int mt_set_gpio_inversion_base(unsigned long pin, unsigned long enable);
 int mt_get_gpio_inversion_base(unsigned long pin);
 int mt_set_gpio_out_base(unsigned long pin, unsigned long output);
@@ -114,6 +130,8 @@ int mt_get_gpio_out_base(unsigned long pin);
 int mt_get_gpio_in_base(unsigned long pin);
 int mt_set_gpio_mode_base(unsigned long pin, unsigned long mode);
 int mt_get_gpio_mode_base(unsigned long pin);
+int mt_set_gpio_driving_base(unsigned long pin, unsigned long strength);
+int mt_get_gpio_driving_base(unsigned long pin);
 #ifdef CONFIG_PM
 void mt_gpio_suspend(void);
 void mt_gpio_resume(void);

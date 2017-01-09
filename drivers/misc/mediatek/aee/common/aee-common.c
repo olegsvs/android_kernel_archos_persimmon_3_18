@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #include <linux/bug.h>
 #include <linux/module.h>
 #include <linux/slab.h>
@@ -18,7 +31,7 @@
 #include <linux/vmalloc.h>
 
 static struct aee_kernel_api *g_aee_api;
-#define KERNEL_REPORT_LENGTH 384
+#define KERNEL_REPORT_LENGTH 344
 
 #ifdef CONFIG_KGDB_KDB
 /* Press key to enter kdb */
@@ -102,9 +115,9 @@ struct aee_oops *aee_oops_create(AE_DEFECT_ATTR attr, AE_EXP_CLASS clazz, const 
 	if (module != NULL)
 		strlcpy(oops->module, module, sizeof(oops->module));
 	else
-		strcpy(oops->module, "N/A");
-	strcpy(oops->backtrace, "N/A");
-	strcpy(oops->process_path, "N/A");
+		strlcpy(oops->module, "N/A", sizeof(oops->module));
+	strlcpy(oops->backtrace, "N/A", sizeof(oops->backtrace));
+	strlcpy(oops->process_path, "N/A", sizeof(oops->process_path));
 
 	return oops;
 }

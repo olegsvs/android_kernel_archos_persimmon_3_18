@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #include <linux/videodev2.h>
 #include <linux/i2c.h>
 #include <linux/platform_device.h>
@@ -1226,7 +1239,9 @@ int kdSensorSyncFunctionPtr(void)
 
 	/* if the delay frame is 0 or 0xFF, stop to count */
 	if ((g_NewSensorExpGain.uISPGainDelayFrame != 0xFF) && (g_NewSensorExpGain.uISPGainDelayFrame != 0)) {
+		spin_lock(&kdsensor_drv_lock);
 		g_NewSensorExpGain.uISPGainDelayFrame--;
+		spin_unlock(&kdsensor_drv_lock);
 	}
 	mutex_unlock(&kdCam_Mutex);
 	return 0;
@@ -1411,7 +1426,8 @@ static inline int adopt_CAMERA_HW_CheckIsAlive(void)
 	}
 
 	/* reset sensor state after power off */
-	err1 = g_pSensorFunc->SensorClose();
+	if (g_pSensorFunc)
+		err1 = g_pSensorFunc->SensorClose();
 	if (ERROR_NONE != err1) {
 		PK_DBG("SensorClose\n");
 	}
@@ -1568,6 +1584,8 @@ static inline int adopt_CAMERA_HW_GetInfo2(void *pBuf)
 		pConfig4[i] =  &config4[i];
 		psensorResolution[i] =  &SensorResolution[i];
 		pScenarioId[i] =  &ScenarioId[i];
+		pInfo[i]->SensorHorFOV = 0;
+		pInfo[i]->SensorVerFOV = 0;
 	}
 
 	if (NULL == pSensorGetInfo) {
@@ -1682,6 +1700,8 @@ static inline int adopt_CAMERA_HW_GetInfo2(void *pBuf)
 	SensorInfo.SCAM_DataNumber                          = pInfo[IDNum]->SCAM_DataNumber;
 	SensorInfo.SCAM_DDR_En                              = pInfo[IDNum]->SCAM_DDR_En;
 	SensorInfo.SCAM_CLK_INV                             = pInfo[IDNum]->SCAM_CLK_INV;
+	SensorInfo.SensorHorFOV                            = pInfo[IDNum]->SensorHorFOV;
+	SensorInfo.SensorVerFOV                            = pInfo[IDNum]->SensorVerFOV;
 	/* TO get preview value */
 	ScenarioId[0] = ScenarioId[1] = MSDK_SCENARIO_ID_CUSTOM1;
 	g_pSensorFunc->SensorGetInfo(pScenarioId, pInfo, pConfig);
@@ -1893,21 +1913,21 @@ static inline int  adopt_CAMERA_HW_FeatureControl(void *pBuf)
 	case SENSOR_FEATURE_GET_PDAF_DATA:
 	case SENSOR_FEATURE_GET_SENSOR_PDAF_CAPACITY:
 	case SENSOR_FEATURE_SET_ISO:
-    case SENSOR_FEATURE_SET_PDAF:
-        /*  */
-        if (copy_from_user((void *)pFeaturePara , (void *) pFeatureCtrl->pFeaturePara, FeatureParaLen)) {
-        kfree(pFeaturePara);
-        PK_ERR("[CAMERA_HW][pFeaturePara] ioctl copy from user failed\n");
-        return -EFAULT;
-        }
-        break;
-     case SENSOR_FEATURE_SET_SENSOR_SYNC:    /* Update new sensor exposure time and gain to keep */
-        if (copy_from_user((void *)pFeaturePara , (void *) pFeatureCtrl->pFeaturePara, FeatureParaLen)) {
+	case SENSOR_FEATURE_SET_PDAF:
+		/*  */
+		if (copy_from_user((void *)pFeaturePara , (void *) pFeatureCtrl->pFeaturePara, FeatureParaLen)) {
+			kfree(pFeaturePara);
+			PK_DBG("[CAMERA_HW][pFeaturePara] ioctl copy from user failed\n");
+			return -EFAULT;
+		}
+		break;
+	case SENSOR_FEATURE_SET_SENSOR_SYNC:    /* Update new sensor exposure time and gain to keep */
+		if (copy_from_user((void *)pFeaturePara , (void *) pFeatureCtrl->pFeaturePara, FeatureParaLen)) {
 	 kfree(pFeaturePara);
-         PK_ERR("[CAMERA_HW][pFeaturePara] ioctl copy from user failed\n");
-         return -EFAULT;
-    }
-    /* keep the information to wait Vsync synchronize */
+			PK_DBG("[CAMERA_HW][pFeaturePara] ioctl copy from user failed\n");
+			return -EFAULT;
+		}
+		/* keep the information to wait Vsync synchronize */
 		pSensorSyncInfo = (ACDK_KD_SENSOR_SYNC_STRUCT *)pFeaturePara;
 		spin_lock(&kdsensor_drv_lock);
 		g_NewSensorExpGain.u2SensorNewExpTime = pSensorSyncInfo->u2SensorNewExpTime;
@@ -1919,6 +1939,7 @@ static inline int  adopt_CAMERA_HW_FeatureControl(void *pBuf)
 		g_NewSensorExpGain.uSensorExpDelayFrame = pSensorSyncInfo->uSensorExpDelayFrame;
 		g_NewSensorExpGain.uSensorGainDelayFrame = pSensorSyncInfo->uSensorGainDelayFrame;
 		g_NewSensorExpGain.uISPGainDelayFrame = pSensorSyncInfo->uISPGainDelayFrame;
+		spin_unlock(&kdsensor_drv_lock);
 		/* AE smooth not change shutter to speed up */
 		if ((0 == g_NewSensorExpGain.u2SensorNewExpTime) || (0xFFFF == g_NewSensorExpGain.u2SensorNewExpTime)) {
 			g_NewSensorExpGain.uSensorExpDelayFrame = 0xFF;
@@ -1941,7 +1962,9 @@ static inline int  adopt_CAMERA_HW_FeatureControl(void *pBuf)
 		}
 		/* if the delay frame is 0 or 0xFF, stop to count */
 		if ((g_NewSensorExpGain.uISPGainDelayFrame != 0xFF) && (g_NewSensorExpGain.uISPGainDelayFrame != 0)) {
+			spin_lock(&kdsensor_drv_lock);
 			g_NewSensorExpGain.uISPGainDelayFrame--;
+			spin_unlock(&kdsensor_drv_lock);
 		}
 
 
@@ -1967,9 +1990,9 @@ static inline int  adopt_CAMERA_HW_FeatureControl(void *pBuf)
 #endif
 	case SENSOR_FEATURE_SET_ESHUTTER_GAIN:
 		if (copy_from_user((void *)pFeaturePara , (void *) pFeatureCtrl->pFeaturePara, FeatureParaLen)) {
-        PK_ERR("[CAMERA_HW][pFeaturePara] ioctl copy from user failed\n");
+			PK_DBG("[CAMERA_HW][pFeaturePara] ioctl copy from user failed\n");
 		kfree(pFeaturePara);
-        return -EFAULT;
+			return -EFAULT;
 		}
 		/* keep the information to wait Vsync synchronize */
 		pSensorSyncInfo = (ACDK_KD_SENSOR_SYNC_STRUCT *)pFeaturePara;
@@ -2536,7 +2559,6 @@ static inline int  adopt_CAMERA_HW_FeatureControl(void *pBuf)
 	case SENSOR_FEATURE_GET_PDAF_INFO:
 	case SENSOR_FEATURE_GET_SENSOR_PDAF_CAPACITY:
 	case SENSOR_FEATURE_SET_ISO:
-    case SENSOR_FEATURE_SET_PDAF:
 		/*  */
 		if (copy_to_user((void __user *) pFeatureCtrl->pFeaturePara, (void *)pFeaturePara , FeatureParaLen)) {
 			kfree(pFeaturePara);

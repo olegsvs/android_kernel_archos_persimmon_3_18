@@ -50,6 +50,7 @@
 
 #ifdef CONFIG_MTK_ECCCI_C2K
 #include <mt-plat/mt_ccci_common.h>
+#define FS_CH_C2K 4
 #endif
 
 #define terr(t, fmt, args...) pr_err("Rawbulk [%s]:" fmt "\n", t->name,  ##args)
@@ -242,14 +243,18 @@ static struct upstream_transaction *alloc_upstream_transaction(struct rawbulk_tr
 {
 	struct upstream_transaction *t;
 
-	C2K_NOTE("%s\n", __func__);
+	C2K_DBG("%s\n", __func__);
 
 	/* t = kmalloc(sizeof *t + bufsz * sizeof(unsigned char), GFP_KERNEL); */
 	t = kmalloc(sizeof(struct upstream_transaction), GFP_KERNEL);
 	if (!t)
 		return NULL;
 
+#if defined(CONFIG_64BIT) && defined(CONFIG_MTK_LM_MODE)
+	t->buffer = (char *)__get_free_page(GFP_KERNEL | GFP_DMA);
+#else
 	t->buffer = (char *)__get_free_page(GFP_KERNEL);
+#endif
 	/* t->buffer = kmalloc(bufsz, GFP_KERNEL); */
 	if (!t->buffer) {
 		kfree(t);
@@ -282,7 +287,7 @@ static void free_upstream_transaction(struct rawbulk_transfer *transfer)
 {
 	struct list_head *p, *n;
 
-	C2K_NOTE("%s\n", __func__);
+	C2K_DBG("%s\n", __func__);
 
 	mutex_lock(&transfer->usb_up_mutex);
 	list_for_each_safe(p, n, &transfer->upstream.transactions) {
@@ -304,7 +309,7 @@ static void free_upstream_sdio_buf(struct rawbulk_transfer *transfer)
 {
 	struct list_head *p, *n;
 
-	C2K_NOTE("%s\n", __func__);
+	C2K_DBG("%s\n", __func__);
 
 	mutex_lock(&transfer->modem_up_mutex);
 	list_for_each_safe(p, n, &transfer->cache_buf_lists.transactions) {
@@ -637,7 +642,11 @@ static struct downstream_transaction *alloc_downstream_transaction(struct rawbul
 	if (!t)
 		return NULL;
 
+#if defined(CONFIG_64BIT) && defined(CONFIG_MTK_LM_MODE)
+	t->buffer = (char *)__get_free_page(GFP_ATOMIC | GFP_DMA);
+#else
 	t->buffer = (char *)__get_free_page(GFP_ATOMIC);
+#endif
 	/* t->buffer = kmalloc(bufsz, GFP_ATOMIC); */
 	if (!t->buffer) {
 		kfree(t);
@@ -830,7 +839,7 @@ static void downstream_complete(struct usb_ep *ep, struct usb_request *req)
 	dump_data(transfer, "downstream", t->buffer, req->actual);
 
 	spin_lock(&transfer->modem_block_lock);
-	if (!!transfer->sdio_block)
+	if (!!transfer->sdio_block) {
 		spin_unlock(&transfer->modem_block_lock);
 
 		spin_lock(&transfer->usb_down_lock);
@@ -838,10 +847,10 @@ static void downstream_complete(struct usb_ep *ep, struct usb_request *req)
 		spin_unlock(&transfer->usb_down_lock);
 		transfer->repush2modem.ntrans++;
 		transfer->downstream.ntrans--;
-		return;
-
+	} else {
 		spin_unlock(&transfer->modem_block_lock);
 		start_downstream(t);
+	}
 }
 
 static void downstream_delayed_work(struct work_struct *work)
@@ -973,7 +982,7 @@ int rawbulk_start_transactions(int transfer_id, int nups, int ndowns, int upsz, 
 
 		c->buffer = (char *)__get_free_page(GFP_KERNEL);
 		/* c->buffer = kmalloc(upsz, GFP_KERNEL); */
-		if (!c) {
+		if (!c->buffer) {
 			rc = -ENOMEM;
 			kfree(c);
 			mutex_unlock(&transfer->modem_up_mutex);
@@ -1021,7 +1030,7 @@ int rawbulk_start_transactions(int transfer_id, int nups, int ndowns, int upsz, 
 failto_start_downstream:
 	spin_lock_irqsave(&transfer->usb_down_lock, flags);
 	list_for_each_entry(downstream, &transfer->downstream.transactions, tlist)
-		stop_downstream(downstream);
+			stop_downstream(downstream);
 	spin_unlock_irqrestore(&transfer->usb_down_lock, flags);
 failto_alloc_up_sdiobuf:
 	free_upstream_sdio_buf(transfer);

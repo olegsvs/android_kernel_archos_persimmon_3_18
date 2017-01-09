@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #include <linux/version.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
@@ -14,7 +27,6 @@
 #include <linux/writeback.h>
 #include <asm/uaccess.h>
 #include "mt-plat/mtk_thermal_monitor.h"
-#include "mtk_thermal_typedefs.h"
 #include "mach/mt_thermal.h"
 #include "mt-plat/mtk_thermal_platform.h"
 #include <linux/uidgid.h>
@@ -70,9 +82,8 @@ static int polling_factor1 = 5000;
 static int polling_factor2 = 10000;
 
 int bts_cur_temp = 0;
-#ifdef CONFIG_DW_PROJECT_BF168
-extern int read_tbf168_pcb_value(void);//add by major for bf168 main board temp
-#endif
+
+
 #define MTKTS_BTS_TEMP_CRIT 60000	/* 60.000 degree Celsius */
 
 #define mtkts_bts_dprintk(fmt, args...)   \
@@ -105,26 +116,18 @@ static int my_open(char *fname, int flag)
 }
 */
 typedef struct {
-	INT32 BTS_Temp;
-	INT32 TemperatureR;
+	__s32 BTS_Temp;
+	__s32 TemperatureR;
 } BTS_TEMPERATURE;
 
 #define AUX_IN0_NTC (0)		/* NTC6301 */
 
 #if 1
-#ifdef CONFIG_DW_PROJECT_CF167
 static int g_RAP_pull_up_R = 390000;	/* 390K,pull up resister */
-static int g_TAP_over_critical_low = 188500;	/* base on 100K NTC temp default value -40 deg */
-static int g_RAP_pull_up_voltage = 1800;	/* 1.8V ,pull up voltage */
-static int g_RAP_ntc_table = 4;	/* default is //NTCG104EF104F(100K) */
-static int g_RAP_ADC_channel = AUX_IN0_NTC;	/* default is 0 */
-#else
-static int g_RAP_pull_up_R = 390000;	/* 390K,pull up resister */
-static int g_TAP_over_critical_low = 425100;	/* base on 100K NTC temp default value -40 deg */
+static int g_TAP_over_critical_low = 4251000;	/* base on 100K NTC temp default value -40 deg */
 static int g_RAP_pull_up_voltage = 1800;	/* 1.8V ,pull up voltage */
 static int g_RAP_ntc_table = 6;	/* default is //NTCG104EF104F(100K) */
 static int g_RAP_ADC_channel = AUX_IN0_NTC;	/* default is 0 */
-#endif
 #else
 static int g_RAP_pull_up_R = 39000;	/* 39K,pull up resister */
 static int g_TAP_over_critical_low = 188500;	/* base on 10K NTC temp default value -40 deg */
@@ -466,12 +469,12 @@ BTS_TEMPERATURE BTS_Temperature_Table7[] = {
 
 
 /* convert register to temperature  */
-static INT16 mtkts_bts_thermistor_conver_temp(INT32 Res)
+static __s16 mtkts_bts_thermistor_conver_temp(__s32 Res)
 {
 	int i = 0;
 	int asize = 0;
-	INT32 RES1 = 0, RES2 = 0;
-	INT32 TAP_Value = -200, TMP1 = 0, TMP2 = 0;
+	__s32 RES1 = 0, RES2 = 0;
+	__s32 TAP_Value = -200, TMP1 = 0, TMP2 = 0;
 
 	asize = (sizeof(BTS_Temperature_Table) / sizeof(BTS_TEMPERATURE));
 	/* mtkts_bts_dprintk("mtkts_bts_thermistor_conver_temp() : asize = %d, Res = %d\n",asize,Res); */
@@ -507,27 +510,17 @@ static INT16 mtkts_bts_thermistor_conver_temp(INT32 Res)
 	mtkts_bts_dprintk("mtkts_bts_thermistor_conver_temp() : TMP1 = %d\n", TMP1);
 	mtkts_bts_dprintk("mtkts_bts_thermistor_conver_temp() : TMP2 = %d\n", TMP2);
 #endif
-#ifdef CONFIG_DW_PROJECT_CF167
-    if (TAP_Value < 125)
-    {
-        TAP_Value = TAP_Value - 4;
-        if(TAP_Value < -40)
-        {
-            TAP_Value = -40;
-        }
-    }
-#endif
 
 	return TAP_Value;
 }
 
 /* convert ADC_AP_temp_volt to register */
 /*Volt to Temp formula same with 6589*/
-static INT16 mtk_ts_bts_volt_to_temp(UINT32 dwVolt)
+static __s16 mtk_ts_bts_volt_to_temp(__u32 dwVolt)
 {
-	INT32 TRes;
-	INT32 dwVCriAP = 0;
-	INT32 BTS_TMP = -100;
+	__s32 TRes;
+	__s32 dwVCriAP = 0;
+	__s32 BTS_TMP = -100;
 
 	/* SW workaround----------------------------------------------------- */
 	/* dwVCriAP = (TAP_OVER_CRITICAL_LOW * 1800) / (TAP_OVER_CRITICAL_LOW + 39000); */
@@ -560,11 +553,6 @@ static int get_hw_bts_temp(void)
 	int times = 1, Channel = g_RAP_ADC_channel;	/* 6752=0(AUX_IN0_NTC) */
 	static int valid_temp;
 
-//add by major for bf168 main board temp 
- 	#ifdef CONFIG_DW_PROJECT_BF168
-		return 0;
-	#endif
-//add end
 	if (IMM_IsAdcInitReady() == 0) {
 		pr_debug("[thermal_auxadc_get_data]: AUXADC is not ready\n");
 		return 0;
@@ -604,13 +592,7 @@ int mtkts_bts_get_hw_temp(void)
 
 	/* get HW AP temp (TSAP) */
 	/* cat /sys/class/power_supply/AP/AP_temp */
-	//add by major for bf168 
-#ifdef CONFIG_DW_PROJECT_BF168
-	get_hw_bts_temp();
-	t_ret = read_tbf168_pcb_value();
-#else
 	t_ret = get_hw_bts_temp();
-#endif
 	t_ret = t_ret * 1000;
 
 	mutex_unlock(&BTS_lock);
@@ -838,7 +820,7 @@ static ssize_t mtkts_bts_write(struct file *file, const char __user *buffer, siz
 
 	if (sscanf
 	    (ptr_mtktsbts_data->desc,
-	     "%d %d %d %s %d %d %s %d %d %s %d %d %s %d %d %s %d %d %s %d %d %s %d %d %s %d %d %s %d %d %s %d",
+	     "%d %d %d %19s %d %d %19s %d %d %19s %d %d %19s %d %d %19s %d %d %19s %d %d %19s %d %d %19s %d %d %19s %d %d %19s %d",
 		&num_trip,
 		&ptr_mtktsbts_data->trip[0], &ptr_mtktsbts_data->t_type[0], ptr_mtktsbts_data->bind0,
 		&ptr_mtktsbts_data->trip[1], &ptr_mtktsbts_data->t_type[1], ptr_mtktsbts_data->bind1,
@@ -1032,7 +1014,7 @@ static ssize_t mtkts_bts_param_write(struct file *file, const char __user *buffe
 	mtkts_bts_dprintk("[mtkts_bts_write]\n");
 
 	if (sscanf
-	    (ptr_mtktsbts_parm_data->desc, "%s %d %s %d %s %d %s %d %d",
+	    (ptr_mtktsbts_parm_data->desc, "%9s %d %9s %d %15s %d %9s %d %d",
 		ptr_mtktsbts_parm_data->pull_R, &ptr_mtktsbts_parm_data->valR,
 		ptr_mtktsbts_parm_data->pull_V, &ptr_mtktsbts_parm_data->valV,
 		ptr_mtktsbts_parm_data->overcrilow, &ptr_mtktsbts_parm_data->over_cri_low,

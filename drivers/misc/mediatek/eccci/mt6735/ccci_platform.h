@@ -1,9 +1,22 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #ifndef _CCCCI_PLATFORM_H_
 #define _CCCCI_PLATFORM_H_
 
 #include <mt-plat/sync_write.h>
 #include "ccci_config.h"
-#include "ccci_core.h"
+#include "ccci_modem.h"
 
 #define INVALID_ADDR (0xF0000000)	/* the last EMI bank, properly not used */
 #define KERN_EMI_BASE (0x40000000)	/* Bank4 */
@@ -38,6 +51,7 @@ void ccci_set_dsp_region_protection(struct ccci_modem *md, int loaded);
 void ccci_clear_dsp_region_protection(struct ccci_modem *md);
 int ccci_plat_common_init(void);
 int ccci_platform_init(struct ccci_modem *md);
-
+void ccci_reset_ccif_hw(struct ccci_modem *md, int ccif_id, void __iomem *baseA, void __iomem *baseB);
+int Is_MD_EMI_voilation(void);
 #define MD_IN_DEBUG(md) ((ccci_get_md_debug_mode(md)&(DBG_FLAG_JTAG|DBG_FLAG_DEBUG)) != 0)
 #endif				/* _CCCCI_PLATFORM_H_ */

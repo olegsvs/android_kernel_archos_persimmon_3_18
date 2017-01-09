@@ -1,375 +1,14 @@
 /*
-** Id: //Department/DaVinci/BRANCHES/MT6620_WIFI_DRIVER_V2_3/os/linux/gl_wext.c#3
-*/
-
-/*! \file gl_wext.c
-    \brief  ioctl() (mostly Linux Wireless Extensions) routines for STA driver.
-*/
-
-/*
-** Log: gl_wext.c
- *
- * 06 13 2012 yuche.tsai
- * NULL
- * Update maintrunk driver.
- * Add support for driver compose assoc request frame.
- *
- * 01 16 2012 wh.su
- * [WCXRP00001170] [MT6620 Wi-Fi][Driver] Adding the related code for set/get band ioctl
- * Adding the template code for set / get band IOCTL (with ICS supplicant_6)..
- *
- * 01 05 2012 wh.su
- * [WCXRP00001153] [MT6620 Wi-Fi][Driver] Adding the get_ch_list and set_tx_power proto type function
- * Adding the related ioctl / wlan oid function to set the Tx power cfg.
- *
- * 01 02 2012 wh.su
- * [WCXRP00001153] [MT6620 Wi-Fi][Driver] Adding the get_ch_list and set_tx_power proto type function
- * Adding the proto type function for set_int set_tx_power and get int get_ch_list.
- *
- * 11 10 2011 cp.wu
- * [WCXRP00001098] [MT6620 Wi-Fi][Driver] Replace printk by DBG LOG macros in linux porting layer
- * 1. eliminaite direct calls to printk in porting layer.
- * 2. replaced by DBGLOG, which would be XLOG on ALPS platforms.
- *
- * 10 12 2011 wh.su
- * [WCXRP00001036] [MT6620 Wi-Fi][Driver][FW] Adding the 802.11w code for MFP
- * adding the 802.11w related function and define .
- *
- * 09 23 2011 tsaiyuan.hsu
- * [WCXRP00000979] [MT6620 Wi-Fi][DRV]] stop attempting to connect to config AP after D3 state
- * avoid entering D3 state after deep sleep.
- *
- * 07 28 2011 chinghwa.yu
- * [WCXRP00000063] Update BCM CoEx design and settings
- * Add BWCS cmd and event.
- *
- * 07 27 2011 wh.su
- * [WCXRP00000877] [MT6620 Wi-Fi][Driver] Remove the netif_carry_ok check for avoid the wpa_supplicant fail to query
- * the ap address
- * Remove the netif check while query bssid and ssid
- *
- * 07 26 2011 chinglan.wang
- * NULL
- * [MT6620][WiFi Driver] Do not include the WSC IE in the association info packet when not do the wps connection..
- *
- * 07 18 2011 chinghwa.yu
- * [WCXRP00000063] Update BCM CoEx design and settings[WCXRP00000612] [MT6620 Wi-Fi] [FW] CSD update SWRDD algorithm
- * Add CMD/Event for RDD and BWCS.
- *
- * 05 17 2011 eddie.chen
- * [WCXRP00000603] [MT6620 Wi-Fi][DRV] Fix Klocwork warning
- * Initialize the vairlabes.
- *
- * 05 11 2011 jeffrey.chang
- * [WCXRP00000718] [MT6620 Wi-Fi] modify the behavior of setting tx power
- * modify set_tx_pow ioctl
- *
- * 03 29 2011 terry.wu
- * [WCXRP00000610] [MT 6620 Wi-Fi][Driver] Fix klocwork waring
- * [MT6620 Wi-Fi][Driver] Fix klocwork warning. Add Null pointer check on wext_get_essid. Limit the upper bound of
- * essid storage array.
- *
- * 03 21 2011 cp.wu
- * [WCXRP00000540] [MT5931][Driver] Add eHPI8/eHPI16 support to Linux Glue Layer
- * improve portability for awareness of early version of linux kernel and wireless extension.
- *
- * 03 17 2011 chinglan.wang
- * [WCXRP00000570] [MT6620 Wi-Fi][Driver] Add Wi-Fi Protected Setup v2.0 feature
- * .
- *
- * 03 07 2011 terry.wu
- * [WCXRP00000521] [MT6620 Wi-Fi][Driver] Remove non-standard debug message
- * Toggle non-standard debug messages to comments.
- *
- * 02 21 2011 wh.su
- * [WCXRP00000483] [MT6620 Wi-Fi][Driver] Check the kalIoctl return value before doing the memory copy at linux get
- * essid
- * fixed the potential error to do a larget memory copy while wlanoid get essid not actually running.
- *
- * 02 08 2011 george.huang
- * [WCXRP00000422] [MT6620 Wi-Fi][Driver] support query power mode OID handler
- * Support querying power mode OID.
- *
- * 01 29 2011 wh.su
- * [WCXRP00000408] [MT6620 Wi-Fi][Driver] Not doing memory alloc while ioctl set ie with length 0
- * not doing mem alloc. while set ie length already 0
- *
- * 01 20 2011 eddie.chen
- * [WCXRP00000374] [MT6620 Wi-Fi][DRV] SW debug control
- * Remove debug text.
- *
- * 01 20 2011 eddie.chen
- * [WCXRP00000374] [MT6620 Wi-Fi][DRV] SW debug control
- * Adjust OID order.
- *
- * 01 20 2011 eddie.chen
- * [WCXRP00000374] [MT6620 Wi-Fi][DRV] SW debug control
- * Add Oid for sw control debug command
- *
- * 01 11 2011 chinglan.wang
- * NULL
- * Modify to reslove the CR :[ALPS00028994] Use WEP security to connect Marvell 11N AP.  Connection establish
- * successfully.
- * Use the WPS function to connect AP, the privacy bit always is set to 1. .
- *
- * 01 07 2011 cm.chang
- * [WCXRP00000336] [MT6620 Wi-Fi][Driver] Add test mode commands in normal phone operation
- * Add a new compiling option to control if MCR read/write is permitted
- *
- * 01 04 2011 cp.wu
- * [WCXRP00000338] [MT6620 Wi-Fi][Driver] Separate kalMemAlloc into kmalloc and vmalloc implementations to ease
- * physically continuous memory demands
- * separate kalMemAlloc() into virtually-continuous and physically-continuous types
- * to ease slab system pressure
- *
- * 01 04 2011 cp.wu
- * [WCXRP00000338] [MT6620 Wi-Fi][Driver] Separate kalMemAlloc into kmalloc and vmalloc implementations to ease
- * physically continuous memory demands
- * separate kalMemAlloc() into virtually-continuous and physically-continuous type to ease slab system pressure
- *
- * 12 31 2010 cm.chang
- * [WCXRP00000336] [MT6620 Wi-Fi][Driver] Add test mode commands in normal phone operation
- * Add some iwpriv commands to support test mode operation
- *
- * 12 15 2010 george.huang
- * [WCXRP00000152] [MT6620 Wi-Fi] AP mode power saving function
- * Support set PS profile and set WMM-PS related iwpriv.
- *
- * 12 15 2010 george.huang
- * [WCXRP00000152] [MT6620 Wi-Fi] AP mode power saving function
- * Allow change PS profile function (through wext_set_power()).
- *
- * 12 14 2010 jeffrey.chang
- * [WCXRP00000262] [MT6620 Wi-Fi][Driver] modify the scan request ioctl to handle hidden SSID
- * handle hidden SSID
- *
- * 12 13 2010 chinglan.wang
- * NULL
- * Add WPS 1.0 feature flag to enable the WPS 1.0 function.
- *
- * 12 07 2010 cm.chang
- * [WCXRP00000238] MT6620 Wi-Fi][Driver][FW] Support regulation domain setting from NVRAM and supplicant
- * Fix compiling error
- *
- * 12 07 2010 cm.chang
- * [WCXRP00000238] MT6620 Wi-Fi][Driver][FW] Support regulation domain setting from NVRAM and supplicant
- * 1. Country code is from NVRAM or supplicant
- * 2. Change band definition in CMD/EVENT.
- *
- * 11 30 2010 cp.wu
- * [WCXRP00000213] [MT6620 Wi-Fi][Driver] Implement scanning with specified SSID for wpa_supplicant with ap_scan=1
- * .
- *
- * 11 08 2010 wh.su
- * [WCXRP00000171] [MT6620 Wi-Fi][Driver] Add message check code same behavior as mt5921
- * add the message check code from mt5921.
- *
- * 10 19 2010 jeffrey.chang
- * [WCXRP00000121] [MT6620 Wi-Fi][Driver] Temporarily disable set power mode ioctl which may cause 6620 to enter power
- * saving
- * Temporarily disable set power mode ioctl which may cause MT6620 to enter power saving
- *
- * 10 18 2010 jeffrey.chang
- * [WCXRP00000116] [MT6620 Wi-Fi][Driver] Refine the set_scan ioctl to resolve the Android UI hanging issue
- * refine the scan ioctl to prevent hanging of Android UI
- *
- * 10 01 2010 wh.su
- * [WCXRP00000067] [MT6620 Wi-Fi][Driver] Support the android+ WAPI function
- * add the scan result with wapi ie.
- *
- * 09 30 2010 wh.su
- * [WCXRP00000072] [MT6620 Wi-Fi][Driver] Fix TKIP Counter Measure EAPoL callback register issue
- * fixed the wapi ie assigned issue.
- *
- * 09 27 2010 wh.su
- * NULL
- * [WCXRP00000067][MT6620 Wi-Fi][Driver] Support the android+ WAPI function.
- *
- * 09 21 2010 kevin.huang
- * [WCXRP00000052] [MT6620 Wi-Fi][Driver] Eliminate Linux Compile Warning
- * Eliminate Linux Compile Warning
- *
- * 09 09 2010 cp.wu
- * NULL
- * add WPS/WPA/RSN IE for Wi-Fi Direct scanning result.
- *
- * 09 06 2010 cp.wu
- * NULL
- * Androi/Linux: return current operating channel information
- *
- * 09 01 2010 wh.su
- * NULL
- * adding the wapi support for integration test.
- *
- * 08 02 2010 jeffrey.chang
- * NULL
- * enable remove key ioctl
- *
- * 08 02 2010 jeffrey.chang
- * NULL
- * 1) modify tx service thread to avoid busy looping
- * 2) add spin lock declartion for linux build
- *
- * 07 28 2010 jeffrey.chang
- * NULL
- * 1) enable encyption ioctls
- * 2) temporarily disable remove keys ioctl to prevent  TX1 busy
- *
- * 07 28 2010 jeffrey.chang
- * NULL
- * 1) remove unused spinlocks
- * 2) enable encyption ioctls
- * 3) fix scan ioctl which may cause supplicant to hang
- *
- * 07 19 2010 jeffrey.chang
- *
- * add kal api for scanning done
- *
- * 07 19 2010 jeffrey.chang
- *
- * for linux driver migration
- *
- * 07 19 2010 jeffrey.chang
- *
- * Linux port modification
- *
- * 07 08 2010 cp.wu
- *
- * [WPD00003833] [MT6620 and MT5931] Driver migration - move to new repository.
- *
- * 06 06 2010 kevin.huang
- * [WPD00003832][MT6620 5931] Create driver base
- * [MT6620 5931] Create driver base
- *
- * 05 28 2010 jeffrey.chang
- * [WPD00003826]Initial import for Linux port
- * remove unused macro and debug messages
- *
- * 05 14 2010 jeffrey.chang
- * [WPD00003826]Initial import for Linux port
- * Add dissassoication support for wpa supplicant
- *
- * 04 22 2010 jeffrey.chang
- * [WPD00003826]Initial import for Linux port
- *
- * 1) modify rx path code for supporting Wi-Fi direct
- * 2) modify config.h since Linux dont need to consider retaining packet
- *
- * 04 21 2010 jeffrey.chang
- * [WPD00003826]Initial import for Linux port
- * add for private ioctl support
- *
- * 04 19 2010 jeffrey.chang
- * [WPD00003826]Initial import for Linux port
- * Add ioctl of power management
- *
- * 04 19 2010 jeffrey.chang
- * [WPD00003826]Initial import for Linux port
- * remove debug message
- *
- * 04 14 2010 jeffrey.chang
- * [WPD00003826]Initial import for Linux port
- * 1) prGlueInfo->pvInformationBuffer and prGlueInfo->u4InformationBufferLength are no longer used
- *  * 2) fix ioctl
- *
- * 04 12 2010 jeffrey.chang
- * [WPD00003826]Initial import for Linux port
- * remove debug messages for pre-release
- *
- * 04 07 2010 cp.wu
- * [WPD00001943]Create WiFi test driver framework on WinXP
- * rWlanInfo should be placed at adapter rather than glue due to most operations
- *  *  *  *  *  *  *  * are done in adapter layer.
- *
- * 04 02 2010 jeffrey.chang
- * [WPD00003826]Initial import for Linux port
- * fix ioctl type
- *
- * 04 01 2010 jeffrey.chang
- * [WPD00003826]Initial import for Linux port
- * enable pmksa cache operation
- *
- * 03 31 2010 jeffrey.chang
- * [WPD00003826]Initial import for Linux port
- * fix ioctl which may cause cmdinfo memory leak
- *
- * 03 31 2010 wh.su
- * [WPD00003816][MT6620 Wi-Fi] Adding the security support
- * modify the wapi related code for new driver's design.
- *
- * 03 30 2010 jeffrey.chang
- * [WPD00003826]Initial import for Linux port
- * emulate NDIS Pending OID facility
- *
- * 03 24 2010 jeffrey.chang
- * [WPD00003826]Initial import for Linux port
- * initial import for Linux port
-**  \main\maintrunk.MT5921\38 2009-10-08 10:33:22 GMT mtk01090
-**  Avoid accessing private data of net_device directly. Replace with netdev_priv().
-**  Add more checking for input parameters and pointers.
-**  \main\maintrunk.MT5921\37 2009-09-29 16:49:48 GMT mtk01090
-**  Remove unused variables
-**  \main\maintrunk.MT5921\36 2009-09-28 20:19:11 GMT mtk01090
-**  Add private ioctl to carry OID structures. Restructure public/private ioctl interfaces to Linux kernel.
-**  \main\maintrunk.MT5921\35 2009-09-03 11:42:30 GMT mtk01088
-**  adding the wapi ioctl support
-**  \main\maintrunk.MT5921\34 2009-08-18 22:56:50 GMT mtk01090
-**  Add Linux SDIO (with mmc core) support.
-**  Add Linux 2.6.21, 2.6.25, 2.6.26.
-**  Fix compile warning in Linux.
-**  \main\maintrunk.MT5921\33 2009-05-14 22:43:47 GMT mtk01089
-**  fix compiling warning
-**  \main\maintrunk.MT5921\32 2009-05-07 22:26:18 GMT mtk01089
-**  Add mandatory and private IO control for Linux BWCS
-**  \main\maintrunk.MT5921\31 2009-02-07 15:11:14 GMT mtk01088
-**  fixed the compiling error
-**  \main\maintrunk.MT5921\30 2009-02-07 14:46:51 GMT mtk01088
-**  add the privacy setting from linux supplicant ap selection
-**  \main\maintrunk.MT5921\29 2008-11-19 15:18:50 GMT mtk01088
-**  fixed the compling error
-**  \main\maintrunk.MT5921\28 2008-11-19 11:56:18 GMT mtk01088
-**  rename some variable with pre-fix to avoid the misunderstanding
-**  \main\maintrunk.MT5921\27 2008-08-29 16:59:43 GMT mtk01088
-**  fixed compiling error
-**  \main\maintrunk.MT5921\26 2008-08-29 14:55:53 GMT mtk01088
-**  adjust the code for meet the coding style, and add assert check
-**  \main\maintrunk.MT5921\25 2008-06-02 11:15:19 GMT mtk01461
-**  Update after wlanoidSetPowerMode changed
-**  \main\maintrunk.MT5921\24 2008-05-30 15:13:12 GMT mtk01084
-**  rename wlanoid
-**  \main\maintrunk.MT5921\23 2008-03-28 10:40:28 GMT mtk01461
-**  Add set desired rate in Linux STD IOCTL
-**  \main\maintrunk.MT5921\22 2008-03-18 10:31:24 GMT mtk01088
-**  add pmkid ioctl and indicate
-**  \main\maintrunk.MT5921\21 2008-03-11 15:21:24 GMT mtk01461
-**  \main\maintrunk.MT5921\20 2008-03-11 14:50:55 GMT mtk01461
-**  Refine WPS related priv ioctl for unified interface
-**
-**  \main\maintrunk.MT5921\19 2008-03-06 16:30:41 GMT mtk01088
-**  move the configuration code from set essid function,
-**  remove the non-used code
-**  \main\maintrunk.MT5921\18 2008-02-21 15:47:09 GMT mtk01461
-**  Fix CR[489]
-**  \main\maintrunk.MT5921\17 2008-02-12 23:38:31 GMT mtk01461
-**  Add Set Frequency & Channel oid support for Linux
-**  \main\maintrunk.MT5921\16 2008-01-24 12:07:34 GMT mtk01461
-**  \main\maintrunk.MT5921\15 2008-01-24 12:00:10 GMT mtk01461
-**  Modify the wext_essid for set up correct information for IBSS, and fix the wrong input ptr for prAdapter
-**  \main\maintrunk.MT5921\14 2007-12-06 09:30:12 GMT mtk01425
-**  1. Branch Test
-**  \main\maintrunk.MT5921\13 2007-12-04 18:07:59 GMT mtk01461
-**  fix typo
-**  \main\maintrunk.MT5921\12 2007-11-30 17:10:21 GMT mtk01425
-**  1. Fix compiling erros
-**
-**  \main\maintrunk.MT5921\11 2007-11-27 10:43:22 GMT mtk01425
-**  1. Add WMM-PS setting
-**  \main\maintrunk.MT5921\10 2007-11-06 20:33:32 GMT mtk01088
-**  fixed the compiler error
-**  \main\maintrunk.MT5921\9 2007-11-06 19:33:15 GMT mtk01088
-**  add WPS code
-**  \main\maintrunk.MT5921\8 2007-10-30 12:00:44 GMT MTK01425
-**  1. Update wlanQueryInformation
+* Copyright (C) 2016 MediaTek Inc.
+*
+* This program is free software; you can redistribute it and/or modify
+* it under the terms of the GNU General Public License version 2 as
+* published by the Free Software Foundation.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+* See http://www.gnu.org/licenses/gpl-2.0.html for more details.
 */
 
 /*******************************************************************************
@@ -411,7 +50,10 @@ const long channel_freq[] = {
 
 #define NUM_CHANNELS (sizeof(channel_freq) / sizeof(channel_freq[0]))
 
-#define MAX_SSID_LEN    32
+
+#define MAX_SSID_LEN		32
+#define COUNTRY_CODE_LEN	10	/* country code length */
+
 
 /*******************************************************************************
 *                             D A T A   T Y P E S
@@ -934,6 +576,64 @@ BOOLEAN wextSrchDesiredRoamingConsortiumIE(IN PUINT_8 pucIEStart, IN INT_32 i4To
 }				/* wextSrchDesiredRoamingConsortiumIE */
 #endif
 
+#if CFG_SUPPORT_OKC
+BOOLEAN wextSrchOkcAndPMKID(IN PUINT_8 pucIEStart, IN INT_32 i4TotalIeLen, OUT PUINT_8 *ppucPMKID, OUT PUINT_8 okc)
+{
+	INT_32 i4InfoElemLen;
+	UINT_8 ucDone = 0;
+
+	ASSERT(pucIEStart);
+	ASSERT(ppucPMKID);
+	ASSERT(okc);
+	*okc = 0;
+	*ppucPMKID = NULL;
+	while (i4TotalIeLen >= 2) {
+		i4InfoElemLen = (INT_32) pucIEStart[1] + 2;
+		if (i4InfoElemLen > i4TotalIeLen)
+			break;
+		if (pucIEStart[0] == ELEM_ID_VENDOR) {
+			if (pucIEStart[1] != 4 || pucIEStart[2] != 0 || pucIEStart[3] != 0x8 || pucIEStart[4] != 0x22)
+				goto check_next;
+			*okc = pucIEStart[5];
+			ucDone |= 1;
+		} else if (pucIEStart[0] == ELEM_ID_RSN) {
+			/* RSN IE:
+			EID(1), Len(1), Version(2), GrpCipher(4), PairCipherCnt(2), PairCipherList(PairCipherCnt * 4)
+			AKMCnt(2), AkmList(4*AkmCnt), RSNCap(2), PMKIDCnt(2), PMKIDList(16*PMKIDCnt), GrpMgtCipher(4) */
+			UINT_16 u2CipherCnt = 0;
+			UINT_16 u2AkmCnt = 0;
+			INT_32 i4LenToCheck = 8;
+
+			/* if no Pairwise Cipher Count field, bypass */
+			if (i4InfoElemLen < i4LenToCheck + 2)
+				goto check_next;
+			u2CipherCnt = *(PUINT_16)&pucIEStart[i4LenToCheck];
+			i4LenToCheck += 2; /* include length of Pairwise Cipher Count field */
+			i4LenToCheck += u2CipherCnt * 4; /* include cipher list field */
+			/* if no AKM Count, bypass */
+			if (i4InfoElemLen < i4LenToCheck + 2)
+				goto check_next;
+			u2AkmCnt = *(PUINT_16)&pucIEStart[i4LenToCheck];
+			i4LenToCheck += 2; /* include length of AKM Count */
+			i4LenToCheck += u2AkmCnt * 4 + 2; /* include akm list field */
+			/* if IE length is 10 + u2CipherCnt * 4 + 2 + u2AkmCnt * 4 + 2 + 6,
+			means PMKID count field is zero, and Group Mgmt Cipher may be exist */
+			if (i4InfoElemLen <= i4LenToCheck + 6)
+				goto check_next;
+			*ppucPMKID = pucIEStart + i4LenToCheck; /* return PMKID field and started at PMKID count */
+			ucDone |= 2;
+		}
+		if (ucDone == 3)
+			return TRUE;
+		/* check desired EID */
+		/* Select next information element. */
+check_next:
+		i4TotalIeLen -= i4InfoElemLen;
+		pucIEStart += i4InfoElemLen;
+	}
+	return FALSE;
+}
+#endif
 #if CFG_SUPPORT_WPS
 /*----------------------------------------------------------------------------*/
 /*!
@@ -1579,6 +1279,7 @@ wext_set_scan(IN struct net_device *prNetDev,
 	if (prIwScanReq)
 		essid_len = prIwScanReq->essid_len;
 #endif
+	DBGLOG(REQ, INFO, "[wifi]essid_len=%d\n", essid_len);
 
 	init_completion(&prGlueInfo->rScanComp);
 
@@ -2135,6 +1836,7 @@ wext_set_essid(IN struct net_device *prNetDev,
 			   wlanoidSetEncryptionStatus,
 			   &eEncStatus, sizeof(eEncStatus), FALSE, FALSE, FALSE, FALSE, &u4BufLen);
 
+	kalMemZero(&rNewSsid, sizeof(PARAM_SSID_T));
 #if WIRELESS_EXT < 21
 	/* GeorgeKuo: a length error bug exists in (WE < 21) cases, kernel before
 	 ** 2.6.19. Cut the trailing '\0'.
@@ -2143,12 +1845,14 @@ wext_set_essid(IN struct net_device *prNetDev,
 #else
 	rNewSsid.u4SsidLen = prEssid->length;
 #endif
+
+	kalMemSet(rNewSsid.aucSsid , '\0' , sizeof(rNewSsid.aucSsid));
+	if (rNewSsid.u4SsidLen > sizeof(rNewSsid.aucSsid) - 1)
+		rNewSsid.u4SsidLen = sizeof(rNewSsid.aucSsid) - 1;
+
 	kalMemCopy(rNewSsid.aucSsid, pcExtra, rNewSsid.u4SsidLen);
 
-	/*
-	   rNewSsid.aucSsid[rNewSsid.u4SsidLen] = '\0';
-	   printk("set ssid(%lu): %s\n", rNewSsid.u4SsidLen, rNewSsid.aucSsid);
-	 */
+	DBGLOG(REQ, INFO, "wlan set essid: %s, u4SsidLen=%d\n", rNewSsid.aucSsid, rNewSsid.u4SsidLen);
 
 	if (kalIoctl(prGlueInfo,
 		     wlanoidSetSsid,
@@ -2216,7 +1920,7 @@ wext_get_essid(IN struct net_device *prNetDev,
 
 	kalMemFree(prSsid, VIR_MEM_TYPE, sizeof(PARAM_SSID_T));
 
-	return 0;
+	return rStatus;
 }				/* wext_get_essid */
 
 #if 0
@@ -3298,41 +3002,76 @@ wext_set_encode_ext(IN struct net_device *prNetDev,
 /*!
 * \brief Set country code
 *
-* \param[in] prDev Net device requested.
-* \param[in] prIwrInfo NULL.
-* \param[in] pu4Mode Pointer to new operation mode.
-* \param[in] pcExtra NULL.
+* \param[in] prNetDev Net device requested.
+* \param[in] prData iwreq.u.data carries country code value.
 *
-* \retval 0 For success.
-* \retval -EOPNOTSUPP If new mode is not supported.
+* \retval 0  For success.
+* \retval -EEFAULT For fail.
 *
-* \note Device will run in new operation mode if it is valid.
+* \note Country code is stored and channel list is updated based on current country domain.
 */
 /*----------------------------------------------------------------------------*/
-static int wext_set_country(IN struct net_device *prNetDev, IN struct iwreq *iwr)
+static int wext_set_country(IN struct net_device *prNetDev, IN struct iw_point *prData)
 {
 	P_GLUE_INFO_T prGlueInfo;
 	WLAN_STATUS rStatus;
 	UINT_32 u4BufLen;
-	UINT_8 aucCountry[2];
+	UINT_8 aucCountry[COUNTRY_CODE_LEN];
 
 	ASSERT(prNetDev);
 
-	/* iwr->u.data.pointer should be like "COUNTRY US", "COUNTRY EU"
+	/* prData->pointer should be like "COUNTRY US", "COUNTRY EU"
 	 * and "COUNTRY JP"
 	 */
-	if (FALSE == GLUE_CHK_PR2(prNetDev, iwr) || !iwr->u.data.pointer || iwr->u.data.length < 10)
+	if (FALSE == GLUE_CHK_PR2(prNetDev, prData) || !prData->pointer || prData->length < COUNTRY_CODE_LEN)
 		return -EINVAL;
+
 	prGlueInfo = *((P_GLUE_INFO_T *) netdev_priv(prNetDev));
 
-	aucCountry[0] = *((PUINT_8) iwr->u.data.pointer + 8);
-	aucCountry[1] = *((PUINT_8) iwr->u.data.pointer + 9);
+	if (copy_from_user(aucCountry, prData->pointer, COUNTRY_CODE_LEN))
+		return -EFAULT;
 
-	rStatus = kalIoctl(prGlueInfo, wlanoidSetCountryCode, &aucCountry[0], 2, FALSE, FALSE, TRUE, FALSE, &u4BufLen);
-	wlanUpdateChannelTable(prGlueInfo);
-	p2pUpdateChannelTableByDomain(prGlueInfo);
+	rStatus = kalIoctl(prGlueInfo,
+			   wlanoidSetCountryCode,
+			   &aucCountry[COUNTRY_CODE_LEN - 2], 2, FALSE, FALSE, TRUE, FALSE, &u4BufLen);
+
+	if (rStatus != WLAN_STATUS_SUCCESS) {
+		DBGLOG(REQ, ERROR, "Set country code error: %x\n", rStatus);
+		return -EFAULT;
+	}
+
 	return 0;
 }
+
+/*----------------------------------------------------------------------------*/
+/*!
+* \brief To report the iw private args table to user space.
+*
+* \param[in] prNetDev Net device requested.
+* \param[out] prData iwreq.u.data to carry the private args table.
+*
+* \retval 0  For success.
+* \retval -E2BIG For user's buffer size is too small.
+* \retval -EFAULT For fail.
+*
+*/
+/*----------------------------------------------------------------------------*/
+static int wext_get_priv(IN struct net_device *prNetDev, OUT struct iw_point *prData)
+{
+	UINT_16 u2BufferSize = prData->length;
+
+	/* Update our private args table size */
+	prData->length = (__u16)sizeof(rIwPrivTable);
+	if (u2BufferSize < prData->length)
+		return -E2BIG;
+
+	if (prData->length) {
+		if (copy_to_user(prData->pointer, rIwPrivTable, sizeof(rIwPrivTable)))
+			return -EFAULT;
+	}
+
+	return 0;
+}				/* wext_get_priv */
 
 /*----------------------------------------------------------------------------*/
 /*!
@@ -3352,7 +3091,6 @@ static int wext_set_country(IN struct net_device *prNetDev, IN struct iwreq *iwr
 /*----------------------------------------------------------------------------*/
 int wext_support_ioctl(IN struct net_device *prDev, IN struct ifreq *prIfReq, IN int i4Cmd)
 {
-	/* prIfReq is verified in the caller function wlanDoIOCTL() */
 	struct iwreq *iwr = (struct iwreq *)prIfReq;
 	struct iw_request_info rIwReqInfo;
 	int ret = 0;
@@ -3364,11 +3102,8 @@ int wext_support_ioctl(IN struct net_device *prDev, IN struct ifreq *prIfReq, IN
 	P_PARAM_PMKID_T prPmkid;
 	struct iw_scan_req *prIwScanReq = NULL;
 
-	/* prDev is verified in the caller function wlanDoIOCTL() */
-
 	/* printk("%d CMD:0x%x\n", jiffies_to_msecs(jiffies), i4Cmd); */
 
-	/* Prepare the call */
 	rIwReqInfo.cmd = (__u16) i4Cmd;
 	rIwReqInfo.flags = 0;
 
@@ -3431,12 +3166,15 @@ int wext_support_ioctl(IN struct net_device *prDev, IN struct ifreq *prIfReq, IN
 		}
 		break;
 
-	case SIOCSIWPRIV:	/* 0x8B0C, Country */
-		ret = wext_set_country(prDev, iwr);
+	case SIOCSIWPRIV:	/* 0x8B0C, set country code */
+		ret = wext_set_country(prDev, &iwr->u.data);
 		break;
 
-		/* case SIOCGIWPRIV: 0x8B0D, handled in wlan_do_ioctl() */
-		/* caes SIOCSIWSTATS: 0x8B0E, unused */
+	case SIOCGIWPRIV:	/* 0x8B0D, get private args table */
+		ret = wext_get_priv(prDev, &iwr->u.data);
+		break;
+
+		/* case SIOCSIWSTATS: 0x8B0E, unused */
 		/* case SIOCGIWSTATS:
 		   get statistics, intercepted by wireless_process_ioctl() in wireless.c,
 		   redirected to dev_iwstats(), dev->get_wireless_stats().
@@ -3500,12 +3238,12 @@ int wext_support_ioctl(IN struct net_device *prDev, IN struct ifreq *prIfReq, IN
 			ret = wext_set_scan(prDev, NULL, NULL, NULL);
 #if WIRELESS_EXT > 17
 		else if (iwr->u.data.length == sizeof(struct iw_scan_req)) {
-			prIwScanReq = kalMemAlloc(iwr->u.data.length, VIR_MEM_TYPE);
+			prIwScanReq = kalMemAlloc(sizeof(struct iw_scan_req), VIR_MEM_TYPE);
 			if (!prIwScanReq) {
 				ret = -ENOMEM;
 				break;
 			}
-			if (copy_from_user(prIwScanReq, iwr->u.data.pointer, iwr->u.data.length))
+			if (copy_from_user(prIwScanReq, iwr->u.data.pointer, sizeof(struct iw_scan_req)))
 				ret = -EFAULT;
 			else {
 				if (prIwScanReq->essid_len > IW_ESSID_MAX_SIZE)
@@ -3513,7 +3251,7 @@ int wext_support_ioctl(IN struct net_device *prDev, IN struct ifreq *prIfReq, IN
 				ret = wext_set_scan(prDev, NULL, prIwScanReq, &(prIwScanReq->essid[0]));
 			}
 
-			kalMemFree(prIwScanReq, VIR_MEM_TYPE, iwr->u.data.length);
+			kalMemFree(prIwScanReq, VIR_MEM_TYPE, sizeof(struct iw_scan_req));
 			prIwScanReq = NULL;
 		}
 #endif
@@ -3562,7 +3300,8 @@ int wext_support_ioctl(IN struct net_device *prDev, IN struct ifreq *prIfReq, IN
 
 #if 1
 	case SIOCSIWESSID:	/* 0x8B1A, set SSID (network name) */
-		if (iwr->u.essid.length > IW_ESSID_MAX_SIZE) {
+		u4ExtraSize = iwr->u.essid.length;
+		if (u4ExtraSize > IW_ESSID_MAX_SIZE) {
 			ret = -E2BIG;
 			break;
 		}
@@ -3577,7 +3316,7 @@ int wext_support_ioctl(IN struct net_device *prDev, IN struct ifreq *prIfReq, IN
 			break;
 		}
 
-		if (copy_from_user(prExtraBuf, iwr->u.essid.pointer, iwr->u.essid.length)) {
+		if (copy_from_user(prExtraBuf, iwr->u.essid.pointer, u4ExtraSize)) {
 			ret = -EFAULT;
 		} else {
 			/* Add trailing '\0' for printk */
@@ -3594,18 +3333,19 @@ int wext_support_ioctl(IN struct net_device *prDev, IN struct ifreq *prIfReq, IN
 #endif
 
 	case SIOCGIWESSID:	/* 0x8B1B, get SSID */
+		u4ExtraSize = iwr->u.essid.length;
 		if (!iwr->u.essid.pointer) {
 			ret = -EINVAL;
 			break;
 		}
 
-		if (iwr->u.essid.length < IW_ESSID_MAX_SIZE) {
-			DBGLOG(REQ, ERROR, "[wifi] iwr->u.essid.length:%d too small\n", iwr->u.essid.length);
+		if (u4ExtraSize != IW_ESSID_MAX_SIZE && u4ExtraSize != IW_ESSID_MAX_SIZE + 1) {
+			DBGLOG(REQ, ERROR, "[wifi] iwr->u.essid.length:%d too small\n", u4ExtraSize);
 			ret = -E2BIG;	/* let caller try larger buffer */
 			break;
 		}
 
-		prExtraBuf = kalMemAlloc(IW_ESSID_MAX_SIZE, VIR_MEM_TYPE);
+		prExtraBuf = kalMemAlloc(IW_ESSID_MAX_SIZE + 1, VIR_MEM_TYPE);
 		if (!prExtraBuf) {
 			ret = -ENOMEM;
 			break;
@@ -3619,7 +3359,7 @@ int wext_support_ioctl(IN struct net_device *prDev, IN struct ifreq *prIfReq, IN
 				ret = -EFAULT;
 		}
 
-		kalMemFree(prExtraBuf, VIR_MEM_TYPE, IW_ESSID_MAX_SIZE);
+		kalMemFree(prExtraBuf, VIR_MEM_TYPE, IW_ESSID_MAX_SIZE + 1);
 		prExtraBuf = NULL;
 
 		break;
@@ -3662,22 +3402,22 @@ int wext_support_ioctl(IN struct net_device *prDev, IN struct ifreq *prIfReq, IN
 #if 1
 	case SIOCSIWENCODE:	/* 0x8B2A, set encoding token & mode */
 		/* Only DISABLED case has NULL pointer and length == 0 */
+		u4ExtraSize = iwr->u.encoding.length;
 		if (iwr->u.encoding.pointer) {
-			if (iwr->u.encoding.length > 16) {
+			if (u4ExtraSize > 16) {
 				ret = -E2BIG;
 				break;
 			}
 
-			u4ExtraSize = iwr->u.encoding.length;
 			prExtraBuf = kalMemAlloc(u4ExtraSize, VIR_MEM_TYPE);
 			if (!prExtraBuf) {
 				ret = -ENOMEM;
 				break;
 			}
 
-			if (copy_from_user(prExtraBuf, iwr->u.encoding.pointer, iwr->u.encoding.length))
+			if (copy_from_user(prExtraBuf, iwr->u.encoding.pointer, u4ExtraSize))
 				ret = -EFAULT;
-		} else if (iwr->u.encoding.length != 0) {
+		} else if (u4ExtraSize != 0) {
 			ret = -EINVAL;
 			break;
 		}
@@ -3713,13 +3453,14 @@ int wext_support_ioctl(IN struct net_device *prDev, IN struct ifreq *prIfReq, IN
 			break;
 
 		/* Fixed length structure */
+		u4ExtraSize = iwr->u.data.length;
+
 #if CFG_SUPPORT_WAPI
-		if (iwr->u.data.length > 42 /* The max wapi ie buffer */) {
+		if (u4ExtraSize > 42 /* The max wapi ie buffer */) {
 			ret = -EINVAL;
 			break;
 		}
 #endif
-		u4ExtraSize = iwr->u.data.length;
 		if (u4ExtraSize == 0)
 			break;
 
@@ -3728,7 +3469,7 @@ int wext_support_ioctl(IN struct net_device *prDev, IN struct ifreq *prIfReq, IN
 			ret = -ENOMEM;
 			break;
 		}
-		if (copy_from_user(prExtraBuf, iwr->u.data.pointer, iwr->u.data.length)) {
+		if (copy_from_user(prExtraBuf, iwr->u.data.pointer, u4ExtraSize)) {
 			ret = -EFAULT;
 		} else {
 #if CFG_SUPPORT_WAPI
@@ -3743,7 +3484,6 @@ int wext_support_ioctl(IN struct net_device *prDev, IN struct ifreq *prIfReq, IN
 #endif
 #if CFG_SUPPORT_WPS2
 				PUINT_8 prDesiredIE = NULL;
-
 				if (wextSrchDesiredWPSIE(prExtraBuf,
 							 u4ExtraSize,
 							 0xDD, (PUINT_8 *) &prDesiredIE)) {
@@ -3780,13 +3520,18 @@ int wext_support_ioctl(IN struct net_device *prDev, IN struct ifreq *prIfReq, IN
 	case SIOCSIWENCODEEXT:	/* 0x8B34, set extended encoding token & mode */
 		if (iwr->u.encoding.pointer) {
 			u4ExtraSize = iwr->u.encoding.length;
+			if (u4ExtraSize > sizeof(struct iw_encode_ext)) {
+				ret = -EINVAL;
+				break;
+			}
+
 			prExtraBuf = kalMemAlloc(u4ExtraSize, VIR_MEM_TYPE);
 			if (!prExtraBuf) {
 				ret = -ENOMEM;
 				break;
 			}
 
-			if (copy_from_user(prExtraBuf, iwr->u.encoding.pointer, iwr->u.encoding.length))
+			if (copy_from_user(prExtraBuf, iwr->u.encoding.pointer, u4ExtraSize))
 				ret = -EFAULT;
 		} else if (iwr->u.encoding.length != 0) {
 			ret = -EINVAL;
@@ -4125,41 +3870,5 @@ stat_out:
 	return pStats;
 }				/* wlan_get_wireless_stats */
 
-/*----------------------------------------------------------------------------*/
-/*!
-* \brief To report the private supported IOCTLs table to user space.
-*
-* \param[in] prNetDev Net device requested.
-* \param[out] prIfReq Pointer to ifreq structure, content is copied back to
-*                  user space buffer in gl_iwpriv_table.
-*
-* \retval 0 For success.
-* \retval -E2BIG For user's buffer size is too small.
-* \retval -EFAULT For fail.
-*
-*/
-/*----------------------------------------------------------------------------*/
-int wext_get_priv(IN struct net_device *prNetDev, IN struct ifreq *prIfReq)
-{
-	/* prIfReq is verified in the caller function wlanDoIOCTL() */
-	struct iwreq *prIwReq = (struct iwreq *)prIfReq;
-	struct iw_point *prData = (struct iw_point *)&prIwReq->u.data;
-	UINT_16 u2BufferSize = 0;
-
-	u2BufferSize = prData->length;
-
-	/* update our private table size */
-	prData->length = (__u16) sizeof(rIwPrivTable) / sizeof(struct iw_priv_args);
-
-	if (u2BufferSize < prData->length)
-		return -E2BIG;
-
-	if (prData->length) {
-		if (copy_to_user(prData->pointer, rIwPrivTable, sizeof(rIwPrivTable)))
-			return -EFAULT;
-	}
-
-	return 0;
-}				/* wext_get_priv */
 
 #endif /* WIRELESS_EXT */

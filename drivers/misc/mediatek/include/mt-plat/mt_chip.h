@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #ifndef __MT_CHIP_H__
 #define __MT_CHIP_H__
 
@@ -5,6 +18,7 @@ enum chip_sw_ver {
 	CHIP_SW_VER_01 = 0x0000,
 	CHIP_SW_VER_02 = 0x0001,
 	CHIP_SW_VER_03 = 0x0002,
+	CHIP_SW_VER_04 = 0x0003,
 };
 
 enum chip_info_id {

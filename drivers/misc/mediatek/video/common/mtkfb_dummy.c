@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 /*#include <generated/autoconf.h>*/
 #include <linux/module.h>
 #include <linux/mm.h>
@@ -24,7 +37,6 @@
 #include "mtkfb_info.h"
 #include <linux/bug.h>
 /* #include <linux/earlysuspend.h> */
-/* #include <linux/rtpm_prio.h> */
 /* #include "disp_assert_layer.h" */
 /* #include <linux/xlog.h> */
 /* #include <linux/leds-mt65xx.h> */
@@ -710,6 +722,16 @@ static int mtkfb_remove(struct device *dev)
 
 	fbdev->state = MTKFB_DISABLED;
 	mtkfb_free_resources(fbdev, saved_state);
+	return 0;
+}
+
+int mtkfb_set_backlight_mode(unsigned int mode)
+{
+	return 0;
+}
+
+int mtkfb_set_backlight_level(unsigned int level)
+{
 	return 0;
 }
 

@@ -1,17 +1,19 @@
 /*
- * Copyright (C) 2007 The Android Open Source Project
+ * Copyright (C) 2015 MediaTek Inc.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ * You should have received a copy of the GNU General Public License
+ * along with this program
+ * If not, see <http://www.gnu.org/licenses/>.
  */
 /*******************************************************************************
  *
@@ -76,6 +78,7 @@ static const int DCoffsetDefault = 1460;  /* denali: 1460 */
 
 static const int DCoffsetVariance = 200;    /* denali 0.2v */
 
+static const int mDcRangestep = 7;
 static const int HpImpedancePhase1Step = 150;
 static const int HpImpedancePhase2Step = 400;
 static const int HpImpedancePhase1AdcValue = 1200;
@@ -234,8 +237,6 @@ static int mtk_pcm_hp_impedance_prepare(struct snd_pcm_substream *substream)
 		    runtime->format == SNDRV_PCM_FORMAT_U32_LE) {
 			SetMemIfFetchFormatPerSample(Soc_Aud_Digital_Block_MEM_DL1,
 						     AFE_WLEN_32_BIT_ALIGN_8BIT_0_24BIT_DATA);
-			SetMemIfFetchFormatPerSample(Soc_Aud_Digital_Block_MEM_DL2,
-						     AFE_WLEN_32_BIT_ALIGN_8BIT_0_24BIT_DATA);
 			SetoutputConnectionFormat(OUTPUT_DATA_FORMAT_24BIT,
 						  Soc_Aud_InterConnectionOutput_O03);
 			SetoutputConnectionFormat(OUTPUT_DATA_FORMAT_24BIT,
@@ -243,7 +244,6 @@ static int mtk_pcm_hp_impedance_prepare(struct snd_pcm_substream *substream)
 			mI2SWLen = Soc_Aud_I2S_WLEN_WLEN_32BITS;
 		} else {
 			SetMemIfFetchFormatPerSample(Soc_Aud_Digital_Block_MEM_DL1, AFE_WLEN_16_BIT);
-			SetMemIfFetchFormatPerSample(Soc_Aud_Digital_Block_MEM_DL2, AFE_WLEN_16_BIT);
 			SetoutputConnectionFormat(OUTPUT_DATA_FORMAT_16BIT,
 						  Soc_Aud_InterConnectionOutput_O03);
 			SetoutputConnectionFormat(OUTPUT_DATA_FORMAT_16BIT,
@@ -268,6 +268,8 @@ static int mtk_pcm_hp_impedance_prepare(struct snd_pcm_substream *substream)
 		SetMemoryPathEnable(Soc_Aud_Digital_Block_MEM_DL1, true);
 
 		EnableAfe(true);
+		if (GetMemoryPathEnable(Soc_Aud_Digital_Block_I2S_OUT_DAC) == true)
+			SetI2SADDAEnable(true);
 		mPrepareDone = true;
 	}
 	return 0;
@@ -282,6 +284,8 @@ static int mtk_soc_pcm_hp_impedance_close(struct snd_pcm_substream *substream)
 		mPrepareDone = false;
 		SetMemoryPathEnable(Soc_Aud_Digital_Block_I2S_OUT_DAC, false);
 		SetMemoryPathEnable(Soc_Aud_Digital_Block_MEM_DL1, false);
+		SetI2SADDAEnable(false);
+		SetI2SDacEnable(false);
 		EnableAfe(false);
 	}
 	AudDrv_Emi_Clk_Off();
@@ -515,23 +519,23 @@ static void ApplyDctoDl(void)
 			pr_warn("dcinit_value = %d average = %d value = %d\n", dcinit_value, average,
 			       value);
 
-			/*printk("AUDIO_TOP_CON0 =0x%x\n", Afe_Get_Reg(AUDIO_TOP_CON0));
-			printk("PMIC_AFE_TOP_CON0 =0x%x\n", Ana_Get_Reg(PMIC_AFE_TOP_CON0));
-			printk("AUDNCP_CLKDIV_CON0 =0x%x\n", Ana_Get_Reg(AUDNCP_CLKDIV_CON0));
-			printk("AUDNCP_CLKDIV_CON1 =0x%x\n", Ana_Get_Reg(AUDNCP_CLKDIV_CON1));
-			printk("AUDNCP_CLKDIV_CON2 =0x%x\n", Ana_Get_Reg(AUDNCP_CLKDIV_CON2));
-			printk("AUDNCP_CLKDIV_CON3 =0x%x\n", Ana_Get_Reg(AUDNCP_CLKDIV_CON3));
-			printk("AUDNCP_CLKDIV_CON4 =0x%x\n", Ana_Get_Reg(AUDNCP_CLKDIV_CON4));
-			printk("AUDDEC_ANA_CON0 =0x%x\n", Ana_Get_Reg(AUDDEC_ANA_CON0));
-			printk("AUDDEC_ANA_CON1 =0x%x\n", Ana_Get_Reg(AUDDEC_ANA_CON1));
-			printk("AUDDEC_ANA_CON2 =0x%x\n", Ana_Get_Reg(AUDDEC_ANA_CON2));
-			printk("AUDDEC_ANA_CON3 =0x%x\n", Ana_Get_Reg(AUDDEC_ANA_CON3));
-			printk("AUDDEC_ANA_CON4 =0x%x\n", Ana_Get_Reg(AUDDEC_ANA_CON4));
-			printk("AUDDEC_ANA_CON5 =0x%x\n", Ana_Get_Reg(AUDDEC_ANA_CON5));
-			printk("AUDDEC_ANA_CON6 =0x%x\n", Ana_Get_Reg(AUDDEC_ANA_CON6));
-			printk("AUDDEC_ANA_CON7 =0x%x\n", Ana_Get_Reg(AUDDEC_ANA_CON7));
-			printk("AUDDEC_ANA_CON8 =0x%x\n", Ana_Get_Reg(AUDDEC_ANA_CON8));
-			printk("ZCD_CON0 =0x%x\n", Ana_Get_Reg(ZCD_CON0)); */
+			/*pr_debug("AUDIO_TOP_CON0 =0x%x\n", Afe_Get_Reg(AUDIO_TOP_CON0));
+			pr_debug("PMIC_AFE_TOP_CON0 =0x%x\n", Ana_Get_Reg(PMIC_AFE_TOP_CON0));
+			pr_debug("AUDNCP_CLKDIV_CON0 =0x%x\n", Ana_Get_Reg(AUDNCP_CLKDIV_CON0));
+			pr_debug("AUDNCP_CLKDIV_CON1 =0x%x\n", Ana_Get_Reg(AUDNCP_CLKDIV_CON1));
+			pr_debug("AUDNCP_CLKDIV_CON2 =0x%x\n", Ana_Get_Reg(AUDNCP_CLKDIV_CON2));
+			pr_debug("AUDNCP_CLKDIV_CON3 =0x%x\n", Ana_Get_Reg(AUDNCP_CLKDIV_CON3));
+			pr_debug("AUDNCP_CLKDIV_CON4 =0x%x\n", Ana_Get_Reg(AUDNCP_CLKDIV_CON4));
+			pr_debug("AUDDEC_ANA_CON0 =0x%x\n", Ana_Get_Reg(AUDDEC_ANA_CON0));
+			pr_debug("AUDDEC_ANA_CON1 =0x%x\n", Ana_Get_Reg(AUDDEC_ANA_CON1));
+			pr_debug("AUDDEC_ANA_CON2 =0x%x\n", Ana_Get_Reg(AUDDEC_ANA_CON2));
+			pr_debug("AUDDEC_ANA_CON3 =0x%x\n", Ana_Get_Reg(AUDDEC_ANA_CON3));
+			pr_debug("AUDDEC_ANA_CON4 =0x%x\n", Ana_Get_Reg(AUDDEC_ANA_CON4));
+			pr_debug("AUDDEC_ANA_CON5 =0x%x\n", Ana_Get_Reg(AUDDEC_ANA_CON5));
+			pr_debug("AUDDEC_ANA_CON6 =0x%x\n", Ana_Get_Reg(AUDDEC_ANA_CON6));
+			pr_debug("AUDDEC_ANA_CON7 =0x%x\n", Ana_Get_Reg(AUDDEC_ANA_CON7));
+			pr_debug("AUDDEC_ANA_CON8 =0x%x\n", Ana_Get_Reg(AUDDEC_ANA_CON8));
+			pr_debug("ZCD_CON0 =0x%x\n", Ana_Get_Reg(ZCD_CON0)); */
 		}
 
 		/* start checking */

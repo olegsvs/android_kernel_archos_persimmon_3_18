@@ -183,6 +183,8 @@
 		lcm_params-dsi-vertical_vfp_lp;
 		lcm_params-physical_width;
 		lcm_params-physical_height;
+		lcm_params-physical_width_um;
+		lcm_params-physical_height_um;
 		lcm_params-od_table_size;
 		lcm_params-od_table;
 	};
@@ -206,7 +208,8 @@
 			<LCM_FUNC_CMD LCM_UTIL_WRITE_CMD_V2 3 0xD6 1 0x01>,
 			<LCM_FUNC_CMD LCM_UTIL_WRITE_CMD_V2 3 0xB4 1 0x08>,
 			<LCM_FUNC_CMD LCM_UTIL_WRITE_CMD_V2 4 0xB6 2 0x38 0xA3>,
-			<LCM_FUNC_CMD LCM_UTIL_WRITE_CMD_V2 10 LCM_UTIL_WRITE_CMD_V2_NULL 8 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00>,
+			<LCM_FUNC_CMD LCM_UTIL_WRITE_CMD_V2 10 LCM_UTIL_WRITE_CMD_V2_NULL>,
+			<8 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00>,
 			<LCM_FUNC_UTIL LCM_UTIL_RAR 1 1>,
 			<LCM_FUNC_CMD LCM_UTIL_WRITE_CMD_V2 3 0x51 1 0xFF>,
 			<LCM_FUNC_CMD LCM_UTIL_WRITE_CMD_V2 3 0x53 1 0x0C>,

@@ -1,17 +1,19 @@
 /*
- * Copyright (C) 2007 The Android Open Source Project
+ * Copyright (C) 2015 MediaTek Inc.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ * You should have received a copy of the GNU General Public License
+ * along with this program
+ * If not, see <http://www.gnu.org/licenses/>.
  */
 /*******************************************************************************
  *
@@ -121,13 +123,13 @@ static struct dentry *mt_sco_audio_debugfs;
 
 static int mtmachine_startup(struct snd_pcm_substream *substream)
 {
-	/* printk("mtmachine_startup\n"); */
+	/* pr_debug("mtmachine_startup\n"); */
 	return 0;
 }
 
 static int mtmachine_prepare(struct snd_pcm_substream *substream)
 {
-	/* printk("mtmachine_prepare\n"); */
+	/* pr_debug("mtmachine_prepare\n"); */
 	return 0;
 }
 
@@ -147,13 +149,13 @@ static struct snd_soc_compr_ops mt_machine_audio_compr_ops = {
 
 static int mtmachine_startupmedia2(struct snd_pcm_substream *substream)
 {
-	/* printk("mtmachine_startupmedia2\n"); */
+	/* pr_debug("mtmachine_startupmedia2\n"); */
 	return 0;
 }
 
 static int mtmachine_preparemedia2(struct snd_pcm_substream *substream)
 {
-	/* printk("mtmachine_preparemedia2\n"); */
+	/* pr_debug("mtmachine_preparemedia2\n"); */
 	return 0;
 }
 
@@ -437,6 +439,36 @@ static ssize_t mt_soc_debug_read(struct file *file, char __user *buf, size_t cou
 		       Afe_Get_Reg(AUDIO_TOP_CON2));
 	n += scnprintf(buffer + n, size - n, "AUDIO_TOP_CON3		   = 0x%x\n",
 		       Afe_Get_Reg(AUDIO_TOP_CON3));
+	n += scnprintf(buffer + n, size - n, "AFE_BUS_MON1		   = 0x%x\n",
+			Afe_Get_Reg(AFE_BUS_MON1));
+	n += scnprintf(buffer + n, size - n, "AFE_CONN_MON0		   = 0x%x\n",
+		Afe_Get_Reg(AFE_CONN_MON0));
+	n += scnprintf(buffer + n, size - n, "AFE_CONN_MON1		   = 0x%x\n",
+		Afe_Get_Reg(AFE_CONN_MON1));
+	n += scnprintf(buffer + n, size - n, "AFE_CONN_MON2		   = 0x%x\n",
+		Afe_Get_Reg(AFE_CONN_MON2));
+	n += scnprintf(buffer + n, size - n, "AFE_CONN_MON3		   = 0x%x\n",
+		Afe_Get_Reg(AFE_CONN_MON3));
+	n += scnprintf(buffer + n, size - n, "AFE_APB_MON		   = 0x%x\n",
+		Afe_Get_Reg(AFE_APB_MON));
+	n += scnprintf(buffer + n, size - n, "CLK_MISC_CFG_0  = 0x%x\n",
+		GetClkCfg(CLK_MISC_CFG_0));
+	n += scnprintf(buffer + n, size - n, "AUDIO_CLK_CFG_4  = 0x%x\n",
+		GetClkCfg(AUDIO_CLK_CFG_4));
+	n += scnprintf(buffer + n, size - n, "AUDIO_CLK_CFG_6  = 0x%x\n",
+		GetClkCfg(AUDIO_CLK_CFG_6));
+	n += scnprintf(buffer + n, size - n, "APLL1_CON0  = 0x%x\n",
+		GetpllCfg(APLL1_CON0));
+	n += scnprintf(buffer + n, size - n, "APLL1_CON1  = 0x%x\n",
+		GetpllCfg(APLL1_CON1));
+	n += scnprintf(buffer + n, size - n, "APLL1_CON2  = 0x%x\n",
+		GetpllCfg(APLL1_CON2));
+	n += scnprintf(buffer + n, size - n, "APLL1_CON3  = 0x%x\n",
+		GetpllCfg(APLL1_CON3));
+	n += scnprintf(buffer + n, size - n, "APLL1_PWR_CON0  = 0x%x\n",
+		GetpllCfg(APLL1_PWR_CON0));
+	n += scnprintf(buffer + n, size - n, "INFRA_GLOBALCON_PDN0  = 0x%x\n",
+		GetInfraCfg(INFRA_GLOBALCON_PDN0));
 	n += scnprintf(buffer + n, size - n, "AFE_DAC_CON0		   = 0x%x\n",
 		       Afe_Get_Reg(AFE_DAC_CON0));
 	n += scnprintf(buffer + n, size - n, "AFE_DAC_CON1		   = 0x%x\n",
@@ -767,6 +799,10 @@ static ssize_t mt_soc_debug_write(struct file *f, const char __user *buf,
 	char delim[] = " ,";
 
 	memset((void *)InputString, 0, 256);
+
+	if (count > 256)
+		count = 256;
+
 	if (copy_from_user((InputString), buf, count))
 		pr_debug("copy_from_user mt_soc_debug_write count = %zu temp = %s\n", count,
 			 InputString);
@@ -842,151 +878,8 @@ static const struct file_operations mtaudio_ana_debug_ops = {
 	.open = mt_soc_ana_debug_open,
 	.read = mt_soc_ana_debug_read,
 };
-#ifdef CONFIG_MTK_HIFI_ES9018 //add by major for bf168 hifi9018
-///add by major for bf168 hifi 
-static const struct snd_soc_dapm_widget es9018_dapm_widgets[] = {
-	SND_SOC_DAPM_HP("Headphone", NULL),
-	SND_SOC_DAPM_MIC("Headset Mic", NULL),
-	SND_SOC_DAPM_MIC("Int Mic", NULL),
-	SND_SOC_DAPM_SPK("Ext Spk", NULL),
-};
-static const struct snd_soc_dapm_route es9018_audio_map[] = {
-	{"Headphone", NULL, "HPOUT1L"},
-	{"Headphone", NULL, "HPOUT1R"},
-	{"Ext Spk", NULL, "SPKOUTLP"},
-	{"Ext Spk", NULL, "SPKOUTLN"},
-	{"Ext Spk", NULL, "SPKOUTRP"},
-	{"Ext Spk", NULL, "SPKOUTRN"},
-	//TODO: Check this mapping
-	{"Headset Mic", NULL, "MICBIAS1"},
-	{"IN1L", NULL, "Headset Mic"},
-	{"Int Mic", NULL, "MICBIAS3"},
-	{"IN3L", NULL, "Int Mic"},
-};
-
-static const struct snd_kcontrol_new es9018_mc_controls[] = {
-	SOC_DAPM_PIN_SWITCH("Headphone"),
-	SOC_DAPM_PIN_SWITCH("Headset Mic"),
-	SOC_DAPM_PIN_SWITCH("Int Mic"),
-	SOC_DAPM_PIN_SWITCH("Ext Spk"),
-};
-
-#if 0
-static int es9018_set_bias_level(struct snd_soc_card *card,
-				struct snd_soc_dapm_context *dapm,
-				enum snd_soc_bias_level level)
-{
-	switch (level) {
-	case SND_SOC_BIAS_ON:
-	case SND_SOC_BIAS_PREPARE:
-	case SND_SOC_BIAS_STANDBY:
-	case SND_SOC_BIAS_OFF:
-		break;
-	default:
-		pr_err("%s: Invalid bias level=%d\n", __func__, level);
-		return -EINVAL;
-	}
-	card->dapm.bias_level = level;
-	pr_debug("card(%s)->bias_level %u\n", card->name,
-		  	card->dapm.bias_level);
-	return 0;
-}
-#endif
-static int es9018_init(struct snd_soc_pcm_runtime *runtime)
-{
-#if 0
-	int ret;
-	struct snd_soc_codec *codec = runtime->codec;
-	struct snd_soc_dapm_context *dapm = &codec->dapm;
-	struct snd_soc_card *card = runtime->card;
-
-	printk("Enter:%s\n", __func__);
-	/* Set codec bias level */
-	es9018_set_bias_level(card, dapm, SND_SOC_BIAS_OFF);
-	card->dapm.idle_bias_off = true;
-
-	ret = snd_soc_add_card_controls(card, es9018_mc_controls,
-					ARRAY_SIZE(es9018_mc_controls));
-	if (ret) {
-		printk("unable to add card controls\n");
-		return ret;
-	}
-
-	snd_soc_dapm_sync(dapm);
-	return ret;
-#endif
-	return 0; //add by major  3G ram reboot 
-}
-
-#if 0
-static int es9018_config_clks(struct snd_soc_codec *es9018_codec, int sr)
-{
-        printk("%s \n",__func__);
-    
-	return 0;
-}
-static unsigned int rates_44100[] = {
-	44100,
-};
-
-static struct snd_pcm_hw_constraint_list constraints_44100 = {
-	.count = ARRAY_SIZE(rates_44100),
-	.list  = rates_44100,
-};
-#endif
-static int es9018_aif1_startup(struct snd_pcm_substream *substream)
-{
-#if 0
-	printk("es9018_aif1_startup enter\n");
-	return snd_pcm_hw_constraint_list(substream->runtime, 0,
-			SNDRV_PCM_HW_PARAM_RATE,
-			&constraints_44100);
-#endif
-	return 0;
-}
-
-static int es9018_aif1_hw_params(struct snd_pcm_substream *substream,
-			     struct snd_pcm_hw_params *params)
-{
-#if 0
-	struct snd_soc_pcm_runtime *rtd = substream->private_data;
-	int ret;
-
-	////i2s config
-	mt_set_gpio_mode((GPIO66|0x80000000), GPIO_MODE_03);
-	mt_set_gpio_mode((GPIO67|0x80000000), GPIO_MODE_03);
-	mt_set_gpio_mode((GPIO68|0x80000000), GPIO_MODE_03);
-
-	////i2s config
 
 
-   	printk("es9018_aif1_hw_params enter\n");		
-	ret = es9018_config_clks(rtd->codec, params_rate(params));
-
-	return ret;
-#endif
-	return 0;
-}
-static int es9018_aif_free(struct snd_pcm_substream *substream) 
-{
-#if 0 
-     ////i2s config
-     mt_set_gpio_mode((GPIO66|0x80000000), GPIO_MODE_00);
-     mt_set_gpio_mode((GPIO67|0x80000000), GPIO_MODE_00);
-     mt_set_gpio_mode((GPIO68|0x80000000), GPIO_MODE_00);
-
-     ////i2s config
-     return 0;
-#endif 
-	 return 0;
-}
-static struct snd_soc_ops byt_aif1_ops = {
-	.startup = es9018_aif1_startup,
-	.hw_params = es9018_aif1_hw_params,
-	.hw_free = es9018_aif_free, 
-};
-//add end by major 
-#endif  //add end by major 
 /* Digital audio interface glue - connects codec <---> CPU */
 static struct snd_soc_dai_link mt_soc_dai_common[] = {
 	/* FrontEnd DAI Links */
@@ -1242,23 +1135,6 @@ static struct snd_soc_dai_link mt_soc_dai_common[] = {
 	 .init = mt_soc_audio_init,
 	 .ops = &mt_machine_audio_ops,
 	 },
-#ifdef CONFIG_MTK_HIFI_ES9018 //add by major for bf168 hifi9018
-    //es9018 dai link
-   {
-        .name = "mtk-es9018-i2s",
-        .stream_name = MT_SOC_DUMMY_I2S_STREAM_PCM,
-        .cpu_dai_name   = MT_SOC_DUMMY_I2S_DAI_NAME,
-       // .platform_name  = MT_SOC_DUMMY_I2S_PCM,
-        .codec_dai_name = "es9018-hifi",
-        .codec_name = "es9018-codec",
-        .dai_fmt	= SND_SOC_DAIFMT_I2S
-			| SND_SOC_DAIFMT_NB_NF
-			| SND_SOC_DAIFMT_CBS_CFS,
-        .init = es9018_init,
-        .ignore_suspend = 1,
-        .ops = &byt_aif1_ops,
-    },
-#endif
 };
 
 static const char const *I2S_low_jittermode[] = { "Off", "On" };

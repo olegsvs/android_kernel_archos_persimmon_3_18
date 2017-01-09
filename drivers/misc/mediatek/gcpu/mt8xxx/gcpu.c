@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #include <linux/uaccess.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
@@ -7,8 +20,11 @@
 #include <linux/slab.h>
 #include <mt-plat/aee.h>
 #include <linux/printk.h>
+#include <linux/clk.h>
+#include <linux/of_address.h>
 
-#if defined(CONFIG_MTK_IN_HOUSE_TEE_SUPPORT)
+#if (defined(CONFIG_MTK_IN_HOUSE_TEE_SUPPORT) || \
+	defined(CONFIG_TRUSTY))
 #include "trustzone/kree/system.h"
 #include "trustzone/tz_cross/ta_gcpu.h"
 #define GCPU_TEE_ENABLE 1
@@ -29,34 +45,7 @@
 #define GCPU_LOG_ERR(log, args...) \
 	pr_err("[GCPU Kernel] [%s] [%d] *** ERROR: "log, __func__, __LINE__, ##args)
 #define GCPU_LOG_INFO(log, args...) \
-	pr_info("[GCPU Kernel] [%s] [%d] "log, __func__, __LINE__, ##args)
-#endif
-
-#if 0
-int gcpu_enableClk(void)
-{
-	int ret = 0;
-
-	GCPU_LOG_INFO("Enable GCPU clock\n");
-
-	ret = enable_clock(MT_CG_PERI_GCPU, "GCPU");
-
-	return ret;
-}
-EXPORT_SYMBOL(gcpu_enableClk);
-
-int gcpu_disableClk(void)
-{
-	int ret = 0;
-
-	GCPU_LOG_INFO("Disable GCPU clock\n");
-
-	ret = disable_clock(MT_CG_PERI_GCPU, "GCPU");
-
-	return ret;
-}
-EXPORT_SYMBOL(gcpu_disableClk);
-
+	pr_debug("[GCPU Kernel] [%s] [%d] "log, __func__, __LINE__, ##args)
 #endif
 
 #if GCPU_TEE_ENABLE
@@ -97,13 +86,14 @@ static int gcpu_tee_call(uint32_t cmd)
 static int gcpu_probe(struct platform_device *pdev)
 {
 	GCPU_LOG_INFO("gcpu_probe\n");
-	/* gcpu_tee_call(TZCMD_GCPU_SELFTEST); */
+
 	return 0;
 }
 
 static int gcpu_remove(struct platform_device *pdev)
 {
 	GCPU_LOG_INFO("gcpu_remove\n");
+
 	return 0;
 }
 
@@ -124,9 +114,17 @@ static int gcpu_suspend(struct platform_device *pdev, pm_message_t mesg)
 
 static int gcpu_resume(struct platform_device *pdev)
 {
+	int ret = 0;
+
 	GCPU_LOG_INFO("gcpu_resume\n");
-	/* gcpu_tee_call(TZCMD_GCPU_SELFTEST); */
-	return 0;
+	if (gcpu_tee_call(TZCMD_GCPU_RESUME)) {
+		GCPU_LOG_ERR("gcpu_resume fail\n");
+		ret = 1;
+	} else {
+		GCPU_LOG_INFO("gcpu_resume ok\n");
+		ret = 0;
+	}
+	return ret;
 }
 
 struct platform_device gcpu_device = {
@@ -152,12 +150,6 @@ static int __init gcpu_init(void)
 	int ret = 0;
 
 	GCPU_LOG_INFO("module init\n");
-
-	ret = platform_device_register(&gcpu_device);
-	if (ret) {
-		GCPU_LOG_ERR("Unable to register device , ret = %d\n", ret);
-		return ret;
-	}
 
 	ret = platform_driver_register(&gcpu_driver);
 	if (ret) {

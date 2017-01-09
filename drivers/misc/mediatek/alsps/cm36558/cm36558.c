@@ -30,8 +30,16 @@
 #define APS_TAG                  "[ALS/PS] "
 #define APS_FUN(f)               pr_debug(APS_TAG"%s\n", __func__)
 #define APS_ERR(fmt, args...)    pr_err(APS_TAG"%s %d : "fmt, __func__, __LINE__, ##args)
+
+#define APS_LOGLEVEL 0
+
+#if ((APS_LOGLEVEL) >= 1)
 #define APS_LOG(fmt, args...)    pr_debug(APS_TAG fmt, ##args)
 #define APS_DBG(fmt, args...)    pr_debug(APS_TAG fmt, ##args)
+#else
+#define APS_LOG(fmt, args...)
+#define APS_DBG(fmt, args...)
+#endif
 
 #define I2C_FLAG_WRITE	0
 #define I2C_FLAG_READ	1
@@ -612,6 +620,7 @@ static ssize_t CM36558_show_reg(struct device_driver *ddri, char *buf)
 	u8 _bIndex = 0;
 	u8 databuf[2] = { 0 };
 	ssize_t _tLength = 0;
+	int res = 0;
 
 	if (!CM36558_obj) {
 		APS_ERR("CM36558_obj is null!!\n");
@@ -620,7 +629,10 @@ static ssize_t CM36558_show_reg(struct device_driver *ddri, char *buf)
 
 	for (_bIndex = 0; _bIndex < 0x0E; _bIndex++) {
 		databuf[0] = _bIndex;
-		CM36558_i2c_master_operate(CM36558_obj->client, databuf, 2, I2C_FLAG_READ);
+		res = CM36558_i2c_master_operate(CM36558_obj->client, databuf, 2, I2C_FLAG_READ);
+		if (res < 0) {
+			APS_ERR("CM36558_i2c_master_operate err res = %d\n", res);
+		}
 		_tLength +=
 		    snprintf((buf + _tLength), (PAGE_SIZE - _tLength), "Reg[0x%02X]: 0x%04X\n", _bIndex,
 			     databuf[0] | databuf[1] << 8);
@@ -864,7 +876,7 @@ static int CM36558_check_intr(struct i2c_client *client)
 		goto EXIT_ERR;
 	}
 
-	APS_LOG("CM36558_REG_PS_DATA value value_low = %x, value_reserve = %x\n", databuf[0], databuf[1]);
+	pr_warn("CM36558_REG_PS_DATA value value_low = %x, value_reserve = %x\n", databuf[0], databuf[1]);
 
 	databuf[0] = CM36558_REG_INT_FLAG;
 	res = CM36558_i2c_master_operate(client, databuf, 2, I2C_FLAG_READ);
@@ -873,7 +885,7 @@ static int CM36558_check_intr(struct i2c_client *client)
 		goto EXIT_ERR;
 	}
 
-	APS_LOG("CM36558_REG_INT_FLAG value value_low = %x, value_high = %x\n", databuf[0], databuf[1]);
+	pr_warn("CM36558_REG_INT_FLAG value value_low = %x, value_high = %x\n", databuf[0], databuf[1]);
 
 	if (databuf[1] & 0x02) {
 		intr_flag = 0;
@@ -897,7 +909,7 @@ static void CM36558_eint_work(struct work_struct *work)
 	struct CM36558_priv *obj = (struct CM36558_priv *)container_of(work, struct CM36558_priv, eint_work);
 	int res = 0;
 
-	APS_LOG("CM36558 int top half time = %lld\n", int_top_time);
+	pr_warn("CM36558 int top half time = %lld\n", int_top_time);
 
 	res = CM36558_check_intr(obj->client);
 	if (res != 0) {
@@ -978,7 +990,6 @@ int CM36558_setup_eint(struct i2c_client *client)
 /* eint request */
 	if (CM36558_obj->irq_node) {
 		of_property_read_u32_array(CM36558_obj->irq_node, "debounce", ints, ARRAY_SIZE(ints));
-		gpio_request(ints[0], "p-sensor");
 		gpio_set_debounce(ints[0], ints[1]);
 		APS_LOG("ints[0] = %d, ints[1] = %d!!\n", ints[0], ints[1]);
 
@@ -1259,12 +1270,26 @@ static long CM36558_unlocked_ioctl(struct file *file, unsigned int cmd, unsigned
  err_out:
 	return err;
 }
+
+static long compat_CM36558_unlocked_ioctl(struct file *filp, unsigned int cmd,
+				unsigned long arg)
+{
+	if (!filp->f_op || !filp->f_op->unlocked_ioctl) {
+		APS_ERR("compat_ioctl f_op has no f_op->unlocked_ioctl.\n");
+		return -ENOTTY;
+	}
+	return filp->f_op->unlocked_ioctl(filp, cmd, (unsigned long)compat_ptr(arg));
+}
+
 /*------------------------------misc device related operation functions------------------------------------*/
 static const struct file_operations CM36558_fops = {
 	.owner = THIS_MODULE,
 	.open = CM36558_open,
 	.release = CM36558_release,
 	.unlocked_ioctl = CM36558_unlocked_ioctl,
+#if IS_ENABLED(CONFIG_COMPAT)
+	.compat_ioctl = compat_CM36558_unlocked_ioctl,
+#endif
 };
 
 static struct miscdevice CM36558_device = {
@@ -1285,7 +1310,7 @@ static int CM36558_init_client(struct i2c_client *client)
 		databuf[1] = 0x01;
 	else
 		databuf[1] = 0x03;
-	databuf[2] = 0x00;
+	databuf[2] = 0x01;
 	res = CM36558_i2c_master_operate(client, databuf, 0x3, I2C_FLAG_WRITE);
 	if (res <= 0) {
 		APS_ERR("i2c_master_send function err\n");
@@ -1388,7 +1413,7 @@ static int als_enable_nodata(int en)
 {
 	int res = 0;
 
-	APS_LOG("CM36558_obj als enable value = %d\n", en);
+	APS_ERR("CM36558_obj als enable value = %d\n", en);
 
 	mutex_lock(&CM36558_mutex);
 	if (en)
@@ -1662,7 +1687,7 @@ static int CM36558_i2c_remove(struct i2c_client *client)
 
 static int CM36558_i2c_detect(struct i2c_client *client, struct i2c_board_info *info)
 {
-	strcpy(info->type, CM36558_DEV_NAME);
+	strncpy(info->type, CM36558_DEV_NAME, sizeof(info->type));
 	return 0;
 
 }

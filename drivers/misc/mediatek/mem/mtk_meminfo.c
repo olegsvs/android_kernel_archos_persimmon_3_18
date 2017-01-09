@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #include <asm/page.h>
 #include <asm/setup.h>
 #include <linux/module.h>
@@ -110,3 +123,19 @@ phys_addr_t get_phys_offset(void)
 	return PHYS_OFFSET;
 }
 EXPORT_SYMBOL(get_phys_offset);
+
+phys_addr_t get_zone_movable_cma_base(void)
+{
+#ifdef CONFIG_MTK_MEMORY_LOWPOWER
+	return memory_lowpower_cma_base();
+#endif /* end CONFIG_MTK_MEMORY_LOWPOWER */
+	return (~(phys_addr_t)0);
+}
+
+phys_addr_t get_zone_movable_cma_size(void)
+{
+#ifdef CONFIG_MTK_MEMORY_LOWPOWER
+	return (phys_addr_t)memory_lowpower_cma_size();
+#endif /* end CONFIG_MTK_MEMORY_LOWPOWER */
+	return 0;
+}

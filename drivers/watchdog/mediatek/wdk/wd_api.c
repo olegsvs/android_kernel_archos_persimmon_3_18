@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #include <linux/kernel.h>
 #include <ext_wd_drv.h>
 #include <mach/wd_api.h>
@@ -28,6 +41,14 @@ static int wd_dram_reserved_mode(bool enabled);
 static int thermal_direct_mode_config(WD_REQ_CTL en, WD_REQ_MODE mode);
 static int debug_key_eint_config(WD_REQ_CTL en, WD_REQ_MODE mode);
 static int debug_key_sysrst_config(WD_REQ_CTL en, WD_REQ_MODE mode);
+
+__weak void mtk_wd_suspend_sodi(void)
+{
+}
+
+__weak void mtk_wd_resume_sodi(void)
+{
+}
 
 static struct wd_api g_wd_api_obj = {
 	.ready = 1,
@@ -365,7 +386,9 @@ static int wd_cpu_hot_plug_off_notify(int cpu)
 static int wd_sw_reset(int type)
 {
 	pr_debug("dummy wd_sw_reset");
+	#ifndef CONFIG_MEDIATEK_WATCHDOG
 	wdt_arch_reset(type);
+	#endif
 	return 0;
 }
 
@@ -553,18 +576,19 @@ int get_wd_api(struct wd_api **obj)
 	return res;
 }
 
+#ifndef CONFIG_MEDIATEK_WATCHDOG
 /*register restart notify and own by debug start-------
 *
 */
 void arch_reset(char mode, const char *cmd)
 {
-	char reboot = 1;
-	int res = 0;
-	struct wd_api *wd_api = NULL;
-
 #ifdef CONFIG_FPGA_EARLY_PORTING
 	return;
 #else
+	char reboot = 0;
+	int res = 0;
+	struct wd_api *wd_api = NULL;
+
 	res = get_wd_api(&wd_api);
 	pr_alert("arch_reset: cmd = %s\n", cmd ? : "NULL");
 	dump_stack();
@@ -577,6 +601,10 @@ void arch_reset(char mode, const char *cmd)
 	} else if (cmd && !strcmp(cmd, "kpoc")) {
 #ifdef CONFIG_MTK_KERNEL_POWER_OFF_CHARGING
 		rtc_mark_kpoc();
+#endif
+#if defined(CONFIG_ARCH_MT8163) || defined(CONFIG_ARCH_MT8173)
+	} else if (cmd && !strcmp(cmd, "rpmbpk")) {
+		mtk_wd_SetNonResetReg2(0x0, 1);
 #endif
 	} else {
 		reboot = 1;
@@ -616,3 +644,4 @@ pure_initcall(mtk_arch_reset_init);
 /*register restart notify and own by debug end+++++
 *
 */
+#endif

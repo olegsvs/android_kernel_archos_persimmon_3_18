@@ -1,17 +1,19 @@
 /*
- * Copyright (C) 2007 The Android Open Source Project
+ * Copyright (C) 2015 MediaTek Inc.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ * You should have received a copy of the GNU General Public License
+ * along with this program
+ * If not, see <http://www.gnu.org/licenses/>.
  */
 /*******************************************************************************
  *
@@ -865,8 +867,10 @@ void AudDrv_Emi_Clk_On(void)
 	mutex_lock(&auddrv_pmic_mutex);
 	PRINTK_AUD_CLK("+AudDrv_Emi_Clk_On\n");
 	if (Aud_EMI_cntr == 0) {
+#ifndef CONFIG_FPGA_EARLY_PORTING
 		disable_dpidle_by_bit(MT_CG_AUD_PDN_AFE_EN);
 		disable_soidle_by_bit(MT_CG_AUD_PDN_AFE_EN);
+#endif
 	}
 	Aud_EMI_cntr++;
 	PRINTK_AUD_CLK("-AudDrv_Emi_Clk_On, Aud_EMI_cntr=%d\n", Aud_EMI_cntr);
@@ -879,8 +883,10 @@ void AudDrv_Emi_Clk_Off(void)
 	PRINTK_AUD_CLK("+AudDrv_Emi_Clk_Off\n");
 	Aud_EMI_cntr--;
 	if (Aud_EMI_cntr == 0) {
+#ifndef CONFIG_FPGA_EARLY_PORTING
 		enable_dpidle_by_bit(MT_CG_AUD_PDN_AFE_EN);
 		enable_soidle_by_bit(MT_CG_AUD_PDN_AFE_EN);
+#endif
 	}
 	PRINTK_AUD_CLK("-AudDrv_Emi_Clk_Off, Aud_EMI_cntr=%d\n", Aud_EMI_cntr);
 	if (Aud_EMI_cntr < 0) {

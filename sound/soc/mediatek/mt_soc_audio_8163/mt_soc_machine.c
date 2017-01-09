@@ -1,17 +1,19 @@
 /*
- * Copyright (C) 2007 The Android Open Source Project
+ * Copyright (C) 2015 MediaTek Inc.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ * You should have received a copy of the GNU General Public License
+ * along with this program
+ * If not, see <http://www.gnu.org/licenses/>.
  */
 /*******************************************************************************
  *
@@ -46,13 +48,6 @@
  *                E X T E R N A L   R E F E R E N C E S
  *****************************************************************************/
 
-#define CONFIG_MTK_DEEP_IDLE
-#ifdef CONFIG_MTK_DEEP_IDLE
-#ifdef _MT_IDLE_HEADER
-#include "mt_idle.h"
-#endif
-#endif
-
 #include "AudDrv_Common.h"
 #include "AudDrv_Def.h"
 #include "AudDrv_Afe.h"
@@ -61,9 +56,7 @@
 #include "AudDrv_Kernel.h"
 #include "mt_soc_afe_control.h"
 
-/* #include <mach/mt_clkbuf_ctl.h> */
 #include <sound/mt_soc_audio.h>
-
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/init.h>
@@ -87,20 +80,11 @@
 #include <linux/proc_fs.h>
 #include <linux/string.h>
 #include <linux/mutex.h>
-/* #include <linux/xlog.h> */
-/* #include <mach/irqs.h> */
 #include <asm/uaccess.h>
 #include <asm/irq.h>
 #include <asm/io.h>
-/* #include <mach/mt_reg_base.h> */
 #include <asm/div64.h>
-/* #include <linux/aee.h> */
-/* #include <mach/pmic_mt6325_sw.h> */
-/* #include <mach/upmu_common.h> */
 #include <mach/upmu_hw.h>
-/* #include <mach/mt_gpio.h> */
-/* #include <mach/mt_typedefs.h> */
-/* #include <mt-plat/upmu_common.h> */
 #include <mt-plat/mt_gpio.h>
 
 #include <stdarg.h>
@@ -109,9 +93,7 @@
 #include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/gpio.h>
-#if 0
-#include <linux/mfd/pm8xxx/pm8921.h>
-#endif
+
 #include <linux/platform_device.h>
 #include <linux/slab.h>
 #include <sound/core.h>
@@ -119,15 +101,24 @@
 #include <sound/soc-dapm.h>
 #include <sound/pcm.h>
 #include <sound/jack.h>
-/* #include <asm/mach-types.h> */
 #include <linux/debugfs.h>
 #include "mt_soc_codec_63xx.h"
 
 static int mt_soc_lowjitter_control;
 static struct dentry *mt_sco_audio_debugfs;
+uint32_t AudDrv_Log_On;
 #define DEBUG_FS_NAME "mtksocaudio"
 #define DEBUG_ANA_FS_NAME "mtksocanaaudio"
 
+static void Aud_Log_On(bool enable, uint32 value)
+{
+	pr_debug("Aud_Log_On enable = %d value = 0x%x\n", enable, value);
+
+	if (enable)
+		AudDrv_Log_On = value;
+	else
+		AudDrv_Log_On = 0;
+}
 
 static int mtmachine_startup(struct snd_pcm_substream *substream)
 {
@@ -553,9 +544,9 @@ static ssize_t mt_soc_debug_read(struct file *file, char __user *buf, size_t cou
 		       Afe_Get_Reg(AFE_ADDA4_NEWIF_CFG1));
 
 	n += scnprintf(buffer + n, size - n, "AUDIO_CLK_AUDDIV_0  = 0x%x\n",
-		       GetClkCfg(AUDIO_CLK_AUDDIV_0));
+		       Afe_Get_Reg(AUDIO_CLK_AUDDIV_0));
 	n += scnprintf(buffer + n, size - n, "AUDIO_CLK_AUDDIV_1  = 0x%x\n",
-		       GetClkCfg(AUDIO_CLK_AUDDIV_1));
+		       Afe_Get_Reg(AUDIO_CLK_AUDDIV_1));
 	n += scnprintf(buffer + n, size - n, "AUDIO_CLK_CFG_6      = 0x%x\n",
 		       GetClkCfg(AUDIO_CLK_CFG_6));
 	n += scnprintf(buffer + n, size - n, "AUDIO_CLK_CFG_6_SET  = 0x%x\n",
@@ -597,6 +588,7 @@ static const char ParSetkeyAna[] = "Setanareg";
 static const char ParSetkeyCfg[] = "Setcfgreg";
 static const char PareGetkeyAfe[] = "Getafereg";
 static const char PareGetkeyAna[] = "Getanareg";
+static const char ParEnableLog[] = "Enablelog";
 /* static const char ParGetkeyCfg[] = "Getcfgreg"; */
 /* static const char ParSetAddr[] = "regaddr"; */
 /* static const char ParSetValue[] = "regvalue"; */
@@ -626,7 +618,6 @@ static ssize_t mt_soc_debug_write(struct file *f, const char __user *buf,
 	pr_debug("copy_from_user mt_soc_debug_write count = %zu temp = %s pointer = %p\n",
 		count, InputString, InputString);
 	token1 = strsep(&temp, delim);
-	pr_debug("token1\n");
 	pr_debug("token1 = %s\n", token1);
 	token2 = strsep(&temp, delim);
 	pr_debug("token2 = %s\n", token2);
@@ -636,6 +627,10 @@ static ssize_t mt_soc_debug_write(struct file *f, const char __user *buf,
 	pr_debug("token4 = %s\n", token4);
 	token5 = strsep(&temp, delim);
 	pr_debug("token5 = %s\n", token5);
+
+	AudDrv_ANA_Clk_On();
+	AudDrv_Clk_On();
+	audckbufEnable(true);
 
 	if (strcmp(token1, ParSetkeyAfe) == 0) {
 		pr_debug("strcmp (token1,ParSetkeyAfe)\n");
@@ -651,10 +646,6 @@ static ssize_t mt_soc_debug_write(struct file *f, const char __user *buf,
 		ret = kstrtol(token3, 16, &regaddr);
 		ret = kstrtol(token5, 16, &regvalue);
 		pr_debug("%s regaddr = 0x%lu regvalue = 0x%lu\n", ParSetkeyAna, regaddr, regvalue);
-		/* clk_buf_ctrl(CLK_BUF_AUDIO, true); */
-		AudDrv_ANA_Clk_On();
-		AudDrv_Clk_On();
-		audckbufEnable(true);
 		Ana_Set_Reg(regaddr, regvalue, 0xffffffff);
 		regvalue = Ana_Get_Reg(regaddr);
 		pr_debug("%s regaddr = 0x%lu regvalue = 0x%lu\n", ParSetkeyAna, regaddr, regvalue);
@@ -680,6 +671,21 @@ static ssize_t mt_soc_debug_write(struct file *f, const char __user *buf,
 		regvalue = Ana_Get_Reg(regaddr);
 		pr_debug("%s regaddr = 0x%lu regvalue = 0x%lu\n", PareGetkeyAna, regaddr, regvalue);
 	}
+	if (strcmp(token1, ParEnableLog) == 0) {
+		ret = kstrtol(token3, 16, &regvalue);
+		if (strncmp(token2, "On", 2) == 0) {
+			pr_debug("Enable aud_drv debug log (0x%lu)\n", regvalue);
+			Aud_Log_On(true, regvalue);
+		} else {
+			pr_debug("Disable aud_drv debug log!\n");
+			Aud_Log_On(false, regvalue);
+		}
+	}
+
+	audckbufEnable(false);
+	AudDrv_Clk_Off();
+	AudDrv_ANA_Clk_Off();
+
 	return count;
 }
 

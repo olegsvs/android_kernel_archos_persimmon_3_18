@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 /*----------------------------------------------------------------------------*/
 #ifdef HDMI_MT8193_SUPPORT
 
@@ -25,7 +38,6 @@
 #include <linux/byteorder/generic.h>
 #include <linux/interrupt.h>
 #include <linux/time.h>
-#include <linux/rtpm_prio.h>
 #include <linux/dma-mapping.h>
 #include <linux/syscalls.h>
 #include <linux/reboot.h>
@@ -243,6 +255,7 @@ static void mt8193_get_params(struct HDMI_PARAMS *params)
 	params->scaling_factor = 0;
 	params->cabletype = 0;
 	params->HDCPSupported = 0;
+	params->is_force_awake = 1;
 
 }
 
@@ -281,7 +294,7 @@ static void mt8193_resume(void)
 /*----------------------------------------------------------------------------*/
 
 static int mt8193_video_config(enum HDMI_VIDEO_RESOLUTION vformat, enum HDMI_VIDEO_INPUT_FORMAT vin,
-			       enum HDMI_VIDEO_OUTPUT_FORMAT vout)
+			       int vout)
 {
 	HDMI_DEF_LOG("[hdmi]mt8193_video_config:%d\n", vformat);
 
@@ -805,9 +818,10 @@ static void vNotifyAppHdmiState(unsigned char u1hdmistate)
 	HDMI_EDID_T get_info;
 
 	mt8193_AppGetEdidInfo(&get_info);
-
+#if 0
 	if (mt8193_hdmi_factory_callback != NULL)
 		mt8193_hdmi_factory_callback(HDMI_STATE_NO_DEVICE);
+#endif
 
 	switch (u1hdmistate) {
 	case HDMI_PLUG_OUT:
@@ -1068,7 +1082,7 @@ void mt8193_nlh_impl(void)
 
 static int hdmi_timer_kthread(void *data)
 {
-	struct sched_param param = {.sched_priority = RTPM_PRIO_CAMERA_PREVIEW };
+	struct sched_param param = {.sched_priority = 91};
 
 	sched_setscheduler(current, SCHED_RR, &param);
 
@@ -1085,7 +1099,7 @@ static int hdmi_timer_kthread(void *data)
 
 static int cec_timer_kthread(void *data)
 {
-	struct sched_param param = {.sched_priority = RTPM_PRIO_CAMERA_PREVIEW };
+	struct sched_param param = {.sched_priority = 91};
 
 	sched_setscheduler(current, SCHED_RR, &param);
 
@@ -1102,7 +1116,7 @@ static int cec_timer_kthread(void *data)
 
 static int mt8193_nlh_kthread(void *data)
 {
-	struct sched_param param = {.sched_priority = RTPM_PRIO_SCRN_UPDATE };
+	struct sched_param param = {.sched_priority = 94};
 
 	sched_setscheduler(current, SCHED_RR, &param);
 

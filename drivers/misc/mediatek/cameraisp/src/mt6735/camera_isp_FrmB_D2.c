@@ -468,7 +468,7 @@ static volatile MBOOL g_bDmaERR_p1 = MFALSE;
 static volatile MBOOL g_bDmaERR_p1_d = MFALSE;
 static volatile MBOOL g_bDmaERR_p2 = MFALSE;
 static volatile MBOOL g_bDmaERR_deepDump = MFALSE;
-static UINT32 g_ISPIntErr[_IRQ_MAX] = { 0 }; /* remove volatile */
+static MUINT32 g_ISPIntErr[_IRQ_MAX] = { 0 }; /* remove volatile */
 
 #define nDMA_ERR_P1     (6)
 #define nDMA_ERR_P1_D   (0)
@@ -490,27 +490,31 @@ static MUINT32 g_DmaErr_p1[nDMA_ERR] = { 0 };
 }
 #if 1
 #define IRQ_LOG_KEEPER(irq, ppb, logT, fmt, ...) do {\
-	char *ptr; \
-	char *pDes;\
-	MUINT32 *ptr2 = &gSvLog[irq]._cnt[ppb][logT];\
-	unsigned int str_leng;\
-	if (_LOG_ERR == logT) {\
-		str_leng = NORMAL_STR_LEN*ERR_PAGE; \
-	} else if (_LOG_DBG == logT) {\
-		str_leng = NORMAL_STR_LEN*DBG_PAGE; \
-	} else if (_LOG_INF == logT) {\
-		str_leng = NORMAL_STR_LEN*INF_PAGE;\
+	if (irq >= _IRQ_MAX) {\
+		LOG_ERR("IRQ_LOG_KEEPER : Array Max Size Exceeded!");\
 	} else {\
-		str_leng = 0;\
+		char *ptr; \
+		char *pDes;\
+		MUINT32 *ptr2 = &gSvLog[irq]._cnt[ppb][logT];\
+		unsigned int str_leng;\
+		if (_LOG_ERR == logT) {\
+			str_leng = NORMAL_STR_LEN*ERR_PAGE; \
+		} else if (_LOG_DBG == logT) {\
+			str_leng = NORMAL_STR_LEN*DBG_PAGE; \
+		} else if (_LOG_INF == logT) {\
+			str_leng = NORMAL_STR_LEN*INF_PAGE;\
+		} else {\
+			str_leng = 0;\
+		} \
+		ptr = pDes = (char *)&(gSvLog[irq]._str[ppb][logT][gSvLog[irq]._cnt[ppb][logT]]);    \
+		sprintf((char *)(pDes), fmt, ##__VA_ARGS__);   \
+		if ('\0' != gSvLog[irq]._str[ppb][logT][str_leng - 1]) {\
+			LOG_ERR("log str over flow(%d)", irq);\
+		} \
+		while (*ptr++ != '\0') { \
+			(*ptr2)++;\
+		} \
 	} \
-	ptr = pDes = (char *)&(gSvLog[irq]._str[ppb][logT][gSvLog[irq]._cnt[ppb][logT]]);    \
-	sprintf((char *)(pDes), fmt, ##__VA_ARGS__);   \
-	if ('\0' != gSvLog[irq]._str[ppb][logT][str_leng - 1]) {\
-		LOG_ERR("log str over flow(%d)", irq);\
-	} \
-	while (*ptr++ != '\0') {        \
-		(*ptr2)++;\
-	}     \
 } while (0);
 #else
 #define IRQ_LOG_KEEPER(irq, ppb, logT, fmt, ...)  pr_debug("KEEPER[%s] " fmt, __func__, ##__VA_ARGS__)
@@ -518,61 +522,65 @@ static MUINT32 g_DmaErr_p1[nDMA_ERR] = { 0 };
 
 #if 1
 #define IRQ_LOG_PRINTER(irq, ppb_in, logT_in) do {\
-	SV_LOG_STR *pSrc = &gSvLog[irq];\
-	char *ptr;\
-	MUINT32 i;\
-	MINT32 ppb = 0;\
-	MINT32 logT = 0;\
-	if (ppb_in > 1) {\
-		ppb = 1;\
-	} else{\
-		ppb = ppb_in;\
-	} \
-	if (logT_in > _LOG_ERR) {\
-		logT = _LOG_ERR;\
-	} else{\
-		logT = logT_in;\
-	} \
-	ptr = pSrc->_str[ppb][logT];\
-	if (0 != pSrc->_cnt[ppb][logT]) {\
-		if (_LOG_DBG == logT) {\
-			for (i = 0; i < DBG_PAGE; i++) {\
-				if (ptr[NORMAL_STR_LEN*(i+1) - 1] != '\0') {\
-					ptr[NORMAL_STR_LEN*(i+1) - 1] = '\0';\
-					LOG_DBG("%s", &ptr[NORMAL_STR_LEN*i]);\
-				} else{\
-					LOG_DBG("%s", &ptr[NORMAL_STR_LEN*i]);\
-					break;\
+	if (irq >= _IRQ_MAX) {\
+		LOG_ERR("IRQ_LOG_PRINTER : Array Max Size Exceeded !");\
+	} else {\
+		SV_LOG_STR *pSrc = &gSvLog[irq];\
+		char *ptr;\
+		MUINT32 i;\
+		MINT32 ppb = 0;\
+		MINT32 logT = 0;\
+		if (ppb_in > 1) {\
+			ppb = 1;\
+		} else{\
+			ppb = ppb_in;\
+		} \
+		if (logT_in > _LOG_ERR) {\
+			logT = _LOG_ERR;\
+		} else{\
+			logT = logT_in;\
+		} \
+		ptr = pSrc->_str[ppb][logT];\
+		if (0 != pSrc->_cnt[ppb][logT]) {\
+			if (_LOG_DBG == logT) {\
+				for (i = 0; i < DBG_PAGE; i++) {\
+					if (ptr[NORMAL_STR_LEN*(i+1) - 1] != '\0') {\
+						ptr[NORMAL_STR_LEN*(i+1) - 1] = '\0';\
+						LOG_DBG("%s", &ptr[NORMAL_STR_LEN*i]);\
+					} else{\
+						LOG_DBG("%s", &ptr[NORMAL_STR_LEN*i]);\
+						break;\
+					} \
 				} \
 			} \
-		} \
-		else if (_LOG_INF == logT) {\
-			for (i = 0; i < INF_PAGE; i++) {\
-				if (ptr[NORMAL_STR_LEN*(i+1) - 1] != '\0') {\
-					ptr[NORMAL_STR_LEN*(i+1) - 1] = '\0';\
-					LOG_INF("%s", &ptr[NORMAL_STR_LEN*i]);\
-				} else{\
-					LOG_INF("%s", &ptr[NORMAL_STR_LEN*i]);\
-					break;\
+			else if (_LOG_INF == logT) {\
+				for (i = 0; i < INF_PAGE; i++) {\
+					if (ptr[NORMAL_STR_LEN*(i+1) - 1] != '\0') {\
+						ptr[NORMAL_STR_LEN*(i+1) - 1] = '\0';\
+						LOG_INF("%s", &ptr[NORMAL_STR_LEN*i]);\
+					} else{\
+						LOG_INF("%s", &ptr[NORMAL_STR_LEN*i]);\
+						break;\
+					} \
 				} \
 			} \
-		} \
-		else if (_LOG_ERR == logT) {\
-			for (i = 0; i < ERR_PAGE; i++) {\
-				if (ptr[NORMAL_STR_LEN*(i+1) - 1] != '\0') {\
-					ptr[NORMAL_STR_LEN*(i+1) - 1] = '\0';\
-					LOG_ERR("%s", &ptr[NORMAL_STR_LEN*i]);\
-				} else{\
-					LOG_ERR("%s", &ptr[NORMAL_STR_LEN*i]);\
-					break;\
+			else if (_LOG_ERR == logT) {\
+				for (i = 0; i < ERR_PAGE; i++) {\
+					if (ptr[NORMAL_STR_LEN*(i+1) - 1] != '\0') {\
+						ptr[NORMAL_STR_LEN*(i+1) - 1] = '\0';\
+						LOG_ERR("%s", &ptr[NORMAL_STR_LEN*i]);\
+					} else{\
+						LOG_ERR("%s", &ptr[NORMAL_STR_LEN*i]);\
+						break;\
+					} \
 				} \
 			} \
+			else {\
+				LOG_ERR("N.S.%d", logT);\
+			} \
+			ptr[0] = '\0';\
+			pSrc->_cnt[ppb][logT] = 0;\
 		} \
-		else {\
-			LOG_ERR("N.S.%d", logT);\
-		} \
-		ptr[0] = '\0';\
-		pSrc->_cnt[ppb][logT] = 0;\
 	} \
 } while (0);
 
@@ -1058,15 +1066,18 @@ static void ISP_FBC_DUMP(MUINT32 dma_id, MUINT32 VF_1, MUINT32 VF_2, MUINT32 VF_
 	char str[128];
 	char str2[_rt_dma_max_];
 	MUINT32 dma;
+	MINT32 nleft = 0, nsize = 128, len = 0;
 
 	LOG_INF("================================\n");
 	LOG_INF("pass1 timeout log(timeout port:%d)", dma_id);
 	LOG_INF("================================\n");
 	str[0] = '\0';
+	nleft = nsize - 1; /* minus1 for null terminate */
 	LOG_INF("current activated dmaport");
 	for (z = 0; z < _rt_dma_max_; z++) {
-		sprintf(str2, "%d_", pstRTBuf_FrmB->ring_buf[z].active);
-		strcat(str, str2);
+		len = sprintf(str2, "%d_", pstRTBuf_FrmB->ring_buf[z].active);
+		strncat(str, str2, ((nleft < len) ? nleft : len));
+		nleft -= ((nleft < len) ? nleft : len);
 	}
 	LOG_INF("%s", str);
 	LOG_INF("================================\n");
@@ -1075,11 +1086,13 @@ static void ISP_FBC_DUMP(MUINT32 dma_id, MUINT32 VF_1, MUINT32 VF_2, MUINT32 VF_
 		dma = _imgo_;
 		{
 			str[0] = '\0';
+			nleft = nsize - 1;
 			LOG_INF("current fillled buffer(buf cnt): %d\n",
 				pstRTBuf_FrmB->ring_buf[dma].total_count);
 			for (z = 0; z < ISP_RT_BUF_SIZE; z++) {
-				sprintf(str2, "%d_", pstRTBuf_FrmB->ring_buf[dma].data[z].bFilled);
-				strcat(str, str2);
+				len = sprintf(str2, "%d_", pstRTBuf_FrmB->ring_buf[dma].data[z].bFilled);
+				strncat(str, str2, ((nleft < len) ? nleft : len));
+				nleft -= ((nleft < len) ? nleft : len);
 			}
 			LOG_INF("%s", str);
 			LOG_INF("================================\n");
@@ -1089,17 +1102,21 @@ static void ISP_FBC_DUMP(MUINT32 dma_id, MUINT32 VF_1, MUINT32 VF_2, MUINT32 VF_
 			LOG_INF("================================\n");
 			LOG_INF("RCNT_RECORD:cur dma_en_recorder\n");
 			str[0] = '\0';
+			nleft = nsize - 1;
 			for (z = 0; z < ISP_RT_BUF_SIZE; z++) {
-				sprintf(str2, "%d_", dma_en_recorder[dma][z]);
-				strcat(str, str2);
+				len = sprintf(str2, "%d_", dma_en_recorder[dma][z]);
+				strncat(str, str2, ((nleft < len) ? nleft : len));
+				nleft -= ((nleft < len) ? nleft : len);
 			}
 			LOG_INF("%s", str);
 			LOG_INF("================================\n");
 			LOG_INF("RCNT_RECORD:inc record\n");
 			str[0] = '\0';
+			nleft = nsize - 1;
 			for (z = 0; z < ISP_RT_BUF_SIZE; z++) {
-				sprintf(str2, "%d_", mFwRcnt.INC[_IRQ][z]);
-				strcat(str, str2);
+				len = sprintf(str2, "%d_", mFwRcnt.INC[_IRQ][z]);
+				strncat(str, str2, ((nleft < len) ? nleft : len));
+				nleft -= ((nleft < len) ? nleft : len);
 			}
 			LOG_INF("%s", str);
 			LOG_INF("RCNT_RECORD: dma idx = %d\n", mFwRcnt.DMA_IDX[dma]);
@@ -1112,11 +1129,13 @@ static void ISP_FBC_DUMP(MUINT32 dma_id, MUINT32 VF_1, MUINT32 VF_2, MUINT32 VF_
 		dma = _img2o_;
 		{
 			str[0] = '\0';
+			nleft = nsize - 1;
 			LOG_INF("current fillled buffer(buf cnt): %d\n",
 				pstRTBuf_FrmB->ring_buf[dma].total_count);
 			for (z = 0; z < ISP_RT_BUF_SIZE; z++) {
-				sprintf(str2, "%d_", pstRTBuf_FrmB->ring_buf[dma].data[z].bFilled);
-				strcat(str, str2);
+				len = sprintf(str2, "%d_", pstRTBuf_FrmB->ring_buf[dma].data[z].bFilled);
+				strncat(str, str2, ((nleft < len) ? nleft : len));
+				nleft -= ((nleft < len) ? nleft : len);
 			}
 			LOG_INF("%s", str);
 			LOG_INF("================================\n");
@@ -1126,17 +1145,21 @@ static void ISP_FBC_DUMP(MUINT32 dma_id, MUINT32 VF_1, MUINT32 VF_2, MUINT32 VF_
 			LOG_INF("================================\n");
 			LOG_INF("RCNT_RECORD:cur dma_en_recorder\n");
 			str[0] = '\0';
+			nleft = nsize - 1;
 			for (z = 0; z < ISP_RT_BUF_SIZE; z++) {
-				sprintf(str2, "%d_", dma_en_recorder[dma][z]);
-				strcat(str, str2);
+				len = sprintf(str2, "%d_", dma_en_recorder[dma][z]);
+				strncat(str, str2, ((nleft < len) ? nleft : len));
+				nleft -= ((nleft < len) ? nleft : len);
 			}
 			LOG_INF("%s", str);
 			LOG_INF("================================\n");
 			LOG_INF("RCNT_RECORD:inc record\n");
 			str[0] = '\0';
+			nleft = nsize - 1;
 			for (z = 0; z < ISP_RT_BUF_SIZE; z++) {
-				sprintf(str2, "%d_", mFwRcnt.INC[_IRQ][z]);
-				strcat(str, str2);
+				len = sprintf(str2, "%d_", mFwRcnt.INC[_IRQ][z]);
+				strncat(str, str2, ((nleft < len) ? nleft : len));
+				nleft -= ((nleft < len) ? nleft : len);
 			}
 			LOG_INF("%s", str);
 			LOG_INF("RCNT_RECORD: dma idx = %d\n", mFwRcnt.DMA_IDX[dma]);
@@ -2095,14 +2118,20 @@ static long ISP_Buf_CTRL_FUNC_FRMB(unsigned long Param)
 											       [rt_dma].
 											       Bits.
 											       FBC_CNT);
-										ISP_WR32
-										    (p1_dma_addr_reg
-										     [rt_dma],
-										     pstRTBuf_FrmB->
-										     ring_buf
-										     [rt_dma].
-										     data[i].
-										     base_pAddr);
+					/**/					if (MTRUE == pstRTBuf_FrmB->
+										ring_buf[ch_imgo].active)
+											ISP_WR32(
+											p1_dma_addr_reg[ch_imgo],
+											pstRTBuf_FrmB->
+											ring_buf[ch_imgo].data[i].
+											base_pAddr);
+					/**/					if (MTRUE == pstRTBuf_FrmB->
+										ring_buf[ch_img2o].active)
+											ISP_WR32(
+											p1_dma_addr_reg[ch_img2o],
+											pstRTBuf_FrmB->
+											ring_buf[ch_img2o].data[i].
+											base_pAddr);
 									}
 					/**/				if (_openedDma == 1) {
 										p1_fbc[rt_dma].Bits.
@@ -2216,6 +2245,8 @@ static long ISP_Buf_CTRL_FUNC_FRMB(unsigned long Param)
 			break;
 
 		case ISP_RT_BUF_CTRL_DEQUE_FRMB:
+			deque_buf.sof_cnt = 0;
+			deque_buf.img_cnt = 0;
 			switch (rt_dma) {
 			case _imgo_:
 			case _img2o_:
@@ -2757,7 +2788,7 @@ static long ISP_Buf_CTRL_FUNC_FRMB(unsigned long Param)
 				/* if(copy_from_user(array, (void*)rt_buf_ctrl.data_ptr, sizeof(UINT8)*_rt_dma_max_) == 0) { */
 				if (copy_from_user
 				    (array, (void __user *)rt_buf_ctrl.pExtend,
-				     sizeof(UINT8) * _rt_dma_max_) == 0) {
+				     sizeof(MUINT8) * _rt_dma_max_) == 0) {
 					MUINT32 z;
 
 					for (z = 0; z < _rt_dma_max_; z++) {
@@ -3717,6 +3748,7 @@ static MINT32 ISP_ED_BufQue_CTRL_FUNC_FRMB(ISP_ED_BUFQUE_STRUCT_FRMB param)
 	switch (param.ctrl) {
 	case ISP_ED_BUFQUE_CTRL_ENQUE_FRAME:	/* signal that a specific buffer is enqueued */
 		/* [1] check the ring buffer list is full or not */
+
 		spin_lock(&(SpinLockEDBufQueList));
 		if (((P2_EDBUF_MList_LastBufIdx + 1) % _MAX_SUPPORT_P2_PACKAGE_NUM_) ==
 		    P2_EDBUF_MList_FirstBufIdx && (P2_EDBUF_MList_LastBufIdx != -1)) {
@@ -3760,6 +3792,7 @@ static MINT32 ISP_ED_BufQue_CTRL_FUNC_FRMB(ISP_ED_BUFQUE_STRUCT_FRMB param)
 				P2_EDBUF_RList_LastBufIdx =
 				    (P2_EDBUF_RList_LastBufIdx + 1) % _MAX_SUPPORT_P2_FRAME_NUM_;
 			}
+
 			P2_EDBUF_RingList[P2_EDBUF_RList_LastBufIdx].processID = param.processID;
 			P2_EDBUF_RingList[P2_EDBUF_RList_LastBufIdx].callerID = param.callerID;
 			P2_EDBUF_RingList[P2_EDBUF_RList_LastBufIdx].p2dupCQIdx = param.p2dupCQIdx;
@@ -3779,6 +3812,13 @@ static MINT32 ISP_ED_BufQue_CTRL_FUNC_FRMB(ISP_ED_BUFQUE_STRUCT_FRMB param)
 					    (P2_EDBUF_MList_LastBufIdx +
 					     1) % _MAX_SUPPORT_P2_PACKAGE_NUM_;
 				}
+
+				if (P2_EDBUF_MList_LastBufIdx < 0) {
+					LOG_ERR("P2_EDBUF_MList_LastBufIdx<0 error!");
+					ret = -EFAULT;
+					return ret;
+				}
+
 				P2_EDBUF_MgrList[P2_EDBUF_MList_LastBufIdx].processID =
 				    param.processID;
 				P2_EDBUF_MgrList[P2_EDBUF_MList_LastBufIdx].callerID =
@@ -4030,7 +4070,7 @@ static MINT32 ISP_REGISTER_IRQ_USERKEY(char *userName)
 				if (key > 0) {
 				} else {
 					memset(IrqUserKey_UserInfo[i].userName, 0, USERKEY_STR_LEN);
-					strcpy(IrqUserKey_UserInfo[i].userName, m_UserName);
+					strncpy(IrqUserKey_UserInfo[i].userName, m_UserName, USERKEY_STR_LEN-1);
 					IrqUserKey_UserInfo[i].userKey = FirstUnusedIrqUserKey;
 					key = FirstUnusedIrqUserKey;
 					FirstUnusedIrqUserKey++;

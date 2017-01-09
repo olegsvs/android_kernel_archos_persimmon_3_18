@@ -1,17 +1,19 @@
 /*
- * Copyright (C) 2007 The Android Open Source Project
+ * Copyright (C) 2015 MediaTek Inc.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ * You should have received a copy of the GNU General Public License
+ * along with this program
+ * If not, see <http://www.gnu.org/licenses/>.
  */
 /*******************************************************************************
  *
@@ -97,10 +99,7 @@ static void StopAudioFMI2SAWBHardware(struct snd_pcm_substream *substream)
 	SetMemoryPathEnable(Soc_Aud_Digital_Block_MEM_AWB, false);
 
 	/* here to set interrupt */
-	SetIrqEnable(Soc_Aud_IRQ_MCU_MODE_IRQ2_MCU_MODE, false);
-
-	if (GetI2SDacEnable() == false)
-		SetI2SDacEnable(false);
+	irq_remove_user(substream, Soc_Aud_IRQ_MCU_MODE_IRQ2_MCU_MODE);
 
 	/* here to turn off digital part */
 	SetConnection(Soc_Aud_InterCon_DisConnect, Soc_Aud_InterConnectionInput_I00,
@@ -118,11 +117,11 @@ static void StartAudioFMI2SAWBHardware(struct snd_pcm_substream *substream)
 	pr_warn("StartAudioFMI2SAWBHardware\n");
 
 	/* here to set interrupt */
-	SetIrqMcuCounter(Soc_Aud_IRQ_MCU_MODE_IRQ2_MCU_MODE,
-			 substream->runtime->period_size >> 1);
-	SetIrqMcuSampleRate(Soc_Aud_IRQ_MCU_MODE_IRQ2_MCU_MODE,
-			    substream->runtime->rate);
-	SetIrqEnable(Soc_Aud_IRQ_MCU_MODE_IRQ2_MCU_MODE, true);
+	irq_add_user(substream,
+		     Soc_Aud_IRQ_MCU_MODE_IRQ2_MCU_MODE,
+		     substream->runtime->rate,
+		     substream->runtime->period_size >> 1);
+
 
 	SetSampleRate(Soc_Aud_Digital_Block_MEM_AWB, substream->runtime->rate);
 	SetMemoryPathEnable(Soc_Aud_Digital_Block_MEM_AWB, true);
@@ -150,7 +149,10 @@ static void StartAudioFMI2SAWBHardware(struct snd_pcm_substream *substream)
 		m2ndI2SInAttribute.mI2S_WLEN = Soc_Aud_I2S_WLEN_WLEN_16BITS;
 		Set2ndI2SIn(&m2ndI2SInAttribute);
 
-		SetI2SASRCConfig(true, 44100);  /* Covert from 32000 Hz to 44100 Hz */
+		if (substream->runtime->rate == 48000)
+			SetI2SASRCConfig(true, 48000);	/* Covert from 32000 Hz to 48000 Hz */
+		else
+			SetI2SASRCConfig(true, 44100);	/* Covert from 32000 Hz to 44100 Hz */
 		SetI2SASRCEnable(true);
 
 		Set2ndI2SInEnable(true);
@@ -183,12 +185,9 @@ static int mtk_fm_i2s_awb_alsa_stop(struct snd_pcm_substream *substream)
 	return 0;
 }
 
-static kal_int32 Previous_Hw_cur;
 static snd_pcm_uframes_t mtk_awb_pcm_pointer(struct snd_pcm_substream
 					     *substream)
 {
-	kal_int32 HW_memory_index = 0;
-	kal_int32 HW_Cur_ReadIdx = 0;
 	kal_uint32 Frameidx = 0;
 	AFE_BLOCK_T *Awb_Block = &(FM_I2S_AWB_Control_context->rBlock);
 
@@ -198,18 +197,8 @@ static snd_pcm_uframes_t mtk_awb_pcm_pointer(struct snd_pcm_substream
 		/* get total bytes to copysinewavetohdmi */
 		Frameidx = audio_bytes_to_frame(substream , Awb_Block->u4WriteIdx);
 		return Frameidx;
-
-		HW_Cur_ReadIdx = Align64ByteSize(Afe_Get_Reg(AFE_AWB_CUR));
-		if (HW_Cur_ReadIdx == 0) {
-			pr_warn("[Auddrv] mtk_awb_pcm_pointer  HW_Cur_ReadIdx ==0\n");
-			HW_Cur_ReadIdx = Awb_Block->pucPhysBufAddr;
-		}
-		HW_memory_index = (HW_Cur_ReadIdx - Awb_Block->pucPhysBufAddr);
-		Previous_Hw_cur = HW_memory_index;
-		PRINTK_AUD_AWB("[Auddrv] mtk_awb_pcm_pointer =0x%x HW_memory_index = 0x%x\n",
-			       HW_Cur_ReadIdx, HW_memory_index);
-		return audio_bytes_to_frame(substream, Previous_Hw_cur);
 	}
+
 	return 0;
 }
 
@@ -257,6 +246,7 @@ static int mtk_mgrrx_awb_pcm_hw_params(struct snd_pcm_substream *substream,
 		runtime->dma_bytes = params_buffer_bytes(hw_params);
 		runtime->dma_area = Awb_Capture_dma_buf->area;
 		runtime->dma_addr = Awb_Capture_dma_buf->addr;
+		SetHighAddr(Soc_Aud_Digital_Block_MEM_AWB, true);
 	} else {
 		pr_warn("mtk_mgrrx_awb_pcm_hw_params snd_pcm_lib_malloc_pages\n");
 		ret =  snd_pcm_lib_malloc_pages(substream, params_buffer_bytes(hw_params));
@@ -305,12 +295,7 @@ static int mtk_fm_i2s_awb_pcm_open(struct snd_pcm_substream *substream)
 	if (ret < 0)
 		pr_warn("snd_pcm_hw_constraint_integer failed\n");
 
-	pr_warn("mtk_fm_i2s_awb_pcm_open runtime rate = %d channels = %d\n",
-	       runtime->rate, runtime->channels);
-
-	if (substream->stream == SNDRV_PCM_STREAM_CAPTURE)
-		pr_warn("SNDRV_PCM_STREAM_CAPTURE\n");
-	else
+	if (substream->stream != SNDRV_PCM_STREAM_CAPTURE)
 		return -1;
 	/* here open audio clocks */
 	AudDrv_Clk_On();

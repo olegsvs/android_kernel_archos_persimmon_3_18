@@ -1,16 +1,17 @@
 /*
- * Copyright (c) 2014 MediaTek Inc.
- * Author: Hongzhou.Yang <hongzhou.yang@mediatek.com>
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- */
+* Copyright (C) 2016 MediaTek Inc.
+*
+* This program is free software; you can redistribute it and/or modify
+* it under the terms of the GNU General Public License version 2 as
+* published by the Free Software Foundation.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+* See http://www.gnu.org/licenses/gpl-2.0.html for more details.
+*/
+
+
 
 #ifndef __PINCTRL_MTK_COMMON_H
 #define __PINCTRL_MTK_COMMON_H
@@ -212,6 +213,13 @@ struct mtk_eint_offsets {
  * means when user set smt, input enable is set at the same time. So they
  * also need special control. If special control is success, this should
  * return 0, otherwise return non-zero value.
+ * @spec_pinmux_set: In some cases, there are two pinmux functions share
+ * the same value in the same segment of pinmux control register. If user
+ * want to use one of the two functions, they need an extra bit setting to
+ * select the right one.
+ * @spec_dir_set: In very few SoCs, direction control registers are not
+ * arranged continuously, they may be cut to parts. So they need special
+ * dir setting.
  *
  * @dir_offset: The direction register offset.
  * @pullen_offset: The pull-up/pull-down enable register offset.
@@ -228,6 +236,7 @@ struct mtk_eint_offsets {
  */
 
 extern int mt_set_gpio_mode(unsigned long pin, unsigned long mode);
+extern int mt_set_gpio_driving(unsigned long pin, unsigned long strength);
 extern int mt_set_gpio_dir(unsigned long pin, unsigned long dir);
 extern int mt_get_gpio_dir(unsigned long pin);
 extern int mt_get_gpio_out(unsigned long pin);
@@ -235,8 +244,10 @@ extern int mt_set_gpio_out(unsigned long pin, unsigned long output);
 extern int mt_get_gpio_in(unsigned long pin);
 extern int mt_set_gpio_ies(unsigned long pin, unsigned long enable);
 extern int mt_set_gpio_smt(unsigned long pin, unsigned long enable);
+extern int mt_set_gpio_slew_rate(unsigned long pin, unsigned long enable);
 extern int mt_set_gpio_pull_enable(unsigned long pin, unsigned long enable);
 extern int mt_set_gpio_pull_select(unsigned long pin, unsigned long select);
+extern int mt_set_gpio_pull_resistor(unsigned long pin, unsigned long resistors);
 
 
 struct mtk_pinctrl_devdata {
@@ -251,6 +262,9 @@ struct mtk_pinctrl_devdata {
 	int (*spec_ies_smt_set)(struct regmap *reg, unsigned int pin,
 			unsigned char align, int value,
 			enum pin_config_param arg);
+	void (*spec_pinmux_set)(struct regmap *reg, unsigned int pin,
+			unsigned int mode);
+	void (*spec_dir_set)(unsigned int *reg_addr, unsigned int pin);
 	int (*spec_pull_get)(struct regmap *reg, unsigned int pin);
 	int (*spec_ies_get)(struct regmap *reg, unsigned int pin);
 	int (*spec_smt_get)(struct regmap *reg, unsigned int pin);
@@ -259,11 +273,14 @@ struct mtk_pinctrl_devdata {
 	int (*mt_get_gpio_dir)(unsigned long pin);
 	int (*mt_get_gpio_out)(unsigned long pin);
 	int (*mt_set_gpio_out)(unsigned long pin, unsigned long output);
+	int (*mt_set_gpio_driving)(unsigned long pin, unsigned long strength);
 	int (*mt_get_gpio_in)(unsigned long pin);
 	int (*mt_set_gpio_ies)(unsigned long pin, unsigned long enable);
 	int (*mt_set_gpio_smt)(unsigned long pin, unsigned long enable);
+	int (*mt_set_gpio_slew_rate)(unsigned long pin, unsigned long enable);
 	int (*mt_set_gpio_pull_enable)(unsigned long pin, unsigned long enable);
 	int (*mt_set_gpio_pull_select)(unsigned long pin, unsigned long select);
+	int (*mt_set_gpio_pull_resistor)(unsigned long pin, unsigned long resistors);
 	unsigned int dir_offset;
 	unsigned int ies_offset;
 	unsigned int smt_offset;

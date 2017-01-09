@@ -136,16 +136,96 @@ static atomic_t dev_open_count;
 /*----------------------------------------------------------------------------*/
 
 static DEFINE_MUTEX(akm09911_i2c_mutex);
+#ifndef CONFIG_MTK_I2C_EXTENSION
+static int mag_i2c_read_block(struct i2c_client *client, u8 addr, u8 *data, u8 len)
+{
+	int err = 0;
+	u8 beg = addr;
+	struct i2c_msg msgs[2] = { {0}, {0} };
 
+	mutex_lock(&akm09911_i2c_mutex);
+	msgs[0].addr = client->addr;
+	msgs[0].flags = 0;
+	msgs[0].len = 1;
+	msgs[0].buf = &beg;
+
+	msgs[1].addr = client->addr;
+	msgs[1].flags = I2C_M_RD;
+	msgs[1].len = len;
+	msgs[1].buf = data;
+
+	if (!client) {
+		mutex_unlock(&akm09911_i2c_mutex);
+		return -EINVAL;
+	} else if (len > C_I2C_FIFO_SIZE) {
+		mutex_unlock(&akm09911_i2c_mutex);
+		MAGN_ERR(" length %d exceeds %d\n", len, C_I2C_FIFO_SIZE);
+		return -EINVAL;
+	}
+
+	err = i2c_transfer(client->adapter, msgs, sizeof(msgs) / sizeof(msgs[0]));
+	if (err != 2) {
+		MAGN_ERR("i2c_transfer error: (%d %p %d) %d\n", addr, data, len, err);
+		err = -EIO;
+	} else {
+		err = 0;
+	}
+	mutex_unlock(&akm09911_i2c_mutex);
+	return err;
+
+}
+
+static int mag_i2c_write_block(struct i2c_client *client, u8 addr, u8 *data, u8 len)
+{				/*because address also occupies one byte, the maximum length for write is 7 bytes */
+	int err = 0, idx = 0, num = 0;
+	char buf[C_I2C_FIFO_SIZE];
+
+	err = 0;
+	mutex_lock(&akm09911_i2c_mutex);
+	if (!client) {
+		mutex_unlock(&akm09911_i2c_mutex);
+		return -EINVAL;
+	} else if (len >= C_I2C_FIFO_SIZE) {
+		mutex_unlock(&akm09911_i2c_mutex);
+		MAGN_ERR(" length %d exceeds %d\n", len, C_I2C_FIFO_SIZE);
+		return -EINVAL;
+	}
+
+	num = 0;
+	buf[num++] = addr;
+	for (idx = 0; idx < len; idx++)
+		buf[num++] = data[idx];
+
+	err = i2c_master_send(client, buf, num);
+	if (err < 0) {
+		mutex_unlock(&akm09911_i2c_mutex);
+		MAGN_ERR("send command error!!\n");
+		return -EFAULT;
+	}
+	mutex_unlock(&akm09911_i2c_mutex);
+	return err;
+}
+#endif
 static void akm09911_power(struct mag_hw *hw, unsigned int on)
 {
 }
 static long AKI2C_RxData(char *rxData, int length)
 {
-	uint8_t loop_i;
+#ifndef CONFIG_MTK_I2C_EXTENSION
+	struct i2c_client *client = this_client;
+	int res = 0;
+	char addr = rxData[0];
 
+	if ((rxData == NULL) || (length < 1))
+		return -EINVAL;
+	res = mag_i2c_read_block(client, addr, rxData, length);
+	if (res < 0)
+		return -1;
+	return 0;
+#else
+	uint8_t loop_i = 0;
 #if DEBUG
-	int i;
+	int i = 0;
 	struct i2c_client *client = this_client;
 	struct akm09911_i2c_data *data = i2c_get_clientdata(client);
 	char addr = rxData[0];
@@ -159,7 +239,7 @@ static long AKI2C_RxData(char *rxData, int length)
 	for (loop_i = 0; loop_i < AKM09911_RETRY_COUNT; loop_i++) {
 		this_client->addr = this_client->addr & I2C_MASK_FLAG;
 		this_client->addr = this_client->addr | I2C_WR_FLAG;
-		if (i2c_master_send(this_client, (const char *)rxData, ((length<<0X08) | 0X01)))
+		if (i2c_master_send(this_client, (const char *)rxData, ((length << 0X08) | 0X01)))
 			break;
 		mdelay(10);
 	}
@@ -181,14 +261,27 @@ static long AKI2C_RxData(char *rxData, int length)
 #endif
 
 	return 0;
+#endif
 }
 
 static long AKI2C_TxData(char *txData, int length)
 {
-	uint8_t loop_i;
+#ifndef CONFIG_MTK_I2C_EXTENSION
+	struct i2c_client *client = this_client;
+	int res = 0;
+	char addr = txData[0];
+	u8 *buff = &txData[1];
 
+	if ((txData == NULL) || (length < 2))
+		return -EINVAL;
+	res = mag_i2c_write_block(client, addr, buff, (length - 1));
+	if (res < 0)
+		return -1;
+	return 0;
+#else
+	uint8_t loop_i = 0;
 #if DEBUG
-	int i;
+	int i = 0;
 	struct i2c_client *client = this_client;
 	struct akm09911_i2c_data *data = i2c_get_clientdata(client);
 #endif
@@ -221,6 +314,7 @@ static long AKI2C_TxData(char *txData, int length)
 #endif
 
 	return 0;
+#endif
 }
 
 static long AKECS_SetMode_SngMeasure(void)
@@ -1162,7 +1256,9 @@ static ssize_t store_layout_value(struct device_driver *ddri, const char *buf, s
 			MAG_ERR("invalid layout: %d, restore to %d\n", layout, data->hw->direction);
 		else {
 			MAG_ERR("invalid layout: (%d, %d)\n", layout, data->hw->direction);
-			hwmsen_get_convert(0, &data->cvt);
+			ret = hwmsen_get_convert(0, &data->cvt);
+			if (!ret)
+				MAG_ERR("HWMSEN_GET_CONVERT function error!\r\n");
 		}
 	} else
 		MAG_ERR("invalid format = '%s'\n", buf);
@@ -1252,6 +1348,7 @@ static ssize_t store_chip_orientation(struct device_driver *ddri, const char *bu
 
 static ssize_t show_power_status(struct device_driver *ddri, char *buf)
 {
+	int ret = 0;
 	ssize_t res = 0;
 	u8 uData = AK09911_REG_CNTL2;
 	struct akm09911_i2c_data *obj = i2c_get_clientdata(this_client);
@@ -1260,7 +1357,9 @@ static ssize_t show_power_status(struct device_driver *ddri, char *buf)
 		MAG_ERR("i2c_data obj is null!!\n");
 		return 0;
 	}
-	AKI2C_RxData(&uData, 1);
+	ret = AKI2C_RxData(&uData, 1);
+	if (ret < 0)
+		MAGN_LOG("%s:%d Error.\n", __func__, __LINE__);
 	res = snprintf(buf, PAGE_SIZE, "0x%04X\n", uData);
 	return res;
 }
@@ -1273,10 +1372,13 @@ static ssize_t show_regiter_map(struct device_driver *ddri, char *buf)
    /* u8  _baRegValue[20]; */
 	ssize_t	_tLength	 = 0;
 	char tmp[2] = {0};
+	int ret = 0;
 
 	for (_bIndex = 0; _bIndex < 20; _bIndex++) {
 		tmp[0] = _baRegMap[_bIndex];
-		AKI2C_RxData(tmp, 1);
+		ret = AKI2C_RxData(tmp, 1);
+		if (ret < 0)
+			MAGN_LOG("%s:%d Error.\n", __func__, __LINE__);
 		_tLength += snprintf((buf + _tLength), (PAGE_SIZE - _tLength), "Reg[0x%02X]: 0x%02X\n",
 			_baRegMap[_bIndex], tmp[0]);
 	}
@@ -1443,7 +1545,7 @@ static long akm09911_unlocked_ioctl(struct file *file, unsigned int cmd, unsigne
 			return -EINVAL;
 		}
 		ret = AKI2C_RxData(&rwbuf[1], rwbuf[0]);
-		if (ret < 0)
+		if (ret < 0L)
 			return ret;
 
 		if (copy_to_user(argp, rwbuf, rwbuf[0]+1)) {
@@ -1460,7 +1562,7 @@ static long akm09911_unlocked_ioctl(struct file *file, unsigned int cmd, unsigne
 		#endif
 
 		ret = AKI2C_RxData(sense_info, AKM_SENSOR_INFO_SIZE);
-		if (ret < 0)
+		if (ret < 0L)
 			return ret;
 
 		if (copy_to_user(argp, sense_info, AKM_SENSOR_INFO_SIZE)) {
@@ -1475,7 +1577,7 @@ static long akm09911_unlocked_ioctl(struct file *file, unsigned int cmd, unsigne
 		#else
 		ret = AKECS_SetMode(AK09911_MODE_FUSE_ACCESS);
 		#endif
-		if (ret < 0)
+		if (ret < 0L)
 			return ret;
 		#ifdef AKM_Device_AK8963
 		sense_conf[0] = AK8963_FUSE_ASAX;
@@ -1484,7 +1586,7 @@ static long akm09911_unlocked_ioctl(struct file *file, unsigned int cmd, unsigne
 		#endif
 
 		ret = AKI2C_RxData(sense_conf, AKM_SENSOR_CONF_SIZE);
-		if (ret < 0)
+		if (ret < 0L)
 			return ret;
 		if (copy_to_user(argp, sense_conf, AKM_SENSOR_CONF_SIZE)) {
 			MAGN_LOG("copy_to_user failed.");
@@ -1495,7 +1597,7 @@ static long akm09911_unlocked_ioctl(struct file *file, unsigned int cmd, unsigne
 		#else
 		ret = AKECS_SetMode(AK09911_MODE_POWERDOWN);
 		#endif
-		if (ret < 0)
+		if (ret < 0L)
 			return ret;
 
 		break;
@@ -1511,7 +1613,7 @@ static long akm09911_unlocked_ioctl(struct file *file, unsigned int cmd, unsigne
 			return -EFAULT;
 		}
 		ret = AKECS_SetMode(mode);  /* MATCH command from AKMD PART */
-		if (ret < 0)
+		if (ret < 0L)
 			return ret;
 
 		break;
@@ -1519,7 +1621,7 @@ static long akm09911_unlocked_ioctl(struct file *file, unsigned int cmd, unsigne
 	case ECS_IOCTL_GETDATA:
 		/* AKMFUNC("ECS_IOCTL_GETDATA"); */
 		ret = AKECS_GetData(sData, SENSOR_DATA_SIZE);
-		if (ret < 0)
+		if (ret < 0L)
 			return ret;
 
 		if (copy_to_user(argp, sData, sizeof(sData))) {
@@ -1572,9 +1674,9 @@ static long akm09911_unlocked_ioctl(struct file *file, unsigned int cmd, unsigne
 
 	case ECS_IOCTL_GET_DELAY_09911:
 		/* AKMFUNC("IOCTL_GET_DELAY"); */
-		delay[0] = (int)akmd_delay * 1000000;
-		delay[1] = (int)akmd_delay * 1000000;
-		delay[2] = (int)akmd_delay * 1000000;
+		delay[0] = (int64_t)akmd_delay * 1000000;
+		delay[1] = (int64_t)akmd_delay * 1000000;
+		delay[2] = (int64_t)akmd_delay * 1000000;
 		if (copy_to_user(argp, delay, sizeof(delay))) {
 			MAGN_LOG("copy_to_user failed.");
 			return -EFAULT;
@@ -2767,6 +2869,9 @@ static int __init akm09911_init(void)
 /*----------------------------------------------------------------------------*/
 static void __exit akm09911_exit(void)
 {
+#ifdef CONFIG_CUSTOM_KERNEL_MAGNETOMETER_MODULE
+	mag_success_Flag = false;
+#endif
 }
 /*----------------------------------------------------------------------------*/
 module_init(akm09911_init);

@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #include <linux/module.h>
 #include <linux/device.h>
 #include <linux/fs.h>
@@ -14,6 +27,7 @@
 #include <linux/platform_device.h>
 #include <linux/proc_fs.h>
 #include <ccci.h>
+#include <mt-plat/mt_ccci_common.h>
 
 struct ccci_node_t {
 	char *name;
@@ -324,19 +338,13 @@ void ccci_attr_release(struct kobject *kobj)
 
 ssize_t show_attr_md1_postfix(char *buf)
 {
-	get_md_post_fix(MD_SYS1, buf, NULL);
-
-	CCCI_MSG("md1: %s\n", buf);
-
+	get_md_postfix(MD_SYS1, NULL, buf, NULL);
 	return strlen(buf);
 }
 
 ssize_t show_attr_md2_postfix(char *buf)
 {
-	get_md_post_fix(MD_SYS2, buf, NULL);
-
-	CCCI_MSG("md2: %s\n", buf);
-
+	get_md_postfix(MD_SYS2, NULL, buf, NULL);
 	return strlen(buf);
 }
 
@@ -376,20 +384,9 @@ int ccci_attr_install(void)
 		return -ENOMEM;
 
 	memset(ccci_sys_info, 0, sizeof(struct ccci_info_t));
-
-	ret = kobject_init_and_add(&ccci_sys_info->kobj, &ccci_ktype,
-			(struct kobject *)kernel_kobj, CCCI_KOBJ_NAME);
-	if (ret < 0) {
-		kobject_put(&ccci_sys_info->kobj);
-		CCCI_MSG("fail to add ccci kobject in kernel\n");
-		return ret;
-	}
-
-	ccci_sys_info->ccci_attr_count =
-	    sizeof(*ccci_default_attrs) / sizeof(struct attribute);
-
+	ccci_sysfs_add_modem(MD_SYS1, (void *)&ccci_sys_info->kobj, (void *)&ccci_ktype,
+			legacy_boot_md_show, legacy_boot_md_store);
 	return ret;
-
 }
 
 int init_ccci_dev_node(void)

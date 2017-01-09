@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 //s_add new sensor driver here
 //export funtions
 /*IMX*/
@@ -52,7 +65,6 @@ UINT32 S5K3H7Y_MIPI_RAW_SensorInit(PSENSOR_FUNCTION_STRUCT *pfFunc);
 UINT32 S5K4H5YC_MIPI_RAW_SensorInit(PSENSOR_FUNCTION_STRUCT *pfFunc);
 UINT32 S5K4H5YX_2LANE_MIPI_RAW_SensorInit(PSENSOR_FUNCTION_STRUCT *pfFunc);
 UINT32 S5K5E2YA_MIPI_RAW_SensorInit(PSENSOR_FUNCTION_STRUCT *pfFunc);
-UINT32 S5K3L2_MIPI_RAW_SensorInit(PSENSOR_FUNCTION_STRUCT *pfFunc); //add by darren
 UINT32 S5K5CAGX_YUV_SensorInit(PSENSOR_FUNCTION_STRUCT *pfFunc);
 UINT32 S5K4E1GA_MIPI_RAW_SensorInit(PSENSOR_FUNCTION_STRUCT *pfFunc);
 UINT32 S5K4ECGX_YUV_SensorInit(PSENSOR_FUNCTION_STRUCT *pfFunc);
@@ -113,7 +125,7 @@ UINT32 T4KA7_MIPI_RAW_SensorInit(PSENSOR_FUNCTION_STRUCT *pfFunc);
 /*Others*/
 UINT32 ISX012_MIPI_YUV_SensorInit(PSENSOR_FUNCTION_STRUCT *pfFunc);
 UINT32 T8EV5_YUV_SensorInit(PSENSOR_FUNCTION_STRUCT *pfFunc);
-UINT32 IMX258_MIPI_RAW_SensorInit(PSENSOR_FUNCTION_STRUCT *pfFunc); //add by darren
+UINT32 IMX258_MIPI_RAW_SensorInit(PSENSOR_FUNCTION_STRUCT *pfFunc);
 
 //! Add Sensor Init function here
 //! Note:
@@ -149,7 +161,12 @@ ACDK_KD_SENSOR_INIT_FUNCTION_STRUCT kdSensorList[MAX_NUM_OF_SUPPORT_SENSOR+1] =
     {IMX073_SENSOR_ID, SENSOR_DRVNAME_IMX073_MIPI_RAW, IMX073_MIPI_RAW_SensorInit},
 #endif
 #if defined(IMX278_MIPI_RAW)
-    {IMX278_SENSOR_ID, SENSOR_DRVNAME_IMX278_MIPI_RAW, IMX278_MIPI_RAW_SensorInit},
+	{IMX278_SENSOR_ID, SENSOR_DRVNAME_IMX278_MIPI_RAW, IMX278_MIPI_RAW_SensorInit}
+	,
+#endif
+#if defined(IMX258_MIPI_RAW)
+	{IMX258_SENSOR_ID, SENSOR_DRVNAME_IMX258_MIPI_RAW, IMX258_MIPI_RAW_SensorInit}
+	,
 #endif
 /*OV (OmniVision)*/
 #if defined(OV16825_MIPI_RAW)
@@ -274,9 +291,6 @@ ACDK_KD_SENSOR_INIT_FUNCTION_STRUCT kdSensorList[MAX_NUM_OF_SUPPORT_SENSOR+1] =
 #endif
 #if defined(S5K5E2YA_MIPI_RAW)
     {S5K5E2YA_SENSOR_ID, SENSOR_DRVNAME_S5K5E2YA_MIPI_RAW, S5K5E2YA_MIPI_RAW_SensorInit},
-#endif
-#if defined(S5K3L2_MIPI_RAW) //add by darren
-    {S5K3L2_SENSOR_ID, SENSOR_DRVNAME_S5K3L2_MIPI_RAW, S5K3L2_MIPI_RAW_SensorInit},
 #endif
 #if defined(S5K5CAGX_YUV)
     {S5K5CAGX_SENSOR_ID, SENSOR_DRVNAME_S5K5CAGX_YUV, S5K5CAGX_YUV_SensorInit},
@@ -442,9 +456,6 @@ ACDK_KD_SENSOR_INIT_FUNCTION_STRUCT kdSensorList[MAX_NUM_OF_SUPPORT_SENSOR+1] =
     {IMX135_SENSOR_ID, SENSOR_DRVNAME_IMX135_MIPI_RAW_5MP, IMX135_MIPI_RAW_SensorInit},
 #endif
 
-#if defined(IMX258_MIPI_RAW) //add by darren
-	{IMX258_SENSOR_ID, SENSOR_DRVNAME_IMX258_MIPI_RAW, IMX258_MIPI_RAW_SensorInit},
-#endif
 /*  ADD sensor driver before this line */
     {0,{0},NULL}, //end of list
 };

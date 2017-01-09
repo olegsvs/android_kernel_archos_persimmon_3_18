@@ -1,17 +1,19 @@
 /*
- * Copyright (C) 2007 The Android Open Source Project
+ * Copyright (C) 2015 MediaTek Inc.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ * You should have received a copy of the GNU General Public License
+ * along with this program
+ * If not, see <http://www.gnu.org/licenses/>.
  */
 /*******************************************************************************
  *
@@ -471,7 +473,7 @@ static int mtk_pcm_hdmi_stop(struct snd_pcm_substream *substream)
 
 	pr_warn("mtk_pcm_hdmi_stop\n");
 
-	SetIrqEnable(Soc_Aud_IRQ_MCU_MODE_IRQ5_MCU_MODE, false);
+	irq_remove_user(substream, Soc_Aud_IRQ_MCU_MODE_IRQ5_MCU_MODE);
 
 	SetMemoryPathEnable(Soc_Aud_Digital_Block_MEM_HDMI, false);
 
@@ -631,7 +633,6 @@ static int mtk_pcm_hdmi_open(struct snd_pcm_substream *substream)
 {
 
 	struct snd_pcm_runtime *runtime = substream->runtime;
-	int err = 0;
 	int ret = 0;
 
 	PRINTK_AUD_HDMI("mtk_pcm_hdmi_open\n");
@@ -652,9 +653,6 @@ static int mtk_pcm_hdmi_open(struct snd_pcm_substream *substream)
 	if (ret < 0)
 		PRINTK_AUD_HDMI("snd_pcm_hw_constraint_integer failed\n");
 
-	if (err < 0)
-		return err;
-
 	/* print for hw pcm information */
 	PRINTK_AUD_HDMI("mtk_pcm_hdmi_open runtime rate = %d channels = %d substream->pcm->device = %d\n",
 			runtime->rate, runtime->channels, substream->pcm->device);
@@ -665,11 +663,6 @@ static int mtk_pcm_hdmi_open(struct snd_pcm_substream *substream)
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
 		PRINTK_AUD_HDMI("SNDRV_PCM_STREAM_PLAYBACK mtkalsa_hdmi_playback_constraints\n");
 
-	if (err < 0) {
-		PRINTK_AUD_HDMI("mtk_pcm_hdmi_close\n");
-		mtk_pcm_hdmi_close(substream);
-		return err;
-	}
 	PRINTK_AUD_HDMI("mtk_pcm_hdmi_open return\n");
 	return 0;
 }
@@ -714,7 +707,7 @@ static int mtk_pcm_hdmi_prepare(struct snd_pcm_substream *substream)
 	PRINTK_AUD_HDMI("mtk_pcm_hdmi_prepare format =%d, rate = %d  channels = %d period_size = %lu\n",
 			runtime->format, runtime->rate, runtime->channels, runtime->period_size);
 
-	SetIrqEnable(Soc_Aud_IRQ_MCU_MODE_IRQ5_MCU_MODE, false);
+	irq_remove_user(substream, Soc_Aud_IRQ_MCU_MODE_IRQ5_MCU_MODE);
 
 	SetMemoryPathEnable(Soc_Aud_Digital_Block_MEM_HDMI, false);
 
@@ -909,9 +902,10 @@ static int mtk_pcm_hdmi_start(struct snd_pcm_substream *substream)
 #endif
 
 	/* here to set interrupt */
-	SetIrqMcuCounter(Soc_Aud_IRQ_MCU_MODE_IRQ5_MCU_MODE,
-			 (runtime->period_size / 2));
-	SetIrqEnable(Soc_Aud_IRQ_MCU_MODE_IRQ5_MCU_MODE, true);
+	irq_add_user(substream,
+		     Soc_Aud_IRQ_MCU_MODE_IRQ5_MCU_MODE,
+		     substream->runtime->rate,
+		     (runtime->period_size / 2));
 
 	EnableAfe(true);
 

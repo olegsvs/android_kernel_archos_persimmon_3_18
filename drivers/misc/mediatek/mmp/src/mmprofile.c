@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #include <linux/miscdevice.h>
 #include <linux/fs.h>
 #include <linux/file.h>
@@ -524,7 +537,7 @@ static int MMProfileGetEventName(MMP_Event event, char *name, size_t *size)
 		}
 
 		for (i = infoCntUsed - 1; i >= 0; i--) {
-			strcpy(&name[actualLen], eventInfo[i]->name);
+			strncpy(&name[actualLen], eventInfo[i]->name, strlen(eventInfo[i]->name) + 1);
 			actualLen += strlen(eventInfo[i]->name);
 			if (i > 0) {
 				/* not the last name */
@@ -665,6 +678,8 @@ static void MMProfileLog_Int(MMP_Event event, MMP_LogType type, unsigned long da
 
 	if (!MMProfileGlobals.enable)
 		return;
+	if (event >= MMProfileMaxEventCount)
+		return;
 	if (bMMProfileInitBuffer && MMProfileGlobals.start
 	    && (MMProfileGlobals.event_state[event] & MMP_EVENT_STATE_ENABLED)) {
 		MMProfile_Event_t *pEvent = NULL;
@@ -739,9 +754,12 @@ static long MMProfileLogMetaInt(MMP_Event event, MMP_LogType type, MMP_MetaData_
 				long bFromUser)
 {
 	unsigned long retn;
+	void __user *pData;
 
 	if (!MMProfileGlobals.enable)
 		return 0;
+	if (event >= MMProfileMaxEventCount)
+		return -3;
 	if (bMMProfileInitBuffer && MMProfileGlobals.start
 	    && (MMProfileGlobals.event_state[event] & MMP_EVENT_STATE_ENABLED)) {
 		MMProfile_MetaDataBlock_t *pNode = NULL;
@@ -809,6 +827,7 @@ static long MMProfileLogMetaInt(MMP_Event event, MMP_LogType type, MMP_MetaData_
 		MMProfile_MetaDataCookie++;
 		if (MMProfile_MetaDataCookie == 0)
 			MMProfile_MetaDataCookie++;
+		pData = (void __user *)(pMetaData->pData);
 		if (((unsigned long)(pNode->meta_data) + pMetaData->size) >
 		    ((unsigned long)pMMProfileMetaBuffer + MMProfileGlobals.meta_buffer_size)) {
 			unsigned long left_size =
@@ -816,25 +835,25 @@ static long MMProfileLogMetaInt(MMP_Event event, MMP_LogType type, MMP_MetaData_
 			    MMProfileGlobals.meta_buffer_size - (unsigned long)(pNode->meta_data);
 			if (bFromUser) {
 				retn =
-				    copy_from_user(pNode->meta_data, pMetaData->pData, left_size);
+				    copy_from_user(pNode->meta_data, pData, left_size);
 				retn =
 				    copy_from_user(pMMProfileMetaBuffer,
-						   (void *)((unsigned long)(pMetaData->pData) +
+						   (void *)((unsigned long)pData +
 							    left_size),
 						   pMetaData->size - left_size);
 			} else {
-				memcpy(pNode->meta_data, pMetaData->pData, left_size);
+				memcpy(pNode->meta_data, pData, left_size);
 				memcpy(pMMProfileMetaBuffer,
-				       (void *)((unsigned long)(pMetaData->pData) + left_size),
+				       (void *)((unsigned long)pData + left_size),
 				       pMetaData->size - left_size);
 			}
 		} else {
 			if (bFromUser)
 				retn =
-				    copy_from_user(pNode->meta_data, pMetaData->pData,
+				    copy_from_user(pNode->meta_data, pData,
 						   pMetaData->size);
 			else
-				memcpy(pNode->meta_data, pMetaData->pData, pMetaData->size);
+				memcpy(pNode->meta_data, pData, pMetaData->size);
 		}
 		mutex_unlock(&MMProfile_MetaBufferMutex);
 	}
@@ -881,7 +900,7 @@ MMP_Event MMProfileRegisterEvent(MMP_Event parent, const char *name)
 		memcpy(pRegTable->event_info.name, name, MMProfileEventNameMaxLen);
 		pRegTable->event_info.name[MMProfileEventNameMaxLen] = 0;
 	} else
-		strcpy(pRegTable->event_info.name, name);
+		strncpy(pRegTable->event_info.name, name, strlen(name) + 1);
 	pRegTable->event_info.parentId = parent;
 	list_add_tail(&(pRegTable->list), &(MMProfile_RegTable.list));
 	MMProfileGlobals.event_state[index] = 0;
@@ -962,6 +981,8 @@ long MMProfileQueryEnable(MMP_Event event)
 {
 	if (!MMProfileGlobals.enable)
 		return 0;
+	if (event >= MMProfileMaxEventCount)
+		return 0;
 	if (event == MMP_InvalidEvent)
 		return MMProfileGlobals.enable;
 	return !!(MMProfileGlobals.event_state[event] & MMP_EVENT_STATE_ENABLED);
@@ -997,6 +1018,8 @@ long MMProfileLogMetaStructure(MMP_Event event, MMP_LogType type,
 
 	if (!MMProfileGlobals.enable)
 		return 0;
+	if (event >= MMProfileMaxEventCount)
+		return -3;
 	if (in_interrupt())
 		return 0;
 	if (bMMProfileInitBuffer && MMProfileGlobals.start
@@ -1027,6 +1050,8 @@ long MMProfileLogMetaStringEx(MMP_Event event, MMP_LogType type, unsigned long d
 
 	if (!MMProfileGlobals.enable)
 		return 0;
+	if (event >= MMProfileMaxEventCount)
+		return -3;
 	if (in_interrupt())
 		return 0;
 	if (bMMProfileInitBuffer && MMProfileGlobals.start
@@ -1040,7 +1065,7 @@ long MMProfileLogMetaStringEx(MMP_Event event, MMP_LogType type, unsigned long d
 		MetaData.pData = vmalloc(MetaData.size);
 		if (!MetaData.pData)
 			return -1;
-		strcpy((char *)MetaData.pData, str);
+		strncpy((char *)MetaData.pData, str, strlen(str) + 1);
 		ret = MMProfileLogMeta(event, type, &MetaData);
 		vfree(MetaData.pData);
 	}
@@ -1060,6 +1085,8 @@ long MMProfileLogMetaBitmap(MMP_Event event, MMP_LogType type, MMP_MetaDataBitma
 
 	if (!MMProfileGlobals.enable)
 		return 0;
+	if (event >= MMProfileMaxEventCount)
+		return -3;
 	if (in_interrupt())
 		return 0;
 	if (bMMProfileInitBuffer && MMProfileGlobals.start
@@ -1339,8 +1366,8 @@ static ssize_t mmprofile_write(struct file *file, const char __user *data, size_
 
 static long mmprofile_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
-	int ret = 0;
-	unsigned long retn;
+	long ret = 0;
+	unsigned long retn = 0;
 
 	switch (cmd) {
 	case MMP_IOC_ENABLE:
@@ -1366,38 +1393,41 @@ static long mmprofile_ioctl(struct file *file, unsigned int cmd, unsigned long a
 			unsigned int time_low;
 			unsigned int time_high;
 			unsigned long long time;
+			unsigned long long *pTimeUser = (unsigned long long __user *)arg;
 
 			system_time(&time_low, &time_high);
 			time = time_low + ((unsigned long long)time_high << 32);
-			put_user(time, (unsigned long long *)arg);
+			put_user(time, pTimeUser);
 		}
 		break;
 	case MMP_IOC_REGEVENT:
 		{
 			MMProfile_EventInfo_t event_info;
+			MMProfile_EventInfo_t __user *pEventInfoUser = (MMProfile_EventInfo_t __user *)arg;
 
 			retn =
-			    copy_from_user(&event_info, (void *)arg, sizeof(MMProfile_EventInfo_t));
+			    copy_from_user(&event_info, pEventInfoUser, sizeof(MMProfile_EventInfo_t));
 			event_info.name[MMProfileEventNameMaxLen] = 0;
 			event_info.parentId =
 			    MMProfileRegisterEvent(event_info.parentId, event_info.name);
 			retn =
-			    copy_to_user((void *)arg, &event_info, sizeof(MMProfile_EventInfo_t));
+			    copy_to_user(pEventInfoUser, &event_info, sizeof(MMProfile_EventInfo_t));
 		}
 		break;
 	case MMP_IOC_FINDEVENT:
 		{
 			MMProfile_EventInfo_t event_info;
+			MMProfile_EventInfo_t __user *pEventInfoUser = (MMProfile_EventInfo_t __user *)arg;
 
 			retn =
-			    copy_from_user(&event_info, (void *)arg, sizeof(MMProfile_EventInfo_t));
+			    copy_from_user(&event_info, pEventInfoUser, sizeof(MMProfile_EventInfo_t));
 			event_info.name[MMProfileEventNameMaxLen] = 0;
 			mutex_lock(&MMProfile_RegTableMutex);
 			event_info.parentId =
 			    MMProfileFindEventInt(event_info.parentId, event_info.name);
 			mutex_unlock(&MMProfile_RegTableMutex);
 			retn =
-			    copy_to_user((void *)arg, &event_info, sizeof(MMProfile_EventInfo_t));
+			    copy_to_user(pEventInfoUser, &event_info, sizeof(MMProfile_EventInfo_t));
 		}
 		break;
 	case MMP_IOC_ENABLEEVENT:
@@ -1406,11 +1436,13 @@ static long mmprofile_ioctl(struct file *file, unsigned int cmd, unsigned long a
 			unsigned int enable;
 			unsigned int recursive;
 			unsigned int ftrace;
+			struct MMProfile_EventSetting_t __user *pEventSettingUser =
+				(struct MMProfile_EventSetting_t __user *)arg;
 
-			get_user(event, (unsigned int *)arg);
-			get_user(enable, (unsigned int *)(arg + 4));
-			get_user(recursive, (unsigned int *)(arg + 8));
-			get_user(ftrace, (unsigned int *)(arg + 12));
+			get_user(event, &pEventSettingUser->event);
+			get_user(enable, &pEventSettingUser->enable);
+			get_user(recursive, &pEventSettingUser->recursive);
+			get_user(ftrace, &pEventSettingUser->ftrace);
 			if (recursive) {
 				mutex_lock(&MMProfile_RegTableMutex);
 				MMProfileEnableFTraceEventRecursive(event, enable, ftrace);
@@ -1425,11 +1457,13 @@ static long mmprofile_ioctl(struct file *file, unsigned int cmd, unsigned long a
 			MMP_LogType type;
 			unsigned int data1;
 			unsigned int data2;
+			struct MMProfile_EventLog_t __user *pEventLogUser =
+				(struct MMProfile_EventLog_t __user *)arg;
 
-			get_user(event, (unsigned int *)arg);
-			get_user(type, (unsigned int *)(arg + 4));
-			get_user(data1, (unsigned int *)(arg + 8));
-			get_user(data2, (unsigned int *)(arg + 12));
+			get_user(event, &pEventLogUser->event);
+			get_user(type, &pEventLogUser->type);
+			get_user(data1, &pEventLogUser->data1);
+			get_user(data2, &pEventLogUser->data2);
 			MMProfileLogEx(event, type, data1, data2);
 		}
 		break;
@@ -1437,7 +1471,7 @@ static long mmprofile_ioctl(struct file *file, unsigned int cmd, unsigned long a
 		{
 			MMP_Event index;
 			MMProfile_RegTable_t *pRegTable;
-			MMProfile_EventInfo_t *pEventInfoUser = (MMProfile_EventInfo_t *) arg;
+			MMProfile_EventInfo_t __user *pEventInfoUser = (MMProfile_EventInfo_t __user *)arg;
 			MMProfile_EventInfo_t EventInfoDummy = { 0, "" };
 
 			MMProfileRegisterStaticEvents(1);
@@ -1463,9 +1497,14 @@ static long mmprofile_ioctl(struct file *file, unsigned int cmd, unsigned long a
 	case MMP_IOC_METADATALOG:
 		{
 			MMProfile_MetaLog_t MetaLog;
+			MMProfile_MetaLog_t __user *pMetaLogUser = (MMProfile_MetaLog_t __user *)arg;
+			MMP_MetaData_t MetaData;
+			MMP_MetaData_t __user *pMetaDataUser;
 
-			retn = copy_from_user(&MetaLog, (void *)arg, sizeof(MMProfile_MetaLog_t));
-			MMProfileLogMetaInt(MetaLog.id, MetaLog.type, &(MetaLog.meta_data), 1);
+			retn = copy_from_user(&MetaLog, pMetaLogUser, sizeof(MMProfile_MetaLog_t));
+			pMetaDataUser = (MMP_MetaData_t __user *)&(pMetaLogUser->meta_data);
+			retn = copy_from_user(&MetaData, pMetaDataUser, sizeof(MMP_MetaData_t));
+			MMProfileLogMetaInt(MetaLog.id, MetaLog.type, &MetaData, 1);
 		}
 		break;
 	case MMP_IOC_DUMPMETADATA:
@@ -1475,7 +1514,7 @@ static long mmprofile_ioctl(struct file *file, unsigned int cmd, unsigned long a
 			unsigned int index;
 			unsigned int buffer_size = 0;
 			MMProfile_MetaDataBlock_t *pMetaDataBlock;
-			MMProfile_MetaData_t *pMetaData = (MMProfile_MetaData_t *) (arg + 8);
+			MMProfile_MetaData_t __user *pMetaData = (MMProfile_MetaData_t __user *)(arg + 8);
 
 			mutex_lock(&MMProfile_MetaBufferMutex);
 			list_for_each_entry(pMetaDataBlock, &MMProfile_MetaBufferList, list) {
@@ -1490,7 +1529,7 @@ static long mmprofile_ioctl(struct file *file, unsigned int cmd, unsigned long a
 					meta_data_count++;
 				}
 			}
-			put_user(meta_data_count, (unsigned int *)arg);
+			put_user(meta_data_count, (unsigned int __user *)arg);
 			/* pr_debug("[mmprofile_ioctl] meta_data_count=%d meta_data_size=%x\n",
 			   meta_data_count, buffer_size); */
 			offset = 8 + sizeof(MMProfile_MetaData_t) * meta_data_count;
@@ -1509,24 +1548,24 @@ static long mmprofile_ioctl(struct file *file, unsigned int cmd, unsigned long a
 						    MMProfileGlobals.meta_buffer_size -
 						    (unsigned long)(pMetaDataBlock->meta_data);
 						retn =
-						    copy_to_user((void *)(arg + offset),
+						    copy_to_user((void __user *)(arg + offset),
 								 pMetaDataBlock->meta_data,
 								 left_size);
 						retn =
-						    copy_to_user((void *)(arg + offset + left_size),
+						    copy_to_user((void __user *)(arg + offset + left_size),
 								 pMMProfileMetaBuffer,
 								 pMetaDataBlock->data_size -
 								 left_size);
 					} else
 						retn =
-						    copy_to_user((void *)(arg + offset),
+						    copy_to_user((void __user *)(arg + offset),
 								 pMetaDataBlock->meta_data,
 								 pMetaDataBlock->data_size);
 					offset = (offset + pMetaDataBlock->data_size + 3) & (~3);
 					index++;
 				}
 			}
-			put_user(offset - 8, (unsigned int *)(arg + 4));
+			put_user(offset - 8, (unsigned int __user *)(arg + 4));
 			/* pr_debug("[mmprofile_ioctl] Finished: offset=%x\n", offset-8); */
 			mutex_unlock(&MMProfile_MetaBufferMutex);
 		}
@@ -1544,10 +1583,13 @@ static long mmprofile_ioctl(struct file *file, unsigned int cmd, unsigned long a
 		break;
 	case MMP_IOC_ISENABLE:
 		{
+			unsigned int isEnable;
+			unsigned int __user *pUser = (unsigned int __user *)arg;
 			MMP_Event event;
 
-			get_user(event, (unsigned int *)arg);
-			put_user(MMProfileQueryEnable(event), (unsigned int *)arg);
+			get_user(event, pUser);
+			isEnable = (unsigned int)MMProfileQueryEnable(event);
+			put_user(isEnable, pUser);
 		}
 		break;
 	case MMP_IOC_TEST:
@@ -1562,67 +1604,69 @@ static long mmprofile_ioctl(struct file *file, unsigned int cmd, unsigned long a
 }
 
 #ifdef CONFIG_COMPAT
+#define COMPAT_MMP_IOC_METADATALOG     _IOW(MMP_IOC_MAGIC, 9, struct Compat_MMProfile_MetaLog_t)
+#define COMPAT_MMP_IOC_DUMPMETADATA    _IOR(MMP_IOC_MAGIC, 10, struct Compat_MMProfile_MetaLog_t)
 static long mmprofile_ioctl_compat(struct file *file, unsigned int cmd, unsigned long arg)
 {
-	int ret = 0;
+	long ret = 0;
 	unsigned long retn;
 
 	switch (cmd) {
 	case MMP_IOC_ENABLE:
-		if ((arg == 0) || (arg == 1))
-			MMProfileEnable((int)arg);
-		else
-			ret = -EINVAL;
+		ret = mmprofile_ioctl(file, MMP_IOC_ENABLE, arg);
 		break;
 	case MMP_IOC_REMOTESTART:	/* if using remote tool (PC side) or adb shell command, can always start mmp */
-		if ((arg == 0) || (arg == 1))
-			MMProfileRemoteStart((int)arg);
-		else
-			ret = -EINVAL;
+		ret = mmprofile_ioctl(file, MMP_IOC_REMOTESTART, arg);
 		break;
 	case MMP_IOC_START:
-		if ((arg == 0) || (arg == 1))
-			MMProfileForceStart((int)arg);
-		else
-			ret = -EINVAL;
+		ret = mmprofile_ioctl(file, MMP_IOC_START, arg);
 		break;
 	case MMP_IOC_TIME:
 		{
 			unsigned int time_low;
 			unsigned int time_high;
 			unsigned long long time;
+			unsigned long long __user *pTimeUser;
+
+			pTimeUser = compat_ptr(arg);
 
 			system_time(&time_low, &time_high);
 			time = time_low + ((unsigned long long)time_high << 32);
-			put_user(time, (unsigned long long *)arg);
+			put_user(time, pTimeUser);
 		}
 		break;
 	case MMP_IOC_REGEVENT:
 		{
 			MMProfile_EventInfo_t event_info;
+			MMProfile_EventInfo_t __user *pEventInfoUser;
+
+			pEventInfoUser = compat_ptr(arg);
 
 			retn =
-			    copy_from_user(&event_info, (void *)arg, sizeof(MMProfile_EventInfo_t));
+			    copy_from_user(&event_info, pEventInfoUser, sizeof(MMProfile_EventInfo_t));
 			event_info.name[MMProfileEventNameMaxLen] = 0;
 			event_info.parentId =
 			    MMProfileRegisterEvent(event_info.parentId, event_info.name);
 			retn =
-			    copy_to_user((void *)arg, &event_info, sizeof(MMProfile_EventInfo_t));
+			    copy_to_user(pEventInfoUser, &event_info, sizeof(MMProfile_EventInfo_t));
 		}
 		break;
 	case MMP_IOC_FINDEVENT:
 		{
 			MMProfile_EventInfo_t event_info;
+			MMProfile_EventInfo_t __user *pEventInfoUser;
+
+			pEventInfoUser = compat_ptr(arg);
 
 			retn =
-			    copy_from_user(&event_info, (void *)arg, sizeof(MMProfile_EventInfo_t));
+			    copy_from_user(&event_info, pEventInfoUser, sizeof(MMProfile_EventInfo_t));
 			event_info.name[MMProfileEventNameMaxLen] = 0;
 			mutex_lock(&MMProfile_RegTableMutex);
 			event_info.parentId =
 			    MMProfileFindEventInt(event_info.parentId, event_info.name);
 			mutex_unlock(&MMProfile_RegTableMutex);
 			retn =
-			    copy_to_user((void *)arg, &event_info, sizeof(MMProfile_EventInfo_t));
+			    copy_to_user(pEventInfoUser, &event_info, sizeof(MMProfile_EventInfo_t));
 		}
 		break;
 	case MMP_IOC_ENABLEEVENT:
@@ -1631,11 +1675,14 @@ static long mmprofile_ioctl_compat(struct file *file, unsigned int cmd, unsigned
 			unsigned int enable;
 			unsigned int recursive;
 			unsigned int ftrace;
+			struct MMProfile_EventSetting_t __user *pEventSettingUser;
 
-			get_user(event, (unsigned int *)arg);
-			get_user(enable, (unsigned int *)(arg + 4));
-			get_user(recursive, (unsigned int *)(arg + 8));
-			get_user(ftrace, (unsigned int *)(arg + 12));
+			pEventSettingUser = compat_ptr(arg);
+
+			get_user(event, &pEventSettingUser->event);
+			get_user(enable, &pEventSettingUser->enable);
+			get_user(recursive, &pEventSettingUser->recursive);
+			get_user(ftrace, &pEventSettingUser->ftrace);
 			if (recursive) {
 				mutex_lock(&MMProfile_RegTableMutex);
 				MMProfileEnableFTraceEventRecursive(event, enable, ftrace);
@@ -1650,11 +1697,14 @@ static long mmprofile_ioctl_compat(struct file *file, unsigned int cmd, unsigned
 			MMP_LogType type;
 			unsigned int data1;
 			unsigned int data2;
+			struct MMProfile_EventLog_t __user *pEventLogUser;
 
-			get_user(event, (unsigned int *)arg);
-			get_user(type, (unsigned int *)(arg + 4));
-			get_user(data1, (unsigned int *)(arg + 8));
-			get_user(data2, (unsigned int *)(arg + 12));
+			pEventLogUser = compat_ptr(arg);
+
+			get_user(event, &pEventLogUser->event);
+			get_user(type, &pEventLogUser->type);
+			get_user(data1, &pEventLogUser->data1);
+			get_user(data2, &pEventLogUser->data2);
 			MMProfileLogEx(event, type, data1, data2);
 		}
 		break;
@@ -1662,8 +1712,10 @@ static long mmprofile_ioctl_compat(struct file *file, unsigned int cmd, unsigned
 		{
 			MMP_Event index;
 			MMProfile_RegTable_t *pRegTable;
-			MMProfile_EventInfo_t *pEventInfoUser = (MMProfile_EventInfo_t *) arg;
+			MMProfile_EventInfo_t __user *pEventInfoUser;
 			MMProfile_EventInfo_t EventInfoDummy = { 0, "" };
+
+			pEventInfoUser = compat_ptr(arg);
 
 			MMProfileRegisterStaticEvents(1);
 			mutex_lock(&MMProfile_RegTableMutex);
@@ -1685,22 +1737,39 @@ static long mmprofile_ioctl_compat(struct file *file, unsigned int cmd, unsigned
 			mutex_unlock(&MMProfile_RegTableMutex);
 		}
 		break;
-	case MMP_IOC_METADATALOG:
+	case COMPAT_MMP_IOC_METADATALOG:
 		{
 			MMProfile_MetaLog_t MetaLog;
+			struct Compat_MMProfile_MetaLog_t CompatMetaLog;
+			struct Compat_MMProfile_MetaLog_t __user *pCompatMetaLogUser;
 
-			retn = copy_from_user(&MetaLog, (void *)arg, sizeof(MMProfile_MetaLog_t));
+			pCompatMetaLogUser = compat_ptr(arg);
+
+			retn = copy_from_user(&CompatMetaLog, pCompatMetaLogUser,
+				sizeof(struct Compat_MMProfile_MetaLog_t));
+			{
+				MetaLog.id = CompatMetaLog.id;
+				MetaLog.type = CompatMetaLog.type;
+				MetaLog.meta_data.data1 = CompatMetaLog.meta_data.data1;
+				MetaLog.meta_data.data2 = CompatMetaLog.meta_data.data2;
+				MetaLog.meta_data.data_type = CompatMetaLog.meta_data.data_type;
+				MetaLog.meta_data.size = CompatMetaLog.meta_data.size;
+				MetaLog.meta_data.pData = compat_ptr(CompatMetaLog.meta_data.pData);
+			}
 			MMProfileLogMetaInt(MetaLog.id, MetaLog.type, &(MetaLog.meta_data), 1);
 		}
 		break;
-	case MMP_IOC_DUMPMETADATA:
+	case COMPAT_MMP_IOC_DUMPMETADATA:
 		{
 			unsigned int meta_data_count = 0;
 			unsigned int offset = 0;
 			unsigned int index;
 			unsigned int buffer_size = 0;
 			MMProfile_MetaDataBlock_t *pMetaDataBlock;
-			MMProfile_MetaData_t *pMetaData = (MMProfile_MetaData_t *) (arg + 8);
+			MMProfile_MetaData_t __user *pMetaData;
+			unsigned int __user *pUser;
+
+			pMetaData = compat_ptr(arg + 8);
 
 			mutex_lock(&MMProfile_MetaBufferMutex);
 			list_for_each_entry(pMetaDataBlock, &MMProfile_MetaBufferList, list) {
@@ -1715,7 +1784,8 @@ static long mmprofile_ioctl_compat(struct file *file, unsigned int cmd, unsigned
 					meta_data_count++;
 				}
 			}
-			put_user(meta_data_count, (unsigned int *)arg);
+			pUser = compat_ptr(arg);
+			put_user(meta_data_count, pUser);
 			/* pr_debug("[mmprofile_ioctl] meta_data_count=%d meta_data_size=%x\n",
 			   meta_data_count, buffer_size); */
 			offset = 8 + sizeof(MMProfile_MetaData_t) * meta_data_count;
@@ -1733,31 +1803,36 @@ static long mmprofile_ioctl_compat(struct file *file, unsigned int cmd, unsigned
 						    (unsigned long)pMMProfileMetaBuffer +
 						    MMProfileGlobals.meta_buffer_size -
 						    (unsigned long)(pMetaDataBlock->meta_data);
+						pUser = compat_ptr(arg + offset);
 						retn =
-						    copy_to_user((void *)(arg + offset),
+						    copy_to_user(pUser,
 								 pMetaDataBlock->meta_data,
 								 left_size);
+						pUser = compat_ptr(arg + offset + left_size);
 						retn =
-						    copy_to_user((void *)(arg + offset + left_size),
+						    copy_to_user(pUser,
 								 pMMProfileMetaBuffer,
 								 pMetaDataBlock->data_size -
 								 left_size);
-					} else
+					} else {
+						pUser = compat_ptr(arg + offset);
 						retn =
-						    copy_to_user((void *)(arg + offset),
+						    copy_to_user(pUser,
 								 pMetaDataBlock->meta_data,
 								 pMetaDataBlock->data_size);
+					}
 					offset = (offset + pMetaDataBlock->data_size + 3) & (~3);
 					index++;
 				}
 			}
-			put_user(offset - 8, (unsigned int *)(arg + 4));
+			pUser = compat_ptr(arg + 4);
+			put_user(offset - 8, pUser);
 			/* pr_debug("[mmprofile_ioctl] Finished: offset=%x\n", offset-8); */
 			mutex_unlock(&MMProfile_MetaBufferMutex);
 		}
 		break;
 	case MMP_IOC_SELECTBUFFER:
-		MMProfileGlobals.selected_buffer = arg;
+		ret = mmprofile_ioctl(file, MMP_IOC_SELECTBUFFER, arg);
 		break;
 	case MMP_IOC_TRYLOG:
 		if ((!MMProfileGlobals.enable) ||
@@ -1769,10 +1844,15 @@ static long mmprofile_ioctl_compat(struct file *file, unsigned int cmd, unsigned
 		break;
 	case MMP_IOC_ISENABLE:
 		{
+			unsigned int isEnable;
+			unsigned int __user *pUser;
 			MMP_Event event;
 
-			get_user(event, (unsigned int *)arg);
-			put_user(MMProfileQueryEnable(event), (unsigned int *)arg);
+			pUser = compat_ptr(arg);
+
+			get_user(event, pUser);
+			isEnable = (unsigned int)MMProfileQueryEnable(event);
+			put_user(isEnable, pUser);
 		}
 		break;
 	case MMP_IOC_TEST:
@@ -1891,40 +1971,6 @@ static int mmprofile_probe(void)
 		    debugfs_create_file("reset", S_IWUSR, g_pDebugFSDir, NULL,
 					&mmprofile_dbgfs_reset_fops);
 	}
-	/* // Read NVRAM configuration */
-	/* { */
-	/* struct file *filp; */
-	/* unsigned int enable; */
-	/* unsigned int start; */
-	/* mm_segment_t old_fs; */
-	/* old_fs = get_fs(); */
-	/* set_fs(KERNEL_DS); */
-	/* filp = filp_open(CONFIG_MMPROFILE_PATH, O_RDONLY, 0777); */
-	/* if (IS_ERR(filp)) */
-	/* { */
-	/* pr_debug("[mmprofile] NVM: Cannot open configuration file %s\n", CONFIG_MMPROFILE_PATH); */
-	/* MMProfileEnable(0); */
-	/* } */
-	/* else */
-	/* { */
-	/* filp->f_op->llseek(filp, 0, SEEK_SET); */
-	/* filp->f_op->read(filp, (char*)(&enable), 4, &filp->f_pos); */
-	/* filp->f_op->read(filp, (char*)(&start), 4, &filp->f_pos); */
-	/* filp_close(filp, NULL); */
-	/* pr_debug("[mmprofile] NVM: enable=%d start=%d.\n", enable, start); */
-	/* if (enable == 1) */
-	/* { */
-	/* MMProfileEnable(1); */
-	/* if (start == 1) */
-	/* MMProfileStart(1); */
-	/* else */
-	/* MMProfileStart(0); */
-	/* } */
-	/* else */
-	/* MMProfileEnable(0); */
-	/* } */
-	/* set_fs(old_fs); */
-	/* } */
 	return 0;
 }
 

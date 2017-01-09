@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #ifdef DFT_TAG
 #undef DFT_TAG
 #endif
@@ -103,12 +116,12 @@ static int btif_dump_array(char *string, char *p_buf, int len)
 	unsigned int idx = 0;
 
 	pr_debug("========dump %s start <length:%d>========\n", string, len);
+	pr_debug(" ");
 	for (idx = 0; idx < len; idx++, p_buf++) {
-		pr_debug("%02x ", *p_buf);
+		pr_cont("%02x ", *p_buf);
 		if (3 == (idx % 4))
-			pr_debug("\n");
+			pr_debug(" ");
 	}
-	pr_debug("\n");
 	pr_debug("========dump %s end========\n", string);
 	return 0;
 }
@@ -783,7 +796,7 @@ int hal_btif_irq_handler(P_MTK_BTIF_INFO_STR p_btif,
 int hal_btif_rx_cb_reg(P_MTK_BTIF_INFO_STR p_btif_info, btif_rx_buf_write rx_cb)
 {
 	if (NULL != p_btif_info->rx_cb)
-		BTIF_INFO_FUNC("rx_cb already registered, replace (0x%p) with (0x%p)\n",
+		BTIF_DBG_FUNC("rx_cb already registered, replace (0x%p) with (0x%p)\n",
 		     p_btif_info->rx_cb, rx_cb);
 	p_btif_info->rx_cb = rx_cb;
 

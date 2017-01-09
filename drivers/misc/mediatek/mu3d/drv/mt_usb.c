@@ -1,12 +1,15 @@
 /*
- * MUSB OTG controller driver for Blackfin Processors
- *
- * Copyright 2006-2008 Analog Devices Inc.
- *
- * Enter bugs at http://blackfin.uclinux.org/
- *
- * Licensed under the GPL-2 or later.
- */
+* Copyright (C) 2016 MediaTek Inc.
+*
+* This program is free software; you can redistribute it and/or modify
+* it under the terms of the GNU General Public License version 2 as
+* published by the Free Software Foundation.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+* See http://www.gnu.org/licenses/gpl-2.0.html for more details.
+*/
 
 #include <linux/module.h>
 #include <linux/kernel.h>
@@ -16,29 +19,11 @@
 
 #include "mu3d_hal_osal.h"
 #include "musb_core.h"
-#ifdef CONFIG_MTK_UART_USB_SWITCH
+#if defined(CONFIG_MTK_UART_USB_SWITCH) || defined(CONFIG_MTK_SIB_USB_SWITCH)
 #include "mtk-phy-asic.h"
 /*#include <mach/mt_typedefs.h>*/
 #endif
-#if defined(FOR_BRING_UP) || !defined(CONFIG_MTK_SMART_BATTERY)
-static inline void BATTERY_SetUSBState(int usb_state)
-{
-};
-#ifndef CONFIG_MTK_FPGA
-static inline CHARGER_TYPE  mt_get_charger_type(void)
-{
-	return STANDARD_HOST;
-};
-#endif
-static inline bool upmu_is_chr_det(void)
-{
-	return true;
-};
-static inline u32 upmu_get_rgs_chrdet(void)
-{
-	return 1;
-};
-#endif
+
 
 unsigned int cable_mode = CABLE_MODE_NORMAL;
 #ifdef CONFIG_MTK_UART_USB_SWITCH
@@ -53,7 +38,7 @@ u32 sw_uart_path = 0;
 /* ================================ */
 bool mt_usb_is_device(void)
 {
-#if !defined(CONFIG_MTK_FPGA) && defined(CONFIG_USB_XHCI_MTK)
+#if !defined(CONFIG_FPGA_EARLY_PORTING) && defined(CONFIG_USB_XHCI_MTK)
 	bool tmp = mtk_is_host_mode();
 
 	os_printk(K_INFO, "%s mode\n", tmp ? "HOST" : "DEV");
@@ -102,37 +87,24 @@ void connection_work(struct work_struct *data)
 #ifndef CONFIG_USBIF_COMPLIANCE
 	static enum status connection_work_dev_status = INIT;
 #endif
+	static DEFINE_RATELIMIT_STATE(ratelimit, 1 * HZ, 5);
 
 
 #ifdef CONFIG_MTK_UART_USB_SWITCH
 	if (!usb_phy_check_in_uart_mode()) {
 #endif
-		bool is_usb_cable = usb_cable_connected();
-		bool cmode_effect_on = false;
+		bool is_usb_cable;
 
-#ifndef CONFIG_MTK_FPGA
-		CHARGER_TYPE chg_type = mt_get_charger_type();
+#ifndef CONFIG_FPGA_EARLY_PORTING
 
-		if (fake_CDP && chg_type == STANDARD_HOST) {
-			os_printk(K_INFO, "%s, fake to type 2\n", __func__);
-			chg_type = CHARGING_HOST;
+		/* delay 100ms if user space is not ready to set usb function */
+		if (!is_usb_rdy()) {
+			if (__ratelimit(&ratelimit))
+				os_printk(K_INFO, "%s, !is_usb_rdy, delay 100ms\n", __func__);
+			schedule_delayed_work(&musb->connection_work,
+								 msecs_to_jiffies(100));
+			return;
 		}
-		os_printk(K_NOTICE, "%s type=%d\n", __func__, chg_type);
-		if ((musb->usb_mode == CABLE_MODE_HOST_ONLY && chg_type == STANDARD_HOST)
-		    || musb->usb_mode == CABLE_MODE_CHRG_ONLY)
-			cmode_effect_on = true;
-#ifdef CONFIG_MTK_KERNEL_POWER_OFF_CHARGING
-		if (get_boot_mode() == KERNEL_POWER_OFF_CHARGING_BOOT
-		    || get_boot_mode() == LOW_POWER_OFF_CHARGING_BOOT) {
-			if (chg_type == STANDARD_HOST)
-				cmode_effect_on = true;
-
-		}
-#endif
-		os_printk(K_INFO, "%s type=%d, cmode_effect_on=%d, usb_mode:%d\n",
-			  __func__, chg_type, cmode_effect_on, musb->usb_mode);
-
-
 
 		if (!mt_usb_is_device()) {
 			connection_work_dev_status = OFF;
@@ -143,13 +115,13 @@ void connection_work(struct work_struct *data)
 		}
 #endif
 
+		is_usb_cable = usb_cable_connected();
 		os_printk(K_INFO, "%s musb %s, cable %s\n", __func__,
 			  ((connection_work_dev_status ==
 			    0) ? "INIT" : ((connection_work_dev_status == 1) ? "ON" : "OFF")),
 			  (is_usb_cable ? "IN" : "OUT"));
 
-		if ((is_usb_cable == true) && (connection_work_dev_status != ON)
-		    && (!cmode_effect_on)) {
+		if ((is_usb_cable == true) && (connection_work_dev_status != ON)) {
 
 			connection_work_dev_status = ON;
 #ifndef CONFIG_USBIF_COMPLIANCE
@@ -164,8 +136,7 @@ void connection_work(struct work_struct *data)
 			musb_start(musb);
 
 			os_printk(K_INFO, "%s ----Connect----\n", __func__);
-		} else if (((is_usb_cable == false) && (connection_work_dev_status != OFF))
-			   || (cmode_effect_on)) {
+		} else if ((is_usb_cable == false) && (connection_work_dev_status != OFF)) {
 
 			connection_work_dev_status = OFF;
 #ifndef CONFIG_USBIF_COMPLIANCE
@@ -225,7 +196,7 @@ void mt_usb_connect(void)
 
 		work = &_mu3d_musb->connection_work;
 
-		schedule_delayed_work_on(0, work, 0);
+		schedule_delayed_work(work, 0);
 	} else {
 		os_printk(K_INFO, "%s musb_musb not ready\n", __func__);
 	}
@@ -242,7 +213,7 @@ void mt_usb_disconnect(void)
 
 		work = &_mu3d_musb->connection_work;
 
-		schedule_delayed_work_on(0, work, 0);
+		schedule_delayed_work(work, 0);
 	} else {
 		os_printk(K_INFO, "%s musb_musb not ready\n", __func__);
 	}
@@ -250,29 +221,81 @@ void mt_usb_disconnect(void)
 }
 EXPORT_SYMBOL_GPL(mt_usb_disconnect);
 
+/* #define BYPASS_PMIC_LINKAGE */
+static CHARGER_TYPE mu3d_hal_get_charger_type(void)
+{
+	CHARGER_TYPE chg_type;
+#ifdef BYPASS_PMIC_LINKAGE
+	DBG(0, "force on");
+	chg_type = STANDARD_HOST;
+#else
+	chg_type = mt_get_charger_type();
+#endif
+
+	return chg_type;
+}
+static bool mu3d_hal_is_vbus_exist(void)
+{
+	bool vbus_exist;
+
+#ifdef BYPASS_PMIC_LINKAGE
+	DBG(0, "force on");
+	vbus_exist = true;
+#else
+#ifdef CONFIG_POWER_EXT
+	vbus_exist = upmu_get_rgs_chrdet();
+#else
+	vbus_exist = upmu_is_chr_det();
+#endif
+#endif
+
+	return vbus_exist;
+
+}
+
 bool usb_cable_connected(void)
 {
-#ifndef CONFIG_MTK_FPGA
 	CHARGER_TYPE chg_type = CHARGER_UNKNOWN;
-#ifdef CONFIG_POWER_EXT
-	chg_type = mt_get_charger_type();
-	os_printk(K_INFO, "%s ext-chrdet=%d type=%d\n", __func__, upmu_get_rgs_chrdet(), chg_type);
-	if (upmu_get_rgs_chrdet() && (chg_type == STANDARD_HOST))
+	bool connected = false, vbus_exist = false;
+
+#ifdef CONFIG_MTK_KERNEL_POWER_OFF_CHARGING
+	if (get_boot_mode() == KERNEL_POWER_OFF_CHARGING_BOOT
+			|| get_boot_mode() == LOW_POWER_OFF_CHARGING_BOOT) {
+		os_printk(K_INFO, "%s, in KPOC, force USB on\n", __func__);
 		return true;
-#else
-	if (upmu_is_chr_det()) {
-		chg_type = mt_get_charger_type();
-		os_printk(K_INFO, "%s type=%d\n", __func__, chg_type);
-		if (chg_type == STANDARD_HOST || chg_type == CHARGING_HOST)
-			return true;
 	}
 #endif
-	os_printk(K_INFO, "%s no USB Host detect!\n", __func__);
-	return false;
-#else
-	os_printk(K_INFO, "%s [FPGA] always true\n", __func__);
-	return true;
-#endif
+
+	if (mu3d_force_on) {
+		/* FORCE USB ON */
+		chg_type = _mu3d_musb->charger_mode = STANDARD_HOST;
+		vbus_exist = true;
+		connected = true;
+		os_printk(K_INFO, "%s type force to STANDARD_HOST\n", __func__);
+	} else {
+		/* TYPE CHECK*/
+		chg_type = _mu3d_musb->charger_mode = mu3d_hal_get_charger_type();
+		if (fake_CDP && chg_type == STANDARD_HOST) {
+			os_printk(K_INFO, "%s, fake to type 2\n", __func__);
+			chg_type = CHARGING_HOST;
+		}
+
+		if (chg_type == STANDARD_HOST || chg_type == CHARGING_HOST)
+			connected = true;
+
+		/* VBUS CHECK to avoid type miss-judge */
+		vbus_exist = mu3d_hal_is_vbus_exist();
+		os_printk(K_INFO, "%s vbus_exist=%d type=%d\n", __func__, vbus_exist, chg_type);
+		if (!vbus_exist)
+			connected = false;
+	}
+
+	/* CMODE CHECK */
+	if (cable_mode == CABLE_MODE_CHRG_ONLY || (cable_mode == CABLE_MODE_HOST_ONLY && chg_type != CHARGING_HOST))
+		connected = false;
+
+	os_printk(K_INFO, "%s, connected:%d, cable_mode:%d\n", __func__, connected, cable_mode);
+	return connected;
 }
 EXPORT_SYMBOL_GPL(usb_cable_connected);
 
@@ -288,7 +311,7 @@ int typec_switch_usb_connect(void *data)
 
 		work = &musb->connection_work;
 
-		schedule_delayed_work_on(0, work, 0);
+		schedule_delayed_work(work, 0);
 	} else {
 		os_printk(K_INFO, "%s musb_musb not ready\n", __func__);
 	}
@@ -308,7 +331,7 @@ int typec_switch_usb_disconnect(void *data)
 
 		work = &musb->connection_work;
 
-		schedule_delayed_work_on(0, work, 0);
+		schedule_delayed_work(work, 0);
 	} else {
 		os_printk(K_INFO, "%s musb_musb not ready\n", __func__);
 	}
@@ -330,27 +353,15 @@ void musb_platform_reset(struct musb *musb)
 }
 #endif				/* NEVER */
 
-void usb_check_connect(void)
-{
-	os_printk(K_INFO, "usb_check_connect\n");
-
-#ifndef CONFIG_MTK_FPGA
-	if (usb_cable_connected())
-		mt_usb_connect();
-#endif
-
-}
 
 void musb_sync_with_bat(struct musb *musb, int usb_state)
 {
 	os_printk(K_DEBUG, "musb_sync_with_bat\n");
 
-#ifndef CONFIG_MTK_FPGA
+#ifndef CONFIG_FPGA_EARLY_PORTING
 #if defined(CONFIG_MTK_SMART_BATTERY)
 	BATTERY_SetUSBState(usb_state);
-#ifndef FOR_BRING_UP
 	wake_up_bat();
-#endif
 #endif
 #endif
 
@@ -392,12 +403,16 @@ ssize_t musb_cmode_store(struct device *dev, struct device_attribute *attr,
 			 const char *buf, size_t count)
 {
 	unsigned int cmode;
-	struct musb *musb = dev_to_musb(dev);
+	struct musb *musb;
 
 	if (!dev) {
 		os_printk(K_ERR, "dev is null!!\n");
 		return count;
-	} else if (1 == sscanf(buf, "%ud", &cmode)) {
+	}
+
+	musb = dev_to_musb(dev);
+
+	if (1 == sscanf(buf, "%ud", &cmode)) {
 		os_printk(K_INFO, "%s %s --> %s\n", __func__, usb_mode_str[cable_mode],
 			  usb_mode_str[cmode]);
 
@@ -405,6 +420,9 @@ ssize_t musb_cmode_store(struct device *dev, struct device_attribute *attr,
 			cmode = CABLE_MODE_NORMAL;
 
 		if (cable_mode != cmode) {
+
+			cable_mode = cmode;
+
 			if (_mu3d_musb) {
 				if (down_interruptible(&_mu3d_musb->musb_lock))
 					os_printk(K_INFO, "%s: busy, Couldn't get musb_lock\n", __func__);
@@ -437,7 +455,6 @@ ssize_t musb_cmode_store(struct device *dev, struct device_attribute *attr,
 #endif
 				}
 			}
-			cable_mode = cmode;
 #ifdef CONFIG_USB_MTK_DUALMODE
 			if (cmode == CABLE_MODE_CHRG_ONLY) {
 #ifdef CONFIG_USB_C_SWITCH
@@ -547,7 +564,7 @@ ssize_t musb_tx_store(struct device *dev, struct device_attribute *attr,
 	} else if (1 == sscanf(buf, "%ud", &val)) {
 		pr_debug("\n Write TX : %d\n", val);
 
-#ifdef CONFIG_MTK_FPGA
+#ifdef CONFIG_FPGA_EARLY_PORTING
 		var = USB_PHY_Read_Register8(U3D_U2PHYDTM1 + 0x2);
 #else
 		var = U3PhyReadReg8((u3phy_addr_t) (U3D_U2PHYDTM1 + 0x2));
@@ -558,7 +575,7 @@ ssize_t musb_tx_store(struct device *dev, struct device_attribute *attr,
 		else
 			var2 = var | (1 << 3);
 
-#ifdef CONFIG_MTK_FPGA
+#ifdef CONFIG_FPGA_EARLY_PORTING
 		USB_PHY_Write_Register8(var2, U3D_U2PHYDTM1 + 0x2);
 		var = USB_PHY_Read_Register8(U3D_U2PHYDTM1 + 0x2);
 #else
@@ -587,7 +604,7 @@ ssize_t musb_rx_show(struct device *dev, struct device_attribute *attr, char *bu
 		pr_debug("dev is null!!\n");
 		return 0;
 	}
-#ifdef CONFIG_MTK_FPGA
+#ifdef CONFIG_FPGA_EARLY_PORTING
 	var = USB_PHY_Read_Register8(U3D_U2PHYDMON1 + 0x3);
 #else
 	var = U3PhyReadReg8((u3phy_addr_t) (U3D_U2PHYDMON1 + 0x3));
@@ -598,7 +615,6 @@ ssize_t musb_rx_show(struct device *dev, struct device_attribute *attr, char *bu
 
 	return scnprintf(buf, PAGE_SIZE, "%x\n", var2);
 }
-
 ssize_t musb_uart_path_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
 	u8 var = 0;
@@ -608,16 +624,54 @@ ssize_t musb_uart_path_show(struct device *dev, struct device_attribute *attr, c
 		return 0;
 	}
 
-	var = DRV_Reg8(ap_uart0_base + 0xB0);
-	pr_debug("[MUSB]addr: (UART0) 0xB0, value: %x\n\n", DRV_Reg8(ap_uart0_base + 0xB0));
+	var = DRV_Reg32(ap_uart0_base + 0x600);
+	pr_debug("[MUSB]addr: (GPIO Misc) 0x600, value: %x\n\n", DRV_Reg32(ap_uart0_base + 0x600));
 	sw_uart_path = var;
 
 	return scnprintf(buf, PAGE_SIZE, "%x\n", var);
 }
 #endif
 
+#ifdef CONFIG_MTK_SIB_USB_SWITCH
+ssize_t musb_sib_enable_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	int ret;
+
+	if (!dev) {
+		pr_debug("dev is null!!\n");
+		return 0;
+	}
+#ifndef CONFIG_FPGA_EARLY_PORTING
+	ret = usb_phy_sib_enable_switch_status();
+#else
+	pr_err("FPGA not support SIB switch!!\n");
+	ret = false;
+#endif
+	return scnprintf(buf, PAGE_SIZE, "%d\n", ret);
+}
+
+ssize_t musb_sib_enable_store(struct device *dev, struct device_attribute *attr,
+			    const char *buf, size_t count)
+{
+	unsigned int mode;
+
+	if (!dev) {
+		pr_debug("dev is null!!\n");
+		return count;
+	} else if (!kstrtouint(buf, 0, &mode)) {
+#ifndef CONFIG_FPGA_EARLY_PORTING
+		pr_debug("USB sib_enable: %d\n", mode);
+		usb_phy_sib_enable_switch(mode);
+#else
+		pr_err("FPGA not support SIB switch!!\n");
+#endif
+	}
+	return count;
+}
+#endif
+
 #ifdef NEVER
-#ifdef CONFIG_MTK_FPGA
+#ifdef CONFIG_FPGA_EARLY_PORTING
 static struct i2c_client *usb_i2c_client;
 static const struct i2c_device_id usb_i2c_id[] = { {"mtk-usb", 0}, {} };
 
@@ -715,5 +769,5 @@ int add_usb_i2c_driver(void)
 
 	return ret;
 }
-#endif				/* End of CONFIG_MTK_FPGA */
+#endif				/* End of CONFIG_FPGA_EARLY_PORTING */
 #endif				/* NEVER */

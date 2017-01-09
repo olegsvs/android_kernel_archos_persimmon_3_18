@@ -113,8 +113,8 @@ DECLARE_EVENT_CLASS(sched_wakeup_template,
 		  __entry->success, __entry->target_cpu
 #ifdef CONFIG_MTK_SCHED_TRACERS
 		,
-		__entry->state & ~TASK_STATE_MAX ?
-		  __print_flags(__entry->state & ~TASK_STATE_MAX, "|",
+		__entry->state & (~TASK_STATE_MAX) ?
+		  __print_flags(__entry->state & (~TASK_STATE_MAX), "|",
 				{TASK_INTERRUPTIBLE, "S"},
 				{TASK_UNINTERRUPTIBLE, "D"},
 				{__TASK_STOPPED, "T"},
@@ -355,8 +355,8 @@ TRACE_EVENT(sched_migrate_task,
 		  __entry->orig_cpu, __entry->dest_cpu
 #ifdef CONFIG_MTK_SCHED_TRACERS
 		,
-		__entry->state & ~TASK_STATE_MAX ?
-		  __print_flags(__entry->state & ~TASK_STATE_MAX, "|",
+		__entry->state & (~TASK_STATE_MAX) ?
+		  __print_flags(__entry->state & (~TASK_STATE_MAX), "|",
 				{ TASK_INTERRUPTIBLE, "S"},
 				{ TASK_UNINTERRUPTIBLE, "D" },
 				{ __TASK_STOPPED, "T" },
@@ -371,6 +371,31 @@ TRACE_EVENT(sched_migrate_task,
 				{ _MT_TASK_BLOCKED_IO, "d"}) : "R"
 #endif
 			)
+);
+
+/*
+ * Tracepoint for a CPU going offline/online:
+ */
+TRACE_EVENT(sched_cpu_hotplug,
+
+	TP_PROTO(int affected_cpu, int error, int status),
+
+	TP_ARGS(affected_cpu, error, status),
+
+	TP_STRUCT__entry(
+		__field(	int,	affected_cpu		)
+		__field(	int,	error			)
+		__field(	int,	status			)
+	),
+
+	TP_fast_assign(
+		__entry->affected_cpu	= affected_cpu;
+		__entry->error		= error;
+		__entry->status		= status;
+	),
+
+	TP_printk("cpu %d %s error=%d", __entry->affected_cpu,
+		__entry->status ? "online" : "offline", __entry->error)
 );
 
 DECLARE_EVENT_CLASS(sched_process_template,
@@ -401,7 +426,7 @@ DECLARE_EVENT_CLASS(sched_process_template,
 DEFINE_EVENT(sched_process_template, sched_process_free,
 	     TP_PROTO(struct task_struct *p),
 	     TP_ARGS(p));
-	     
+
 
 /*
  * Tracepoint for a task exiting:
@@ -468,6 +493,36 @@ TRACE_EVENT(sched_process_fork,
 	TP_printk("comm=%s pid=%d child_comm=%s child_pid=%d",
 		__entry->parent_comm, __entry->parent_pid,
 		__entry->child_comm, __entry->child_pid)
+);
+
+/*
+* Tracepoint for fork time:
+*/
+TRACE_EVENT(sched_fork_time,
+
+	TP_PROTO(struct task_struct *parent, struct task_struct *child, unsigned long long dur),
+
+	TP_ARGS(parent, child, dur),
+
+	TP_STRUCT__entry(
+		__array(char,	parent_comm,	TASK_COMM_LEN)
+		__field(pid_t,	parent_pid)
+		__array(char,	child_comm, TASK_COMM_LEN)
+		__field(pid_t,	child_pid)
+		__field(unsigned long long, dur)
+	),
+
+	TP_fast_assign(
+		memcpy(__entry->parent_comm, parent->comm, TASK_COMM_LEN);
+		__entry->parent_pid = parent->pid;
+		memcpy(__entry->child_comm, child->comm, TASK_COMM_LEN);
+		__entry->child_pid	= child->pid;
+		__entry->dur = dur;
+	),
+
+	TP_printk("comm=%s pid=%d child_comm=%s child_pid=%d fork_time=%llu us",
+		__entry->parent_comm, __entry->parent_pid,
+		__entry->child_comm, __entry->child_pid, __entry->dur)
 );
 
 /*
@@ -554,6 +609,30 @@ DEFINE_EVENT(sched_stat_template, sched_stat_iowait,
 DEFINE_EVENT(sched_stat_template, sched_stat_blocked,
 	     TP_PROTO(struct task_struct *tsk, u64 delay),
 	     TP_ARGS(tsk, delay));
+
+/*
+ * Tracepoint for recording the cause of uninterruptible sleep.
+ */
+TRACE_EVENT(sched_blocked_reason,
+
+	TP_PROTO(struct task_struct *tsk),
+
+	TP_ARGS(tsk),
+
+	TP_STRUCT__entry(
+		__field( pid_t,	pid	)
+		__field( void*, caller	)
+		__field( bool, io_wait	)
+	),
+
+	TP_fast_assign(
+		__entry->pid	= tsk->pid;
+		__entry->caller = (void*)get_wchan(tsk);
+		__entry->io_wait = tsk->in_iowait;
+	),
+
+	TP_printk("pid=%d iowait=%d caller=%pS", __entry->pid, __entry->io_wait, __entry->caller)
+);
 
 /*
  * Tracepoint for accounting runtime (time the task is executing

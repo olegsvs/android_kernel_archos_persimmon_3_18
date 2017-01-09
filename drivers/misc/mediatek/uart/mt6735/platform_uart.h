@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #ifndef __MTK_PLAT_UART_H__
 #define __MTK_PLAT_UART_H__
 
@@ -176,14 +189,14 @@ do { \
 		pr_err("  [UART%d]:%c:%4d: " fmt , \
 		   uart->nport, s[0], __LINE__, ##args); \
 	else \
-		pr_notice("  [UART%d]:%c: " fmt , uart->nport, s[0], ##args); \
+		pr_debug("  [UART%d]:%c: " fmt , uart->nport, s[0], ##args); \
 	} \
 } while (0)
 /*---------------------------------------------------------------------------*/
 #define UART_DEBUG_EVT(evt)    ((evt) & uart->evt_mask)
 /*---------------------------------------------------------------------------*/
 #define MSG_FUNC_ENTRY(f)       MSG(FUC, "%s\n", __func__)
-#define MSG_RAW                 pr_notice
+#define MSG_RAW                 pr_debug
 /*---------------------------------------------------------------------------*/
 #else				/* release mode: only enable error log */
 #define MSG(evt, fmt, args...)  MSG##evt(fmt, ##args)
@@ -198,8 +211,8 @@ do { \
 #define MSG_FUNC_ENTRY(f)       do {} while (0)
 #endif /**/
 #define MSG_ERR(fmt, args...)   pr_err("[UARTX]:E:%4d: " fmt, __LINE__, ##args)
-#define MSG_TRC(fmt, args...)   pr_notice("[UARTX]:T: " fmt, ##args)
-#define DEV_TRC(fmt, args...)   pr_notice("[UART%d]:T: " fmt, uart->nport, ##args)
+#define MSG_TRC(fmt, args...)   pr_debug("[UARTX]:T: " fmt, ##args)
+#define DEV_TRC(fmt, args...)   pr_debug("[UART%d]:T: " fmt, uart->nport, ##args)
 #define DEV_ERR(fmt, args...)   pr_err("[UART%d]:E: " fmt, uart->nport, ##args)
 /*---------------------------------------------------------------------------*/
 #define DRV_NAME                "mtk-uart"

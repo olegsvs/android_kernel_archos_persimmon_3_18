@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #ifndef __aed_h
 #define __aed_h
 
@@ -133,6 +146,15 @@ struct aee_thread_user_stack {
 	int StackLength;
 	unsigned char Userspace_Stack[8192];	/* 8k stack ,define to char only for match 64bit/32bit */
 };
+
+struct aee_siginfo {
+	pid_t tid;
+	int si_signo;
+	int si_errno;
+	int si_code;
+	uintptr_t fault_addr;
+};
+
 #define AEEIOCTL_DAL_SHOW       _IOW('p', 0x01, struct aee_dal_show)	/* Show string on DAL layer  */
 #define AEEIOCTL_DAL_CLEAN      _IO('p', 0x02)	/* Clear DAL layer */
 #define AEEIOCTL_SETCOLOR       _IOW('p', 0x03, struct aee_dal_setcolor)	/* RGB color 0x00RRGGBB */
@@ -150,6 +172,8 @@ struct aee_thread_user_stack {
 #define AEEIOCTL_SET_SF_STATE _IOR('p', 0x0C, long long)
 #define AEEIOCTL_GET_SF_STATE _IOW('p', 0x0D, long long)
 #define AEEIOCTL_USER_IOCTL_TO_KERNEL_WANING _IOR('p', 0x0E, int)
+#define AEEIOCTL_SET_AEE_FORCE_EXP _IOR('p', 0x0F, int)
+#define AEEIOCTL_GET_AEE_SIGINFO _IOW('p', 0x10, struct aee_siginfo)
 
 #define AED_FILE_OPS(entry) \
 	static const struct file_operations proc_##entry##_fops = { \

@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #ifndef _MT_VCORE_DVFS_2_
 #define _MT_VCORE_DVFS_2_
 
@@ -13,7 +26,7 @@
 #define VCORE_1_P_05_UV		1050000
 
 #define FDDR_S0_KHZ		1066000		/* 6537: 1280000 */
-#define FDDR_S1_KHZ		800000		/* 6537: 936000 */
+#define FDDR_S1_KHZ		800000		/* 6537: 938000 */
 
 /* CLK MUX */
 #define FAXI_S0_KHZ		218000
@@ -43,7 +56,7 @@ enum dvfs_kicker {
 	KIR_MM,			/* 1 */
 	KIR_EMIBW,		/* 2 */
 	KIR_SDIO,		/* 3 */
-	KIR_USB,		/* 4 */
+	KIR_WIFI,		/* 4 */
 	KIR_SYSFS,		/* 5 */
 	NUM_KICKER,		/* 6 */
 
@@ -56,7 +69,7 @@ enum dvfs_opp {
 	OPP_OFF = -1,
 	OPP_0 = 0,		/* 0: Vcore 1.25, DDR 1066 (6537: Vcore 1.15, DDR 1280) */
 	OPP_1,			/* 1: Vcore 1.15, DDR 1066 (6537: Vcore 1.15, DDR 1280) */
-	OPP_2,			/* 2: Vcore 1.05, DDR 800  (6537: Vcore 1.05, DDR 936) */
+	OPP_2,			/* 2: Vcore 1.05, DDR 800  (6537: Vcore 1.05, DDR 938) */
 	NUM_OPP
 };
 

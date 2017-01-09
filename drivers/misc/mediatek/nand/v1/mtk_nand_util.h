@@ -17,7 +17,7 @@
 #include <linux/mtd/nand.h>
 #include <linux/mtd/partitions.h>
 #include <linux/mtd/nand_ecc.h>
-#include <nand_device_list.h>
+#include "nand_device_list.h"
 #if defined(CONFIG_MTK_TLC_NAND_SUPPORT)
 #include "partition_define_tlc.h"
 #else
@@ -135,7 +135,7 @@ extern void mtk_slc_blk_addr(u64 addr, u32 *blk_num, u32 *page_in_block);
 bool mtk_is_normal_tlc_nand(void);
 int mtk_nand_tlc_block_mark(struct mtd_info *mtd, struct nand_chip *chip, u32 mapped_block);
 extern int mtk_nand_write_tlc_block_hw(struct mtd_info *mtd, struct nand_chip *chip,
-				uint8_t *buf, u32 mapped_block);
+				uint8_t *buf, u32 mapped_block, u32 page_in_block, u32 size);
 
 void show_stack(struct task_struct *tsk, unsigned long *sp);
 extern int mtk_nand_interface_async(void);

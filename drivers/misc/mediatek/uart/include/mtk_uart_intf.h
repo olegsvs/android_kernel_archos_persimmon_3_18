@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #ifndef __MTK_UART_INTF_H__
 #define __MTK_UART_INTF_H__
 
@@ -28,6 +41,10 @@ unsigned long get_uart_lsr_status(int idx);
 void set_uart_lsr_status(int idx, int value);
 unsigned char get_modem_status(int idx);
 void dump_uart_reg(void);
+void mtk_uart_dump_reg(char *s);
+#if defined(ENABLE_CONSOLE_DEBUG)
+void dump_console_reg(struct mtk_uart *uart, char *s);
+#endif
 void mtk_uart_console_setting_switch(struct mtk_uart *uart);
 int mtk_uart_vfifo_is_empty(struct mtk_uart_vfifo *vfifo);
 void mtk_uart_tx_vfifo_flush(struct mtk_uart *uart, int timeout);

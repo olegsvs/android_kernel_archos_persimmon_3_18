@@ -1,17 +1,19 @@
 /*
- * Copyright (C) 2007 The Android Open Source Project
+ * Copyright (C) 2015 MediaTek Inc.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ * You should have received a copy of the GNU General Public License
+ * along with this program
+ * If not, see <http://www.gnu.org/licenses/>.
  */
 /*******************************************************************************
  *
@@ -80,17 +82,9 @@
 #include <asm/uaccess.h>
 #include <asm/irq.h>
 #include <asm/io.h>
-/* #include <mach/mt_reg_base.h> */
 #include <asm/div64.h>
-/* #include <linux/aee.h> */
-/* #include <mach/pmic_mt6325_sw.h> */
-/* #include <mach/upmu_common.h> */
-/* #include <mach/upmu_hw.h> */
-/* #include <mach/mt_gpio.h> */
-/* #include <mach/mt_typedefs.h> */
 
 #include <mt-plat/aee.h>
-/* #include <mt-plat/upmu_common.h> */
 
 #include <linux/clk.h>
 #include <linux/delay.h>
@@ -102,7 +96,6 @@
 #include <sound/soc-dapm.h>
 #include <sound/pcm.h>
 #include <sound/jack.h>
-/* #include <asm/mach-types.h> */
 
 /* information about */
 AFE_MEM_CONTROL_T *TDM_VUL_Control_context;
@@ -155,7 +148,7 @@ static struct snd_pcm_hardware mtk_capture_hardware = {
 
 static void StopAudioCaptureHardware(struct snd_pcm_substream *substream)
 {
-	pr_debug("StopAudioCaptureHardware\n");
+	PRINTK_AUDDRV("%s\n", __func__);
 
 	/* here to set interrupt */
 	SetIrqEnable(Soc_Aud_IRQ_MCU_MODE_IRQ2_MCU_MODE, false);
@@ -191,7 +184,7 @@ static void ConfigAdcI2S(struct snd_pcm_substream *substream)
 
 static void StartAudioCaptureHardware(struct snd_pcm_substream *substream)
 {
-	pr_debug("StartAudioCaptureHardware\n");
+	PRINTK_AUDDRV("%s\n", __func__);
 
 	ConfigAdcI2S(substream);
 	SetI2SAdcIn(mAudioDigitalI2S);
@@ -238,7 +231,7 @@ static void StartAudioCaptureHardware(struct snd_pcm_substream *substream)
 
 static int mtk_capture_pcm_prepare(struct snd_pcm_substream *substream)
 {
-	pr_debug("%s substream->rate = %d  substream->channels = %d\n",
+	PRINTK_AUDDRV("%s substream->rate = %d  substream->channels = %d\n",
 		__func__, substream->runtime->rate, substream->runtime->channels);
 	return 0;
 }
@@ -247,7 +240,7 @@ static int mtk_capture_alsa_stop(struct snd_pcm_substream *substream)
 {
 	AFE_BLOCK_T *Vul_Block = &(TDM_VUL_Control_context->rBlock);
 
-	pr_debug("mtk_capture_alsa_stop\n");
+	PRINTK_AUDDRV("%s\n", __func__);
 	StopAudioCaptureHardware(substream);
 	Vul_Block->u4DMAReadIdx = 0;
 	Vul_Block->u4WriteIdx = 0;
@@ -273,12 +266,12 @@ static snd_pcm_uframes_t mtk_capture_pcm_pointer(struct snd_pcm_substream *subst
 
 		HW_Cur_ReadIdx = Align64ByteSize(Afe_Get_Reg(AFE_AWB_CUR));
 		if (HW_Cur_ReadIdx == 0) {
-			PRINTK_AUD_UL1("[Auddrv] %s HW_Cur_ReadIdx == 0\n", __func__);
+			PRINTK_AUD_UL1("%s HW_Cur_ReadIdx == 0\n", __func__);
 			HW_Cur_ReadIdx = Awb_Block->pucPhysBufAddr;
 		}
 		HW_memory_index = (HW_Cur_ReadIdx - Awb_Block->pucPhysBufAddr);
 		Previous_Hw_cur = HW_memory_index;
-		PRINTK_AUD_UL1("[Auddrv] HW_Cur_ReadIdx = 0x%x HW_memory_index = 0x%x\n",
+		PRINTK_AUD_UL1("%s HW_Cur_ReadIdx = 0x%x HW_memory_index = 0x%x\n", __func__,
 			       HW_Cur_ReadIdx, HW_memory_index);
 		TDM_VUL_Control_context->interruptTrigger = 0;
 		return (HW_memory_index >> 2);
@@ -292,8 +285,6 @@ static void SetVULBuffer(struct snd_pcm_substream *substream, struct snd_pcm_hw_
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	AFE_BLOCK_T *pblock = &TDM_VUL_Control_context->rBlock;
 
-	pr_debug("SetVULBuffer\n");
-
 	pblock->pucPhysBufAddr = runtime->dma_addr;
 	pblock->pucVirtBufAddr = runtime->dma_area;
 	pblock->u4BufferSize = runtime->dma_bytes;
@@ -304,8 +295,8 @@ static void SetVULBuffer(struct snd_pcm_substream *substream, struct snd_pcm_hw_
 	pblock->u4fsyncflag = false;
 	pblock->uResetFlag = true;
 
-	pr_debug("u4BufferSize = %d pucVirtBufAddr = %p pucPhysBufAddr = 0x%x\n",
-		pblock->u4BufferSize, pblock->pucVirtBufAddr, pblock->pucPhysBufAddr);
+	PRINTK_AUDDRV("%s u4BufferSize = %d pucVirtBufAddr = %p pucPhysBufAddr = 0x%x\n",
+		__func__, pblock->u4BufferSize, pblock->pucVirtBufAddr, pblock->pucPhysBufAddr);
 
 	/* set dram address top hardware */
 	Afe_Set_Reg(AFE_VUL_BASE, pblock->pucPhysBufAddr, 0xffffffff);
@@ -320,38 +311,27 @@ static int mtk_capture_pcm_hw_params(struct snd_pcm_substream *substream,
 	struct snd_dma_buffer *dma_buf = &substream->dma_buffer;
 	int ret = 0;
 
-	pr_debug("mtk_capture_pcm_hw_params\n");
-
 	dma_buf->dev.type = SNDRV_DMA_TYPE_DEV;
 	dma_buf->dev.dev = substream->pcm->card->dev;
 	dma_buf->private_data = NULL;
-	pr_debug("Capture_dma_buf = %p Capture_dma_buf->area = %p\n",
-		Capture_dma_buf, Capture_dma_buf->area);
 
 	if (Capture_dma_buf->area) {
+		PRINTK_AUDDRV("%s Capture_dma_buf->area\n", __func__);
 		runtime->dma_bytes = params_buffer_bytes(hw_params);
 		runtime->dma_area = Capture_dma_buf->area;
 		runtime->dma_addr = Capture_dma_buf->addr;
 	} else {
-		pr_debug("mtk_capture_pcm_hw_params snd_pcm_lib_malloc_pages\n");
+		PRINTK_AUDDRV("%s snd_pcm_lib_malloc_pages\n", __func__);
 		ret = snd_pcm_lib_malloc_pages(substream, params_buffer_bytes(hw_params));
 	}
 
-	pr_debug("%s dma_bytes = %zu dma_area = %p dma_addr = 0x%lx\n", __func__,
-		runtime->dma_bytes, runtime->dma_area, (long)runtime->dma_addr);
-
-	pr_debug("runtime->hw.buffer_bytes_max = %zu\n", runtime->hw.buffer_bytes_max);
 	SetVULBuffer(substream, hw_params);
-
-	pr_debug("dma_bytes = %zu dma_area = %p dma_addr = 0x%lx\n",
-	       substream->runtime->dma_bytes, substream->runtime->dma_area,
-	       (long)substream->runtime->dma_addr);
 	return ret;
 }
 
 static int mtk_capture_pcm_hw_free(struct snd_pcm_substream *substream)
 {
-	pr_debug("mtk_capture_pcm_hw_free\n");
+	PRINTK_AUDDRV("%s\n", __func__);
 
 	if (Capture_dma_buf->area)
 		return 0;
@@ -380,13 +360,11 @@ static int mtk_capture_pcm_open(struct snd_pcm_substream *substream)
 	AudDrv_Clk_On();
 	AudDrv_ADC_Clk_On();
 
-	pr_debug("%s\n", __func__);
 	TDM_VUL_Control_context = Get_Mem_ControlT(Soc_Aud_Digital_Block_MEM_VUL);
 
 	runtime->hw = mtk_capture_hardware;
 	memcpy((void *)(&(runtime->hw)), (void *)&mtk_capture_hardware,
 	       sizeof(struct snd_pcm_hardware));
-	pr_debug("runtime->hw->rates = 0x%x\n", runtime->hw.rates);
 
 	ret = snd_pcm_hw_constraint_list(runtime, 0, SNDRV_PCM_HW_PARAM_RATE,
 					 &constraints_sample_rates);
@@ -395,7 +373,7 @@ static int mtk_capture_pcm_open(struct snd_pcm_substream *substream)
 	if (ret < 0)
 		pr_err("snd_pcm_hw_constraint_integer failed\n");
 
-	pr_debug("mtk_capture_pcm_open runtime rate = %d channels = %d\n",
+	PRINTK_AUDDRV("%s runtime rate = %d channels = %d\n", __func__,
 		runtime->rate, runtime->channels);
 
 	runtime->hw.info |= SNDRV_PCM_INFO_INTERLEAVED;
@@ -403,15 +381,15 @@ static int mtk_capture_pcm_open(struct snd_pcm_substream *substream)
 	runtime->hw.info |= SNDRV_PCM_INFO_MMAP_VALID;
 
 	if (substream->stream == SNDRV_PCM_STREAM_CAPTURE)
-		pr_debug("SNDRV_PCM_STREAM_CAPTURE mtkalsa_capture_constraints\n");
+		PRINTK_AUDDRV("%s SNDRV_PCM_STREAM_CAPTURE\n", __func__);
 
 	if (ret < 0) {
-		pr_debug("mtk_capture_pcm_close\n");
+		pr_warn("%s ret < 0, close\n", __func__);
 		mtk_capture_pcm_close(substream);
 		return ret;
 	}
 
-	pr_debug("mtk_capture_pcm_open return\n");
+	PRINTK_AUDDRV("%s return\n", __func__);
 	return 0;
 }
 
@@ -425,7 +403,7 @@ static int mtk_capture_pcm_close(struct snd_pcm_substream *substream)
 
 static int mtk_capture_alsa_start(struct snd_pcm_substream *substream)
 {
-	pr_debug("mtk_capture_alsa_start\n");
+	PRINTK_AUDDRV("%s\n", __func__);
 	SetMemifSubStream(Soc_Aud_Digital_Block_MEM_VUL, substream);
 	StartAudioCaptureHardware(substream);
 	return 0;
@@ -433,7 +411,7 @@ static int mtk_capture_alsa_start(struct snd_pcm_substream *substream)
 
 static int mtk_capture_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 {
-	pr_debug("mtk_capture_pcm_trigger cmd = %d\n", cmd);
+	PRINTK_AUDDRV("%s cmd = %d\n", __func__, cmd);
 
 	switch (cmd) {
 	case SNDRV_PCM_TRIGGER_START:
@@ -448,10 +426,9 @@ static int mtk_capture_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 
 static bool CheckNullPointer(void *pointer)
 {
-	if (pointer == NULL) {
-		pr_debug("CheckNullPointer pointer = NULL");
+	if (pointer == NULL)
 		return true;
-	}
+
 	return false;
 }
 
@@ -466,7 +443,7 @@ static int mtk_capture_pcm_copy(struct snd_pcm_substream *substream,
 	ssize_t DMA_Read_Ptr = 0, read_size = 0, read_count = 0;
 	unsigned long flags;
 
-	PRINTK_AUD_UL1("mtk_capture_pcm_copy pos = %lucount = %lu\n", pos, count);
+	PRINTK_AUD_UL1("%s pos = %lucount = %lu\n", __func__, pos, count);
 	count = Align64ByteSize(count << 2);
 
 	/* check which memif nned to be write */
@@ -474,25 +451,25 @@ static int mtk_capture_pcm_copy(struct snd_pcm_substream *substream,
 	Vul_Block = &(pVUL_MEM_ConTrol->rBlock);
 
 	if (pVUL_MEM_ConTrol == NULL) {
-		pr_err("cannot find MEM control !!!!!!!\n");
+		pr_err("%s cannot find MEM control !!!!!!!\n", __func__);
 		msleep(50);
 		return 0;
 	}
 
 	if (Vul_Block->u4BufferSize <= 0) {
 		msleep(50);
-		pr_err("Vul_Block->u4BufferSize <= 0  =%d\n", Vul_Block->u4BufferSize);
+		pr_err("%s Vul_Block->u4BufferSize <= 0 (%d)\n", __func__, Vul_Block->u4BufferSize);
 		return 0;
 	}
 
 	if (CheckNullPointer((void *)Vul_Block->pucVirtBufAddr)) {
-		pr_err("CheckNullPointer pucVirtBufAddr = %p\n", Vul_Block->pucVirtBufAddr);
+		pr_err("%s CheckNullPointer pucVirtBufAddr = %p\n", __func__, Vul_Block->pucVirtBufAddr);
 		return 0;
 	}
 
 	spin_lock_irqsave(&auddrv_ULInCtl_lock, flags);
 	if (Vul_Block->u4DataRemained > Vul_Block->u4BufferSize) {
-		PRINTK_AUD_UL1("AudDrv_MEMIF_Read u4DataRemained=%x > u4BufferSize=%x",
+		PRINTK_AUD_UL1("%s u4DataRemained=%x > u4BufferSize=%x", __func__,
 			Vul_Block->u4DataRemained, Vul_Block->u4BufferSize);
 		Vul_Block->u4DataRemained = 0;
 		Vul_Block->u4DMAReadIdx = Vul_Block->u4WriteIdx;
@@ -613,7 +590,7 @@ static int mtk_capture_pcm_copy(struct snd_pcm_substream *substream,
 static int mtk_capture_pcm_silence(struct snd_pcm_substream *substream,
 				   int channel, snd_pcm_uframes_t pos, snd_pcm_uframes_t count)
 {
-	pr_debug("dummy_pcm_silence\n");
+	PRINTK_AUDDRV("dummy_pcm_silence\n");
 	return 0;		/* do nothing */
 }
 

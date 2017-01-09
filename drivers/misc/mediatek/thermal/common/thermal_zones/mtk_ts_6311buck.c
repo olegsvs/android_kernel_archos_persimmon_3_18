@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #include <linux/version.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
@@ -11,7 +24,6 @@
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
 #include "mt-plat/mtk_thermal_monitor.h"
-#include "mtk_thermal_typedefs.h"
 #include "mach/mt_thermal.h"
 #include <mt-plat/upmu_common.h>
 #include <mach/upmu_hw.h>
@@ -68,10 +80,10 @@ do {									\
 } while (0)
 
 #define PMIC6333_INT_TEMP_CUNT 0xF
-/* static kal_uint32 tempsetting_count=0; */
+/* static __u32 tempsetting_count=0; */
 typedef struct {
-	INT32 regsetting;
-	INT32 Temperature;
+	__s32 regsetting;
+	__s32 Temperature;
 } pmic6333_TEMPERATURE;
 
 #define mtkts6311_dprintk(fmt, args...)   \
@@ -397,7 +409,7 @@ static ssize_t mtkts6311_write(struct file *file, const char __user *buffer, siz
 
 	if (sscanf
 	    (ptr_mtkts6311_data->desc,
-	     "%d %d %d %s %d %d %s %d %d %s %d %d %s %d %d %s %d %d %s %d %d %s %d %d %s %d %d %s %d %d %s %d",
+	     "%d %d %d %19s %d %d %19s %d %d %19s %d %d %19s %d %d %19s %d %d %19s %d %d %19s %d %d %19s %d %d %19s %d %d %19s %d",
 		&num_trip,
 		&ptr_mtkts6311_data->trip[0], &ptr_mtkts6311_data->t_type[0], ptr_mtkts6311_data->bind0,
 		&ptr_mtkts6311_data->trip[1], &ptr_mtkts6311_data->t_type[1], ptr_mtkts6311_data->bind1,
@@ -412,6 +424,14 @@ static ssize_t mtkts6311_write(struct file *file, const char __user *buffer, siz
 		&ptr_mtkts6311_data->time_msec) == 32) {
 		mtkts6311_dprintk("[mtkts6311_write] mtkts6311_unregister_thermal\n");
 		mtkts6311_unregister_thermal();
+
+		if (num_trip < 0 || num_trip > 10) {
+			aee_kernel_warning_api(__FILE__, __LINE__, DB_OPT_DEFAULT, "mtkts6311_write",
+					"Bad argument");
+			mtkts6311_dprintk("[mtkts6311_write] bad argument\n");
+			kfree(ptr_mtkts6311_data);
+			return -EINVAL;
+		}
 
 		for (i = 0; i < num_trip; i++)
 			g_THERMAL_TRIP[i] = ptr_mtkts6311_data->t_type[i];

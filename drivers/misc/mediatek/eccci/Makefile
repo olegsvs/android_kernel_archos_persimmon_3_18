@@ -1,6 +1,17 @@
-ifeq ($(CONFIG_MTK_ECCCI_DRIVER), y)
+#
+# Copyright (C) 2015 MediaTek Inc.
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License version 2 as
+# published by the Free Software Foundation.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU General Public License for more details.
+#
 
-# include $(srctree)/drivers/misc/mediatek/Makefile.custom
+ifeq ($(CONFIG_MTK_ECCCI_DRIVER), y)
 
 obj-$(CONFIG_MTK_ECCCI_DRIVER) := ccci.o
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/eccci/$(MTK_PLATFORM)
@@ -9,9 +20,10 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/eccci/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/ccmni/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/$(MTK_PLATFORM)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/scp/$(MTK_PLATFORM)
 
 ifeq ($(CONFIG_MTK_SECURITY_SW_SUPPORT), y)
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/masp/asf/asf_export_inc
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/masp/asfv2/asf_export_inc
 ccflags-y  += -DENABLE_MD_IMG_SECURITY_FEATURE
 endif
 ifeq ($(CONFIG_MTK_SEC_MODEM_NVRAM_ANTI_CLONE), y)
@@ -19,10 +31,14 @@ ccflags-y  += -DMTK_SEC_MODEM_NVRAM_ANTI_CLONE
 endif
 
 # common services
-ccci-y := ccci_core.o ccci_bm.o ccci_support.o
+ccci-y := ccci_core.o ccci_bm.o ccci_support.o ccci_modem.o ccci_swtp.o ccci_fsm.o
 
 # port routines
-ccci-y += port_char.o port_net.o port_kernel.o port_ipc.o port_cfg.o
+ccci-y += port_char.o port_net.o port_ipc.o port_cfg.o port_smem.o \
+	port_rpc.o port_sysmsg.o port_poller.o port_ctlmsg.o port_proxy.o
+
+# md ee routines
+ccci-y += mdee_ctl.o mdee_dumper_v1.o mdee_dumper_v2.o
 
 # modem drivers
 ifeq ($(CONFIG_MTK_ECCCI_CCIF), y)

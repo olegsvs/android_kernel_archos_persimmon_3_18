@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 /**
  * @file	mt_cpufreq.c
  * @brief   Driver for CPU DVFS
@@ -22,12 +35,8 @@
 #include <linux/proc_fs.h>
 #include <linux/miscdevice.h>
 #include <linux/platform_device.h>
-#ifdef CONFIG_HAS_EARLYSUSPEND
-#include <linux/earlysuspend.h>
-#else
 #include <linux/notifier.h>
 #include <linux/fb.h>
-#endif
 #include <linux/spinlock.h>
 #include <linux/kthread.h>
 #include <linux/hrtimer.h>
@@ -552,12 +561,7 @@ static unsigned int _mt_cpufreq_get(unsigned int cpu);
 #endif
 
 /* (early-)suspend */
-#ifdef CONFIG_HAS_EARLYSUSPEND
-static void _mt_cpufreq_early_suspend(struct early_suspend *h);
-static void _mt_cpufreq_late_resume(struct early_suspend *h);
-#else
 static int _mt_cpufreq_fb_notifier_callback(struct notifier_block *self, unsigned long event, void *data);
-#endif
 static int _mt_cpufreq_suspend(struct device *dev);
 static int _mt_cpufreq_resume(struct device *dev);
 static int _mt_cpufreq_pm_restore_early(struct device *dev);	/* for IPO-H HW(freq) / SW(opp_tbl_idx) */
@@ -750,7 +754,7 @@ static struct mt_cpu_freq_info opp_tbl_e1_1[] = {
 
 /* CPU LEVEL 2, 1.25GHz segment */
 static struct mt_cpu_freq_info opp_tbl_e1_2[] = {
-	OP(CPU_DVFS_FREQ0_1,125000),
+	OP(CPU_DVFS_FREQ0_1, 125000),
 	OP(CPU_DVFS_FREQ1,  121875),
 	OP(CPU_DVFS_FREQ5,  118750),
 	OP(CPU_DVFS_FREQ6,  115000),
@@ -762,7 +766,7 @@ static struct mt_cpu_freq_info opp_tbl_e1_2[] = {
 
 /* CPU LEVEL 3, 1.1GHz segment */
 static struct mt_cpu_freq_info opp_tbl_e1_3[] = {
-	OP(CPU_DVFS_FREQ1_1,125000),
+	OP(CPU_DVFS_FREQ1_1, 125000),
 	OP(CPU_DVFS_FREQ2,  121875),
 	OP(CPU_DVFS_FREQ5,  118750),
 	OP(CPU_DVFS_FREQ6,  115000),
@@ -817,7 +821,7 @@ static struct mt_cpu_freq_info opp_tbl_e1_2[] = {
 
 /* CPU LEVEL 3, 1.45GHz segment */
 static struct mt_cpu_freq_info opp_tbl_e1_3[] = {
-	OP(CPU_DVFS_FREQ0_1,125000),
+	OP(CPU_DVFS_FREQ0_1, 125000),
 	OP(CPU_DVFS_FREQ1,  123125),
 	OP(CPU_DVFS_FREQ3,  120625),
 	OP(CPU_DVFS_FREQ4,  115000),
@@ -897,17 +901,9 @@ static struct cpufreq_driver _mt_cpufreq_driver = {
 
 
 /* (early-)suspend / (late-)resume */
-#ifdef CONFIG_HAS_EARLYSUSPEND
-static struct early_suspend _mt_cpufreq_early_suspend_handler = {
-	.level = EARLY_SUSPEND_LEVEL_DISABLE_FB + 200,
-	.suspend = _mt_cpufreq_early_suspend,
-	.resume = _mt_cpufreq_late_resume,
-};
-#else
 static struct notifier_block _mt_cpufreq_fb_notifier = {
 	.notifier_call = _mt_cpufreq_fb_notifier_callback,
 };
-#endif	/* CONFIG_HAS_EARLYSUSPEND */
 
 static const struct dev_pm_ops _mt_cpufreq_pm_ops = {
 	.suspend = _mt_cpufreq_suspend,
@@ -1008,7 +1004,7 @@ static unsigned int _mt_cpufreq_get_cpu_level(void)
 	struct device_node *node = of_find_node_by_type(NULL, "cpu");
 
 	if (!of_property_read_u32(node, "clock-frequency", &cpu_speed))
-		cpu_speed = cpu_speed / 1000 / 1000;	// MHz
+		cpu_speed = cpu_speed / 1000 / 1000;	/* MHz */
 	else {
 		cpufreq_err("@%s: missing clock-frequency property, use default CPU level\n", __func__);
 		return CPU_LEVEL_1;
@@ -1044,7 +1040,7 @@ static unsigned int _mt_cpufreq_get_cpu_level(void)
 		case 0x43:
 			return CPU_LEVEL_3;	/* 37T: 1.45G */
 		case 0x49:
-			return CPU_LEVEL_2;	/* 37M: 1.1G */
+			return CPU_LEVEL_4;	/* 37M: 1.1G */
 		case 0x4A:
 		case 0x4B:
 			return CPU_LEVEL_3;	/* 35M+: 1.1G */
@@ -2014,8 +2010,8 @@ static void _mt_cpufreq_set_cur_freq(struct mt_cpu_dvfs *p, unsigned int cur_khz
 		unsigned int sel = 0;
 		unsigned int ckdiv1_val = _GET_BITS_VAL_(4:0, cpufreq_read(TOP_CKDIV1));
 		unsigned int ckdiv1_mask = _BITMASK_(4:0);
-		
-		switch (target_khz) {		
+
+		switch (target_khz) {
 		case CPU_DVFS_FREQ0:
 		case CPU_DVFS_FREQ0_1:
 		case CPU_DVFS_FREQ1:
@@ -2042,16 +2038,16 @@ static void _mt_cpufreq_set_cur_freq(struct mt_cpu_dvfs *p, unsigned int cur_khz
 			cpufreq_err("@%s: invalid target freq = %dKHz\n", __func__, target_khz);
 			BUG();
 		}
-	
+
 		/* ignore postdiv */
 		dds &= ~(_BITMASK_(26:24));
-	
+
 		cpufreq_ver("@%s():%d, cur_khz = %d, target_khz = %d, dds = 0x%x, sel = %d\n",
 				__func__, __LINE__, cur_khz, target_khz, dds, sel);
-	
+
 		/* posdiv should be 2 */
 		/* BUG_ON((dds & _BITMASK_(26 : 24)) != (1 << 24)); */
-	
+
 #if !defined(__KERNEL__)	/* for CTP */
 		if (target_khz > cur_khz) {
 #if defined(MTKDRV_FREQHOP)
@@ -2064,7 +2060,7 @@ static void _mt_cpufreq_set_cur_freq(struct mt_cpu_dvfs *p, unsigned int cur_khz
 			fhdrv_dvt_dvfs_enable(ARMPLL_ID, dds);
 #endif
 		}
-	
+
 #else	/* __KERNEL__ */
 		if (target_khz > cur_khz) {
 			mt_dfs_armpll(FH_ARM_PLLID, dds);
@@ -2086,7 +2082,8 @@ static void _mt_cpufreq_set_cur_freq(struct mt_cpu_dvfs *p, unsigned int cur_khz
 			cur_khz = CPUFREQ_BOUNDARY_FOR_FHCTL;
 		}
 
-		is_fhctl_used = ((target_khz >= CPUFREQ_BOUNDARY_FOR_FHCTL) && (cur_khz >= CPUFREQ_BOUNDARY_FOR_FHCTL)) ? 1 : 0;
+		is_fhctl_used = ((target_khz >= CPUFREQ_BOUNDARY_FOR_FHCTL)
+				&& (cur_khz >= CPUFREQ_BOUNDARY_FOR_FHCTL)) ? 1 : 0;
 
 		cpufreq_ver("@%s():%d, cur_khz = %d, target_khz = %d, is_fhctl_used = %d\n",
 					__func__,
@@ -2098,7 +2095,6 @@ static void _mt_cpufreq_set_cur_freq(struct mt_cpu_dvfs *p, unsigned int cur_khz
 
 		if (!is_fhctl_used) {
 			switch (target_khz) {
-			case CPU_DVFS_FREQ1_1:
 			case CPU_DVFS_FREQ1:
 			case CPU_DVFS_FREQ2:
 			case CPU_DVFS_FREQ3:
@@ -3574,6 +3570,8 @@ static void _mt_cpufreq_calc_power_throttle_idx(struct mt_cpu_dvfs *p)
 #ifdef CONFIG_ARCH_MT6735M
 		case CPU_LEVEL_0:
 		case CPU_LEVEL_1:
+			p->idx_pwr_thro_max_opp = 3;
+			break;
 		case CPU_LEVEL_2:
 		case CPU_LEVEL_3:
 			p->idx_pwr_thro_max_opp = 3;
@@ -4092,25 +4090,6 @@ static void _mt_cpufreq_lcm_status_switch(int onoff)
 	}
 }
 
-#ifdef CONFIG_HAS_EARLYSUSPEND
-static void _mt_cpufreq_early_suspend(struct early_suspend *h)
-{
-	FUNC_ENTER(FUNC_LV_MODULE);
-
-	_mt_cpufreq_lcm_status_switch(0);
-
-	FUNC_EXIT(FUNC_LV_MODULE);
-}
-
-static void _mt_cpufreq_late_resume(struct early_suspend *h)
-{
-	FUNC_ENTER(FUNC_LV_MODULE);
-
-	_mt_cpufreq_lcm_status_switch(1);
-
-	FUNC_EXIT(FUNC_LV_MODULE);
-}
-#else
 static int _mt_cpufreq_fb_notifier_callback(struct notifier_block *self, unsigned long event, void *data)
 {
 	struct fb_event *evdata = data;
@@ -4142,7 +4121,6 @@ static int _mt_cpufreq_fb_notifier_callback(struct notifier_block *self, unsigne
 
 	return 0;
 }
-#endif
 
 static int _mt_cpufreq_suspend(struct device *dev)
 {
@@ -4241,14 +4219,10 @@ static int _mt_cpufreq_pdrv_probe(struct platform_device *pdev)
 #endif
 
 	/* register early suspend */
-#ifdef CONFIG_HAS_EARLYSUSPEND
-	register_early_suspend(&_mt_cpufreq_early_suspend_handler);
-#else
 	if (fb_register_client(&_mt_cpufreq_fb_notifier)) {
 		cpufreq_err("@%s: register FB client failed!\n", __func__);
 		return 0;
 	}
-#endif
 
 	/* init PMIC_WRAP & volt */
 	mt_cpufreq_set_pmic_phase(PMIC_WRAP_PHASE_NORMAL);

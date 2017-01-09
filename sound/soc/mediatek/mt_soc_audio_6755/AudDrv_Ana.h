@@ -1,17 +1,19 @@
 /*
- * Copyright (C) 2007 The Android Open Source Project
+ * Copyright (C) 2015 MediaTek Inc.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ * You should have received a copy of the GNU General Public License
+ * along with this program
+ * If not, see <http://www.gnu.org/licenses/>.
  */
 /*******************************************************************************
  *
@@ -536,7 +538,23 @@
 
 #define GPIO_MODE3          ((UINT32)(0x60D0))
 
-
+/* DCXO register */
+#define DCXO_CW00	((UINT32)(PMIC_REG_BASE+0x7000))
+#define DCXO_CW01	((UINT32)(PMIC_REG_BASE+0x7002))
+#define DCXO_CW02	((UINT32)(PMIC_REG_BASE+0x7004))
+#define DCXO_CW03	((UINT32)(PMIC_REG_BASE+0x7006))
+#define DCXO_CW04	((UINT32)(PMIC_REG_BASE+0x7008))
+#define DCXO_CW05	((UINT32)(PMIC_REG_BASE+0x700A))
+#define DCXO_CW06	((UINT32)(PMIC_REG_BASE+0x700C))
+#define DCXO_CW07	((UINT32)(PMIC_REG_BASE+0x700E))
+#define DCXO_CW08	((UINT32)(PMIC_REG_BASE+0x7010))
+#define DCXO_CW09	((UINT32)(PMIC_REG_BASE+0x7012))
+#define DCXO_CW10	((UINT32)(PMIC_REG_BASE+0x7014))
+#define DCXO_CW11	((UINT32)(PMIC_REG_BASE+0x7016))
+#define DCXO_CW12	((UINT32)(PMIC_REG_BASE+0x7018))
+#define DCXO_CW13	((UINT32)(PMIC_REG_BASE+0x701A))
+#define DCXO_CW14	((UINT32)(PMIC_REG_BASE+0x701C))
+#define DCXO_CW15	((UINT32)(PMIC_REG_BASE+0x701E))
 
 void Ana_Set_Reg(uint32 offset, uint32 value, uint32 mask);
 uint32 Ana_Get_Reg(uint32 offset);

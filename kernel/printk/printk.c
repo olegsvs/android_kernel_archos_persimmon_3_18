@@ -51,7 +51,9 @@
 #include <linux/proc_fs.h>
 
 #include <asm/uaccess.h>
-
+#ifdef CONFIG_MTK_SERIAL
+#include <include/mtk_uart_api.h>
+#endif
 #define CREATE_TRACE_POINTS
 #include <trace/events/printk.h>
 
@@ -63,13 +65,30 @@
 bool overflow_info_flag = false;
 u64 overflow_gap = 0;
 
+/* ****************************************
+*
+*Console lock duration timer
+*
+******************************************/
+#ifdef CONFIG_CONSOLE_LOCK_DURATION_DETECT
+u64 con_dura_time;
+/* for console access logbuf_lock */
+u64 accum_t0;
+/* for console write  */
+u64 accum_t1;
+u64 accum_t2;
+size_t len_1;
+size_t len_2;
+
+#endif
+
 int printk_too_much_enable = 0;
 #define DETECT_COUNT_MIN 100
 /* Some options {*/
 #if defined(CONFIG_MT_ENG_BUILD) && defined(CONFIG_LOG_TOO_MUCH_WARNING)
 static int detect_count = CONFIG_LOG_TOO_MUCH_DETECT_COUNT; /*Default max lines per second*/
 static bool detect_count_change; /* detect_count change flag*/
-#define DETECT_TIME 1000000000LU /* 1s = 1000000000ns */
+#define DETECT_TIME 1000000000ULL /* 1s = 1000000000ns */
 #define DELAY_TIME	(CONFIG_LOG_TOO_MUCH_DETECT_GAP*DETECT_TIME*60)
 static u64 delta_time;
 static u64 delta_count;
@@ -118,7 +137,25 @@ extern void printascii(char *);
 #endif
 
 bool printk_disable_uart = 0;
+
+bool mt_get_uartlog_status(void)
+{
+	return !printk_disable_uart;
+}
+
+void set_uartlog_status(bool value)
+{
+#ifdef CONFIG_MT_ENG_BUILD
+	printk_disable_uart = !value;
+	pr_info("set uart log status %d.\n", value);
+#endif
+}
+
+
+#ifdef CONFIG_PRINTK_MT_PREFIX
 static DEFINE_PER_CPU(char, printk_state);
+#endif
+
 int console_printk[4] = {
 	CONSOLE_LOGLEVEL_DEFAULT,	/* console_loglevel */
 	MESSAGE_LOGLEVEL_DEFAULT,	/* default_message_loglevel */
@@ -506,16 +543,19 @@ static int log_store(int facility, int level,
 	struct printk_log *msg;
 	u32 size, pad_len;
 	u16 trunc_msg_len = 0;
+#ifdef CONFIG_PRINTK_MT_PREFIX
 	int this_cpu = smp_processor_id();
 	char state = __raw_get_cpu_var(printk_state);
 	char tbuf[50];
 	unsigned tlen;
+#endif
 
 #if defined(CONFIG_MT_ENG_BUILD) && defined(CONFIG_LOG_TOO_MUCH_WARNING)
 	struct printk_log *first_msg;
 	static u64 t_base;
 
 #endif
+#ifdef CONFIG_PRINTK_MT_PREFIX
 	if (state == 0) {
 		__raw_get_cpu_var(printk_state) = ' ';
 		state = ' ';
@@ -525,10 +565,14 @@ static int log_store(int facility, int level,
 		tlen = snprintf(tbuf, sizeof(tbuf), "%c(%x)[%d:%s]", state, this_cpu, current->pid, current->comm);
 	else
 		tlen = snprintf(tbuf, sizeof(tbuf), "%c%x)", state, this_cpu);
-
+#endif
 
 	/* number of '\0' padding bytes to next message */
+#ifdef CONFIG_PRINTK_MT_PREFIX
 	size = msg_used_size(text_len + tlen, dict_len, &pad_len);
+#else
+	size = msg_used_size(text_len, dict_len, &pad_len);
+#endif
 
 	if (log_make_free_space(size)) {
 		/* truncate the message if it is too long for empty buffer */
@@ -551,12 +595,16 @@ static int log_store(int facility, int level,
 
 	/* fill message */
 	msg = (struct printk_log *)(log_buf + log_next_idx);
+#ifdef CONFIG_PRINTK_MT_PREFIX
 	memcpy(log_text(msg), tbuf, tlen);
 	if (tlen + text_len > LOG_LINE_MAX)
 		text_len = LOG_LINE_MAX - tlen;
 
 	memcpy(log_text(msg) + tlen, text, text_len);
 	text_len += tlen;
+#else
+	memcpy(log_text(msg), text, text_len);
+#endif
 	msg->text_len = text_len;
 	if (trunc_msg_len) {
 		memcpy(log_text(msg) + text_len, trunc_msg, trunc_msg_len);
@@ -602,6 +650,7 @@ static int log_store(int facility, int level,
 #endif
 	return msg->text_len;
 }
+
 
 int dmesg_restrict = IS_ENABLED(CONFIG_SECURITY_DMESG_RESTRICT);
 
@@ -1174,14 +1223,14 @@ static size_t print_prefix(const struct printk_log *msg, bool syslog, char *buf)
 	}
 
 	len += print_time(msg->ts_nsec, buf ? buf + len : NULL);
-
+#ifdef CONFIG_PRINTK_MT_PREFIX
 	if (syslog == false && printk_disable_uart == false) {
 		if (buf)
 			len += sprintf(buf+len, "<%d>", smp_processor_id());
 		else
 			len += snprintf(NULL, 0, "<%d>", smp_processor_id());
 	}
-
+#endif
 	return len;
 }
 
@@ -1248,12 +1297,15 @@ static int syslog_print(char __user *buf, int size)
 	char *text;
 	struct printk_log *msg;
 	int len = 0;
+	/* detect kernel log overflow for user-layer */
+	unsigned long long over_gap = 0;
 	char addinfo_buf[150];
 	char *addinfo = addinfo_buf;
 	int add_len = 0;
+	int override_len = 0;
+	/* detect multi-thread invoking do_syslog(SYSLOG_ACTION_READ,...) */
 	static int pre_pid = -1;
 	int current_pid = current->pid;
-	unsigned long long over_gap = 0;
 
 	text = kmalloc(LOG_LINE_MAX + PREFIX_MAX, GFP_KERNEL);
 	if (!text)
@@ -1267,7 +1319,7 @@ static int syslog_print(char __user *buf, int size)
 		raw_spin_lock_irq(&logbuf_lock);
 		/* exist uread log overflow  */
 		if (overflow_info_flag == true) {
-			add_len += scnprintf(addinfo, 150, "<%s gap: %llu>\n", KERNEL_LOG_OVERFLOW, overflow_gap);
+			add_len += scnprintf(addinfo, 150, "<%s gap: %llu> ", KERNEL_LOG_OVERFLOW, overflow_gap);
 			overflow_info_flag = false;
 		}
 		if (syslog_seq < log_first_seq) {
@@ -1277,8 +1329,8 @@ static int syslog_print(char __user *buf, int size)
 			syslog_idx = log_first_idx;
 			syslog_prev = 0;
 			syslog_partial = 0;
-			if (add_len >= 0 && add_len < 150)
-				add_len += scnprintf(addinfo + add_len, 150 - add_len, "< %s gap: %llu >\n", KERNEL_LOG_OVERFLOW, over_gap);
+			if (add_len < 150)
+				add_len += scnprintf(addinfo + add_len, 150 - add_len, "< %s gap: %llu > ", KERNEL_LOG_OVERFLOW, over_gap);
 
 		}
 		if (syslog_seq == log_next_seq) {
@@ -1322,20 +1374,30 @@ static int syslog_print(char __user *buf, int size)
 			if (-1 == pre_pid) {
 				pre_pid = current_pid;
 			} else if (current_pid != pre_pid) {
-				if (add_len >= 0 && add_len < 150)
-					add_len += scnprintf(addinfo + add_len, 150 - add_len, "<%d -> %d>\n", pre_pid, current_pid);
+				if (add_len < 150)
+					add_len += scnprintf(addinfo + add_len, 150 - add_len, "<%d -> %d> ", pre_pid, current_pid);
 				pre_pid = current_pid;
 			}
+			/* override the trailing */
+			if (*(text + skip + n - 1) == '\n' || *(text + skip + n - 1) == '\r') {
+				override_len = 1;
+				if (*(text + skip + n - 2) == '\r')
+					override_len++;
+				/*  add the trailing '\n' */
+				if (add_len < 150)
+					add_len += scnprintf(addinfo + add_len, 150 - add_len, "\n");
+			} else
+				override_len = 0;
 
-			if (add_len > 0 && (size + 1 - add_len) >= 0) {
-				if (copy_to_user(buf - 1, addinfo_buf, add_len)) {
+			if (add_len > 0 && (size + override_len - add_len) >= 0) {
+				if (copy_to_user(buf - override_len, addinfo_buf, add_len)) {
 					if (!len)
 						len = -EFAULT;
 					break;
 				}
-				len += add_len - 1;
-				size -= add_len - 1;
-				buf += add_len - 1;
+				len += add_len - override_len;
+				size -= add_len - override_len;
+				buf += add_len - override_len;
 			}
 		}
 	}
@@ -1582,6 +1644,23 @@ static void call_console_drivers(int level, const char *text, size_t len)
 {
 	struct console *con;
 
+	/* For console write rate stat */
+#ifdef CONFIG_CONSOLE_LOCK_DURATION_DETECT
+	int cnt = 0;
+	char con_name[64];
+	int index = 0;
+
+	u64 tmp1 = 0, tmp2 = 0, differ;
+
+	unsigned long rem_nsec;
+	u64 quot;
+	char aee_str[80];
+	char cur_time[32];
+	int idx = 0;
+
+	char dump_uart[64];
+#endif
+
 	trace_console(text, len);
 
 	if (level >= console_loglevel && !ignore_loglevel)
@@ -1601,8 +1680,66 @@ static void call_console_drivers(int level, const char *text, size_t len)
 		if (!cpu_online(smp_processor_id()) &&
 		    !(con->flags & CON_ANYTIME))
 			continue;
+
+		/* Accumulates console writing length and time */
+#ifdef CONFIG_CONSOLE_LOCK_DURATION_DETECT
+		tmp1 = local_clock();
 		con->write(con, text, len);
+		tmp2 = local_clock();
+
+		differ = tmp2 - tmp1;
+		if (!strcmp(con->name, "ttyMT")) {
+			len_1 += len;
+			accum_t1 += differ;
+		} else if (!strcmp(con->name, "pstore")) {
+			len_2 += len;
+			accum_t2 += differ;
+		}
+#else
+		con->write(con, text, len);
+#endif
 	}
+
+#ifdef CONFIG_CONSOLE_LOCK_DURATION_DETECT
+	/* console duration over 15 seconds, Calc console write rate recently */
+	if ((local_clock() - con_dura_time) > 15000000000) {
+#ifdef CONFIG_MTK_SERIAL
+		/* dump uart regs */
+		memset(dump_uart, 0x00, sizeof(dump_uart));
+		mtk_uart_dump_reg(dump_uart);
+#endif
+		/* stat console list */
+		memset(con_name, 0x00, sizeof(con_name));
+		for_each_console(con) {
+			index += scnprintf(con_name + index, sizeof(con_name) - index, "%s, ", con->name);
+			cnt++;
+		}
+
+		memset(aee_str, 0x00, sizeof(aee_str));
+		quot = accum_t1;
+		rem_nsec = do_div(quot, 1000000000);
+		idx += scnprintf(aee_str + idx, sizeof(aee_str) - idx, "uart: %llu.%06lu, %lu ",
+							quot, rem_nsec/1000, (unsigned long)len_1);
+		quot = accum_t2;
+		rem_nsec = do_div(quot, 1000000000);
+		idx += scnprintf(aee_str + idx, sizeof(aee_str) - idx, "pstore: %llu.%06lu, %lu ",
+							quot, rem_nsec/1000, (unsigned long)len_2);
+		quot = accum_t0;
+		rem_nsec = do_div(quot, 1000000000);
+		idx += scnprintf(aee_str + idx, sizeof(aee_str) - idx, "spin: %llu.%06lu ",
+							quot, rem_nsec/1000);
+
+		memset(cur_time, 0x00, sizeof(cur_time));
+		rem_nsec = do_div(tmp2, 1000000000);
+		scnprintf(cur_time, sizeof(cur_time), "[%llu.%06lu]", tmp2, rem_nsec/1000);
+
+		aee_kernel_warning_api(__FILE__, __LINE__, DB_OPT_DEFAULT | DB_OPT_FTRACE,
+			"Console Lock dur over 15 seconds", "%s %s%s, cpu: %d, ConList(%d): %s\n",
+			cur_time, dump_uart, aee_str, smp_processor_id(), cnt, con_name);
+
+		con_dura_time = local_clock();
+	}
+#endif
 }
 
 /*
@@ -1626,6 +1763,26 @@ static void zap_locks(void)
 	/* And make sure that we print immediately */
 	sema_init(&console_sem, 1);
 }
+
+#ifdef CONFIG_MTK_AEE_FEATURE
+/* if logbuf lock in aee_wdt flow, zap locks uncondationally  */
+void aee_wdt_zap_locks(void)
+{
+	debug_locks_off();
+	/* If a crash is occurring, make sure we can't deadlock */
+	raw_spin_lock_init(&logbuf_lock);
+	/* And make sure that we print immediately */
+	sema_init(&console_sem, 1);
+}
+
+/* for aee_wdt test case */
+void aee_wdt_logbuf_lock(void)
+{
+	raw_spin_lock(&logbuf_lock);
+	down(&console_sem);
+}
+#endif
+
 
 /*
  * Check if we have any console that is capable of printing while cpu is
@@ -1906,7 +2063,7 @@ asmlinkage int vprintk_emit(int facility, int level,
 
 	if (dict)
 		lflags |= LOG_PREFIX|LOG_NEWLINE;
-#ifdef CONFIG_PRINTK_PROCESS_INFO
+#ifdef CONFIG_PRINTK_MT_PREFIX
 	if (in_irq_disable)
 		__raw_get_cpu_var(printk_state) = '-';
 #ifdef CONFIG_MT_PRINTK_UART_CONSOLE
@@ -2434,7 +2591,7 @@ void console_unlock(void)
 	static u64 seen_seq;
 	unsigned long flags;
 	bool wake_klogd = false;
-	bool retry;
+	bool do_cond_resched, retry;
 
 #if defined(CONFIG_MT_ENG_BUILD) && defined(CONFIG_LOG_TOO_MUCH_WARNING)
 	char aee_str[63];	/* length can not beyond 63 because of aee API args limitation */
@@ -2442,13 +2599,31 @@ void console_unlock(void)
 	u64 period;
 	unsigned long rem_nsec;
 #endif
-
-
+#ifdef CONFIG_CONSOLE_LOCK_DURATION_DETECT
+	u64 tmp1 = 0, tmp2 = 0;
+	con_dura_time = local_clock();
+	accum_t0 = 0;
+	accum_t1 = 0;
+	accum_t2 = 0;
+	len_1 = 0;
+	len_2 = 0;
+#endif
 	if (console_suspended) {
 		up_console_sem();
 		return;
 	}
 
+	/*
+	 * Console drivers are called under logbuf_lock, so
+	 * @console_may_schedule should be cleared before; however, we may
+	 * end up dumping a lot of lines, for example, if called from
+	 * console registration path, and should invoke cond_resched()
+	 * between lines if allowable.  Not doing so can cause a very long
+	 * scheduling stall on a slow console leading to RCU stall and
+	 * softlockup warnings which exacerbate the issue with more
+	 * messages practically incapacitating the system.
+	 */
+	do_cond_resched = console_may_schedule;
 	console_may_schedule = 0;
 
 	/* flush buffered message fragment immediately to console */
@@ -2458,7 +2633,9 @@ again:
 		struct printk_log *msg;
 		size_t len;
 		int level;
-
+#ifdef CONFIG_CONSOLE_LOCK_DURATION_DETECT
+		tmp1 = local_clock();
+#endif
 		raw_spin_lock_irqsave(&logbuf_lock, flags);
 		if (seen_seq != log_next_seq) {
 			wake_klogd = true;
@@ -2505,12 +2682,16 @@ skip:
 		console_seq++;
 		console_prev = msg->flags;
 		raw_spin_unlock(&logbuf_lock);
-
+#ifdef CONFIG_CONSOLE_LOCK_DURATION_DETECT
+		tmp2 = local_clock();
+		accum_t0 += tmp2 - tmp1;
+#endif
 		stop_critical_timings();	/* don't trace print latency */
 #if defined(CONFIG_MT_ENG_BUILD) && defined(CONFIG_LOG_TOO_MUCH_WARNING)
 		if (flag_toomuch == true) {
 			flag_toomuch = false;
-			add_len = scnprintf(aee_str, 63, "Printk too much: >100 L/s, L: %llu, ", delta_count);
+			add_len = scnprintf(aee_str, 63, "Printk too much: >%d L/s, L: %llu, ",
+							detect_count, delta_count);
 			if (63 >= add_len + 12) {
 				period = delta_time;
 				rem_nsec = do_div(period, 1000000000);
@@ -2525,6 +2706,9 @@ skip:
 #endif
 		start_critical_timings();
 		local_irq_restore(flags);
+
+		if (do_cond_resched)
+			cond_resched();
 	}
 	console_locked = 0;
 
@@ -2589,6 +2773,25 @@ void console_unblank(void)
 	for_each_console(c)
 		if ((c->flags & CON_ENABLED) && c->unblank)
 			c->unblank();
+	console_unlock();
+}
+
+/**
+ * console_flush_on_panic - flush console content on panic
+ *
+ * Immediately output all pending messages no matter what.
+ */
+void console_flush_on_panic(void)
+{
+	/*
+	 * If someone else is holding the console lock, trylock will fail
+	 * and may_schedule may be set.  Ignore and proceed to unlock so
+	 * that messages are flushed out.  As this can be called from any
+	 * context and we don't want to get preempted while flushing,
+	 * ensure may_schedule is cleared.
+	 */
+	console_trylock();
+	console_may_schedule = 0;
 	console_unlock();
 }
 

@@ -31,9 +31,15 @@ enum {
 
 struct mt_pcm_hdmi_priv {
 	bool prepared;
+	bool is_main_clk_on;
+	bool is_apll_related_clks_on;
+	bool force_clk_on;
+	bool enable_bus_clk_boost;
 	unsigned int hdmi_loop_type;
 	unsigned int hdmi_sinegen_switch;
+	unsigned int hdmi_force_clk_switch;
 	unsigned int cached_sample_rate;
+	unsigned int cached_channels;
 	struct snd_dma_buffer *hdmi_dma_buf;
 };
 
@@ -84,7 +90,7 @@ static void mt_pcm_hdmi_set_interconnection(unsigned int connection_state, unsig
 	switch (channels) {
 	case 8:
 		mt_afe_set_connection(connection_state, INTER_CONN_I36, INTER_CONN_O36);
-		mt_afe_set_connection(connection_state, INTER_CONN_I37, INTER_CONNT_O37);
+		mt_afe_set_connection(connection_state, INTER_CONN_I37, INTER_CONN_O37);
 		/* fall-through */
 	case 6:
 		mt_afe_set_connection(connection_state, INTER_CONN_I34, INTER_CONN_O32);
@@ -110,6 +116,8 @@ static void mt_pcm_hdmi_set_interconnection(unsigned int connection_state, unsig
 static int mt_pcm_hdmi_open(struct snd_pcm_substream *substream)
 {
 	struct snd_pcm_runtime *runtime = substream->runtime;
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct mt_pcm_hdmi_priv *priv = snd_soc_platform_get_drvdata(rtd->platform);
 	int ret = 0;
 
 	snd_soc_set_runtime_hwparams(substream, &mt_pcm_hdmi_hardware);
@@ -119,8 +127,11 @@ static int mt_pcm_hdmi_open(struct snd_pcm_substream *substream)
 	if (ret < 0)
 		pr_err("%s snd_pcm_hw_constraint_integer fail %d\n", __func__, ret);
 
-	mt_afe_main_clk_on();
-	mt_afe_emi_clk_on();
+	if (!priv->is_main_clk_on) {
+		mt_afe_main_clk_on();
+		mt_afe_emi_clk_on();
+		priv->is_main_clk_on = true;
+	}
 
 	return ret;
 }
@@ -132,13 +143,32 @@ static int mt_pcm_hdmi_close(struct snd_pcm_substream *substream)
 	struct mt_pcm_hdmi_priv *priv = snd_soc_platform_get_drvdata(rtd->platform);
 
 	if (priv->prepared) {
-		mt_afe_disable_apll_tuner(runtime->rate);
-		mt_afe_disable_apll(runtime->rate);
+		if (!priv->force_clk_on && priv->is_apll_related_clks_on) {
+			mt_afe_disable_hdmi_tdm();
+			mt_afe_spdif_clk_off();
+			mt_afe_disable_apll_div_power(MT_AFE_SPDIF, runtime->rate);
+
+			mt_afe_hdmi_clk_off();
+			mt_afe_disable_apll_div_power(MT_AFE_I2S3_BCK, runtime->rate);
+			mt_afe_disable_apll_div_power(MT_AFE_I2S3, runtime->rate);
+			mt_afe_disable_apll_tuner(runtime->rate);
+			mt_afe_disable_apll(runtime->rate);
+			priv->is_apll_related_clks_on = false;
+		}
 		priv->prepared = false;
 	}
 
-	mt_afe_main_clk_off();
-	mt_afe_emi_clk_off();
+	if (priv->enable_bus_clk_boost) {
+		mt_afe_bus_clk_restore();
+		priv->enable_bus_clk_boost = false;
+	}
+
+	if (!priv->force_clk_on && priv->is_main_clk_on) {
+		mt_afe_main_clk_off();
+		mt_afe_emi_clk_off();
+		priv->is_main_clk_on = false;
+	}
+
 	return 0;
 }
 
@@ -173,45 +203,75 @@ static int mt_pcm_hdmi_prepare(struct snd_pcm_substream *substream)
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct mt_pcm_hdmi_priv *priv = snd_soc_platform_get_drvdata(rtd->platform);
+	bool turn_on_clk = false;
 
-	pr_debug("%s rate = %u channels = %u period_size = %lu\n",
-		__func__, runtime->rate, runtime->channels, runtime->period_size);
+	pr_debug("%s rate = %u channels = %u format = %d period_size = %lu\n",
+		 __func__, runtime->rate, runtime->channels,
+		 runtime->format, runtime->period_size);
 
-	if (!priv->prepared) {
+	if ((priv->cached_sample_rate != runtime->rate) ||
+	    (priv->cached_channels != runtime->channels)) {
+		if (priv->is_apll_related_clks_on) {
+			mt_afe_disable_hdmi_tdm();
+			mt_afe_spdif_clk_off();
+			mt_afe_disable_apll_div_power(MT_AFE_SPDIF, priv->cached_sample_rate);
+			mt_afe_hdmi_clk_off();
+			mt_afe_disable_apll_div_power(MT_AFE_I2S3_BCK, priv->cached_sample_rate);
+			mt_afe_disable_apll_div_power(MT_AFE_I2S3, priv->cached_sample_rate);
+			mt_afe_disable_apll_tuner(priv->cached_sample_rate);
+			mt_afe_disable_apll(priv->cached_sample_rate);
+			priv->is_apll_related_clks_on = false;
+		}
+		turn_on_clk = true;
+	} else if (!priv->prepared) {
+		turn_on_clk = true;
+	}
+
+	if (turn_on_clk && !priv->is_apll_related_clks_on) {
+		uint32_t mclk_div;
+
 		mt_afe_enable_apll(runtime->rate);
 		mt_afe_enable_apll_tuner(runtime->rate);
-	} else if (priv->cached_sample_rate != runtime->rate) {
-		mt_afe_disable_apll_tuner(priv->cached_sample_rate);
-		mt_afe_disable_apll(priv->cached_sample_rate);
-		mt_afe_enable_apll(runtime->rate);
-		mt_afe_enable_apll_tuner(runtime->rate);
+
+		mclk_div = mt_afe_set_mclk(MT_AFE_I2S3, runtime->rate);
+		mt_afe_set_i2s3_bclk(mclk_div, runtime->rate, 2, 32);
+
+		mt_afe_enable_apll_div_power(MT_AFE_I2S3, runtime->rate);
+		mt_afe_enable_apll_div_power(MT_AFE_I2S3_BCK, runtime->rate);
+
+		mt_afe_hdmi_clk_on();
+
+		mt_afe_set_mclk(MT_AFE_SPDIF, runtime->rate);
+		mt_afe_enable_apll_div_power(MT_AFE_SPDIF, runtime->rate);
+		mt_afe_spdif_clk_on();
+
+		mt_afe_set_hdmi_tdm1_config(runtime->channels, MT_AFE_I2S_WLEN_32BITS);
+		mt_afe_set_hdmi_tdm2_config(runtime->channels);
+		mt_afe_enable_hdmi_tdm();
+
+		priv->is_apll_related_clks_on = true;
+	}
+
+	if (runtime->rate > 48000 && !priv->enable_bus_clk_boost) {
+		mt_afe_bus_clk_boost();
+		priv->enable_bus_clk_boost = true;
 	}
 
 	priv->prepared = true;
 	priv->cached_sample_rate = runtime->rate;
+	priv->cached_channels = runtime->channels;
 	return 0;
 }
 
 static int mt_pcm_hdmi_start(struct snd_pcm_substream *substream)
 {
 	struct snd_pcm_runtime *runtime = substream->runtime;
-	uint32_t mclk_div;
+	uint32_t memif_format = (runtime->format == SNDRV_PCM_FORMAT_S24_LE) ?
+		MT_AFE_MEMIF_32_BIT_ALIGN_8BIT_0_24BIT_DATA : MT_AFE_MEMIF_16_BIT;
 
 	pr_debug("%s period_size = %lu\n", __func__, runtime->period_size);
 
 	mt_afe_add_ctx_substream(MT_AFE_MEM_CTX_HDMI, substream);
-
-	mclk_div = mt_afe_set_mclk(MT_AFE_I2S3, runtime->rate);
-	mt_afe_set_i2s3_bclk(mclk_div, runtime->rate, 2, 32);
-
-	mt_afe_enable_apll_div_power(MT_AFE_I2S3, runtime->rate);
-	mt_afe_enable_apll_div_power(MT_AFE_I2S3_BCK, runtime->rate);
-
-	mt_afe_hdmi_clk_on();
-
-	mt_afe_set_mclk(MT_AFE_SPDIF, runtime->rate);
-	mt_afe_enable_apll_div_power(MT_AFE_SPDIF, runtime->rate);
-	mt_afe_spdif_clk_on();
 
 	mt_afe_init_dma_buffer(MT_AFE_MEM_CTX_HDMI, runtime);
 
@@ -219,10 +279,8 @@ static int mt_pcm_hdmi_start(struct snd_pcm_substream *substream)
 	mt_afe_set_irq_counter(MT_AFE_IRQ_MCU_MODE_IRQ5, runtime->period_size);
 	mt_afe_set_irq_state(MT_AFE_IRQ_MCU_MODE_IRQ5, true);
 
-	mt_afe_set_memif_fetch_format(MT_AFE_DIGITAL_BLOCK_HDMI, MT_AFE_MEMIF_16_BIT);
+	mt_afe_set_memif_fetch_format(MT_AFE_DIGITAL_BLOCK_HDMI, memif_format);
 
-	mt_afe_set_hdmi_tdm1_config(runtime->channels, MT_AFE_I2S_WLEN_32BITS);
-	mt_afe_set_hdmi_tdm2_config(runtime->channels);
 	mt_afe_set_hdmi_out_channel(runtime->channels);
 
 	/* interconnection */
@@ -232,8 +290,6 @@ static int mt_pcm_hdmi_start(struct snd_pcm_substream *substream)
 
 	mt_afe_enable_memory_path(MT_AFE_DIGITAL_BLOCK_HDMI);
 	mt_afe_enable_afe(true);
-
-	mt_afe_enable_hdmi_tdm();
 
 	return 0;
 }
@@ -245,8 +301,6 @@ static int mt_pcm_hdmi_stop(struct snd_pcm_substream *substream)
 	pr_debug("%s\n", __func__);
 
 	mt_pcm_hdmi_set_interconnection(INTER_DISCONNECT, runtime->channels);
-
-	mt_afe_disable_hdmi_tdm();
 
 	mt_afe_disable_hdmi_out();
 
@@ -260,14 +314,6 @@ static int mt_pcm_hdmi_stop(struct snd_pcm_substream *substream)
 	mt_afe_reset_dma_buffer(MT_AFE_MEM_CTX_HDMI);
 
 	mt_afe_remove_ctx_substream(MT_AFE_MEM_CTX_HDMI);
-
-	mt_afe_spdif_clk_off();
-	mt_afe_disable_apll_div_power(MT_AFE_SPDIF, runtime->rate);
-
-	mt_afe_hdmi_clk_off();
-	mt_afe_disable_apll_div_power(MT_AFE_I2S3_BCK, runtime->rate);
-	mt_afe_disable_apll_div_power(MT_AFE_I2S3, runtime->rate);
-
 	return 0;
 }
 
@@ -346,7 +392,8 @@ static int hdmi_loopback_set(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_
 		mt_afe_enable_hdmi_tdm_i2s_loopback();
 		if (mt_afe_get_memory_path_state(MT_AFE_DIGITAL_BLOCK_I2S_OUT_DAC) == false) {
 			mt_afe_enable_memory_path(MT_AFE_DIGITAL_BLOCK_I2S_OUT_DAC);
-			mt_afe_set_i2s_dac_out(priv->cached_sample_rate);
+			mt_afe_set_i2s_dac_out(priv->cached_sample_rate, MT_AFE_NORMAL_CLOCK,
+					MT_AFE_I2S_WLEN_16BITS);
 			mt_afe_enable_i2s_dac();
 		} else {
 			mt_afe_enable_memory_path(MT_AFE_DIGITAL_BLOCK_I2S_OUT_DAC);
@@ -476,6 +523,52 @@ static int hdmi_sinegen_set(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_v
 	return 0;
 }
 
+static int hdmi_force_clk_get(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *component = snd_kcontrol_chip(kcontrol);
+	struct mt_pcm_hdmi_priv *priv = snd_soc_component_get_drvdata(component);
+
+	ucontrol->value.integer.value[0] = priv->hdmi_force_clk_switch;
+	return 0;
+}
+
+static int hdmi_force_clk_set(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *component = snd_kcontrol_chip(kcontrol);
+	struct mt_pcm_hdmi_priv *priv = snd_soc_component_get_drvdata(component);
+
+	if (!ucontrol->value.integer.value[0]) {
+		if (priv->force_clk_on) {
+			if (priv->is_apll_related_clks_on) {
+				unsigned int rate = priv->cached_sample_rate;
+
+				mt_afe_disable_hdmi_tdm();
+				mt_afe_spdif_clk_off();
+				mt_afe_disable_apll_div_power(MT_AFE_SPDIF, rate);
+				mt_afe_hdmi_clk_off();
+				mt_afe_disable_apll_div_power(MT_AFE_I2S3_BCK, rate);
+				mt_afe_disable_apll_div_power(MT_AFE_I2S3, rate);
+				mt_afe_disable_apll_tuner(rate);
+				mt_afe_disable_apll(rate);
+				priv->is_apll_related_clks_on = false;
+			}
+
+			if (priv->is_main_clk_on) {
+				mt_afe_main_clk_off();
+				mt_afe_emi_clk_off();
+				priv->is_main_clk_on = false;
+			}
+			priv->force_clk_on = false;
+		}
+		priv->hdmi_force_clk_switch = ucontrol->value.integer.value[0];
+	} else {
+		priv->hdmi_force_clk_switch = ucontrol->value.integer.value[0];
+		priv->force_clk_on = true;
+	}
+
+	return 0;
+}
+
 static const char *const hdmi_loopback_function[] = {
 	ENUM_TO_STR(HDMI_LOOPBACK_NONE),
 	ENUM_TO_STR(HDMI_LOOPBACK_SDATA0_TO_DL1),
@@ -486,9 +579,12 @@ static const char *const hdmi_loopback_function[] = {
 
 static const char *const hdmi_sinegen_function[] = { "Off", "On" };
 
+static const char *const hdmi_force_clk_function[] = { "Off", "On" };
+
 static const struct soc_enum mt_pcm_hdmi_control_enum[] = {
 	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(hdmi_loopback_function), hdmi_loopback_function),
 	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(hdmi_sinegen_function), hdmi_sinegen_function),
+	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(hdmi_force_clk_function), hdmi_force_clk_function),
 };
 
 static const struct snd_kcontrol_new mt_pcm_hdmi_controls[] = {
@@ -496,6 +592,8 @@ static const struct snd_kcontrol_new mt_pcm_hdmi_controls[] = {
 		     hdmi_loopback_set),
 	SOC_ENUM_EXT("Audio_Hdmi_SideGen_Switch", mt_pcm_hdmi_control_enum[1], hdmi_sinegen_get,
 		     hdmi_sinegen_set),
+	SOC_ENUM_EXT("HDMI_Force_Clk_Switch", mt_pcm_hdmi_control_enum[2], hdmi_force_clk_get,
+		     hdmi_force_clk_set),
 };
 
 static int mt_pcm_hdmi_probe(struct snd_soc_platform *platform)
@@ -543,6 +641,7 @@ static int mt_pcm_hdmi_dev_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	priv->cached_sample_rate = 44100;
+	priv->cached_channels = 2;
 
 	dev_set_drvdata(dev, priv);
 

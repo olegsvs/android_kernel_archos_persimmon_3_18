@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #include <linux/version.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
@@ -14,7 +27,6 @@
 #include <linux/writeback.h>
 #include <asm/uaccess.h>
 #include "mt-plat/mtk_thermal_monitor.h"
-#include "mtk_thermal_typedefs.h"
 #include "mach/mt_thermal.h"
 #include <linux/uidgid.h>
 #include <tmp_bts.h>
@@ -102,8 +114,8 @@ static int my_open(char *fname, int flag)
 }
 */
 typedef struct {
-	INT32 BTSMDPA_Temp;
-	INT32 TemperatureR;
+	__s32 BTSMDPA_Temp;
+	__s32 TemperatureR;
 } BTSMDPA_TEMPERATURE;
 
 #define AUX_IN1_NTC (1)		/* NTC6302 */
@@ -456,12 +468,12 @@ BTSMDPA_TEMPERATURE BTSMDPA_Temperature_Table7[] = {
 
 
 /* convert register to temperature  */
-static INT16 mtkts_btsmdpa_thermistor_conver_temp(INT32 Res)
+static __s16 mtkts_btsmdpa_thermistor_conver_temp(__s32 Res)
 {
 	int i = 0;
 	int asize = 0;
-	INT32 RES1 = 0, RES2 = 0;
-	INT32 TAP_Value = -200, TMP1 = 0, TMP2 = 0;
+	__s32 RES1 = 0, RES2 = 0;
+	__s32 TAP_Value = -200, TMP1 = 0, TMP2 = 0;
 
 	asize = (sizeof(BTSMDPA_Temperature_Table) / sizeof(BTSMDPA_TEMPERATURE));
 	/* mtkts_btsmdpa_dprintk("mtkts_btsmdpa_thermistor_conver_temp() : asize = %d, Res = %d\n",asize,Res); */
@@ -504,11 +516,11 @@ static INT16 mtkts_btsmdpa_thermistor_conver_temp(INT32 Res)
 
 /* convert ADC_AP_temp_volt to register */
 /*Volt to Temp formula same with 6589*/
-static INT16 mtk_ts_btsmdpa_volt_to_temp(UINT32 dwVolt)
+static __s16 mtk_ts_btsmdpa_volt_to_temp(__u32 dwVolt)
 {
-	INT32 TRes;
-	INT32 dwVCriAP = 0;
-	INT32 BTSMDPA_TMP = -100;
+	__s32 TRes;
+	__s32 dwVCriAP = 0;
+	__s32 BTSMDPA_TMP = -100;
 
 	/* SW workaround----------------------------------------------------- */
 	/* dwVCriAP = (TAP_OVER_CRITICAL_LOW * 1800) / (TAP_OVER_CRITICAL_LOW + 39000); */
@@ -821,7 +833,7 @@ static ssize_t mtkts_btsmdpa_write(struct file *file, const char __user *buffer,
 
 	if (sscanf
 	    (ptr_btsmdpa_data->desc,
-	     "%d %d %d %s %d %d %s %d %d %s %d %d %s %d %d %s %d %d %s %d %d %s %d %d %s %d %d %s %d %d %s %d",
+	     "%d %d %d %19s %d %d %19s %d %d %19s %d %d %19s %d %d %19s %d %d %19s %d %d %19s %d %d %19s %d %d %19s %d %d %19s %d",
 	     &num_trip, &ptr_btsmdpa_data->trip[0], &ptr_btsmdpa_data->t_type[0],
 	     ptr_btsmdpa_data->bind0, &ptr_btsmdpa_data->trip[1], &ptr_btsmdpa_data->t_type[1], ptr_btsmdpa_data->bind1,
 	     &ptr_btsmdpa_data->trip[2], &ptr_btsmdpa_data->t_type[2], ptr_btsmdpa_data->bind2,
@@ -1017,7 +1029,7 @@ static ssize_t mtkts_btsmdpa_param_write(struct file *file, const char __user *b
 
 
 	if (sscanf
-	    (ptr_param_data->desc, "%s %d %s %d %s %d %s %d %d", ptr_param_data->pull_R, &ptr_param_data->valR,
+	    (ptr_param_data->desc, "%9s %d %9s %d %15s %d %9s %d %d", ptr_param_data->pull_R, &ptr_param_data->valR,
 			ptr_param_data->pull_V, &ptr_param_data->valV, ptr_param_data->overcrilow,
 			&ptr_param_data->over_cri_low, ptr_param_data->NTC_TABLE,
 			&ptr_param_data->ntc_table, &adc_channel) >= 8) {

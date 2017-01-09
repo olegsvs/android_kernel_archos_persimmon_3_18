@@ -1,17 +1,35 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/init.h>
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
+#include <linux/slab.h>
 #include <asm/uaccess.h>
+#include <asm/topology.h>
 
 #include "mt_ppm_internal.h"
+#include "mt_cpufreq.h"
 
 
 static void ppm_thermal_update_limit_cb(enum ppm_power_state new_state);
 static void ppm_thermal_status_change_cb(bool enable);
 static void ppm_thermal_mode_change_cb(enum ppm_mode mode);
+
+static struct ppm_cluster_status *cluster_status;
 
 /* other members will init by ppm_main */
 static struct ppm_policy_data thermal_policy = {
@@ -29,7 +47,7 @@ void mt_ppm_cpu_thermal_protect(unsigned int limited_power)
 {
 	FUNC_ENTER(FUNC_LV_POLICY);
 
-	ppm_info("Get budget from thermal => limited_power = %d\n", limited_power);
+	ppm_ver("Get budget from thermal => limited_power = %d\n", limited_power);
 
 	ppm_lock(&thermal_policy.lock);
 
@@ -42,6 +60,12 @@ void mt_ppm_cpu_thermal_protect(unsigned int limited_power)
 	thermal_policy.req.power_budget = limited_power;
 	thermal_policy.is_activated = (limited_power) ? true : false;
 	ppm_unlock(&thermal_policy.lock);
+
+#ifdef PPM_THERMAL_ENHANCEMENT
+	if (mutex_is_locked(&ppm_main_info.lock))
+		goto end;
+#endif
+
 	ppm_task_wakeup();
 
 end:
@@ -58,23 +82,72 @@ unsigned int mt_ppm_thermal_get_min_power(void)
 
 unsigned int mt_ppm_thermal_get_max_power(void)
 {
+#ifdef PPM_USE_EFFICIENCY_TABLE
+	struct ppm_cluster_status cluster_status_rebase[3];
+	unsigned int power;
+
+	cluster_status_rebase[0].core_num = 4;
+	cluster_status_rebase[0].freq_idx = 0;
+	cluster_status_rebase[1].core_num = 4;
+	cluster_status_rebase[1].freq_idx = 0;
+	cluster_status_rebase[2].core_num = 2;
+	cluster_status_rebase[2].freq_idx = 0;
+
+	power = ppm_find_pwr_idx(cluster_status_rebase);
+	if (power > 0)
+		return power;
+	else
+		return ppm_get_power_table().power_tbl[0].power_idx;
+#else
 	return ppm_get_power_table().power_tbl[0].power_idx;
+#endif
 }
 
 unsigned int mt_ppm_thermal_get_cur_power(void)
 {
-	unsigned int budget, idx;
-	enum ppm_power_state cur_state;
-	struct ppm_power_tbl_data power_table = ppm_get_power_table();
 
-	ppm_lock(&ppm_main_info.lock);
-	budget = ppm_main_info.min_power_budget;
-	cur_state = ppm_main_info.cur_power_state;
-	ppm_unlock(&ppm_main_info.lock);
+	struct cpumask cluster_cpu, online_cpu;
+	int i;
+#if 0 /* PPM_DLPT_ENHANCEMENT */
+	unsigned int power;
+#else
+	int power;
+#endif
 
-	idx = ppm_hica_get_table_idx_by_pwr(cur_state, budget);
+	/* skip if DVFS is not ready (we cannot get current freq...) */
+	if (!ppm_main_info.client_info[PPM_CLIENT_DVFS].limit_cb)
+		return 0;
 
-	return power_table.power_tbl[idx].power_idx;
+	if (!cluster_status)
+		return mt_ppm_thermal_get_max_power();
+
+	for_each_ppm_clusters(i) {
+		arch_get_cluster_cpus(&cluster_cpu, i);
+		cpumask_and(&online_cpu, &cluster_cpu, cpu_online_mask);
+
+		cluster_status[i].core_num = cpumask_weight(&online_cpu);
+		cluster_status[i].volt = 0;	/* don't care */
+		if (!cluster_status[i].core_num)
+			cluster_status[i].freq_idx = -1;
+		else
+#ifdef PPM_THERMAL_ENHANCEMENT
+			cluster_status[i].freq_idx = ppm_main_freq_to_idx(i,
+					mt_cpufreq_get_cur_phy_freq_no_lock(i), CPUFREQ_RELATION_L);
+#else
+			cluster_status[i].freq_idx = ppm_main_freq_to_idx(i,
+					mt_cpufreq_get_cur_phy_freq(i), CPUFREQ_RELATION_L);
+#endif
+		ppm_ver("[%d] core = %d, freq_idx = %d\n",
+			i, cluster_status[i].core_num, cluster_status[i].freq_idx);
+	}
+
+#if 0 /* PPM_DLPT_ENHANCEMENT */
+	power = ppm_calc_total_power(cluster_status, ppm_main_info.cluster_num, 100);
+	return (power == 0) ? mt_ppm_thermal_get_max_power() : power;
+#else
+	power = ppm_find_pwr_idx(cluster_status);
+	return (power == -1) ? mt_ppm_thermal_get_max_power() : (unsigned int)power;
+#endif
 }
 
 static void ppm_thermal_update_limit_cb(enum ppm_power_state new_state)
@@ -137,7 +210,17 @@ static ssize_t ppm_thermal_limit_proc_write(struct file *file, const char __user
 	return count;
 }
 
+static int ppm_thermal_cur_power_proc_show(struct seq_file *m, void *v)
+{
+	seq_printf(m, "current power = %d\n", mt_ppm_thermal_get_cur_power());
+	seq_printf(m, "min power = %d\n", mt_ppm_thermal_get_min_power());
+	seq_printf(m, "max power = %d\n", mt_ppm_thermal_get_max_power());
+
+	return 0;
+}
+
 PROC_FOPS_RW(thermal_limit);
+PROC_FOPS_RO(thermal_cur_power);
 
 static int __init ppm_thermal_policy_init(void)
 {
@@ -150,6 +233,7 @@ static int __init ppm_thermal_policy_init(void)
 
 	const struct pentry entries[] = {
 		PROC_ENTRY(thermal_limit),
+		PROC_ENTRY(thermal_cur_power),
 	};
 
 	FUNC_ENTER(FUNC_LV_POLICY);
@@ -163,8 +247,15 @@ static int __init ppm_thermal_policy_init(void)
 		}
 	}
 
+	cluster_status = kcalloc(ppm_main_info.cluster_num, sizeof(*cluster_status), GFP_KERNEL);
+	if (!cluster_status) {
+		ret = -ENOMEM;
+		goto out;
+	}
+
 	if (ppm_main_register_policy(&thermal_policy)) {
 		ppm_err("@%s: thermal policy register failed\n", __func__);
+		kfree(cluster_status);
 		ret = -EINVAL;
 		goto out;
 	}
@@ -180,6 +271,8 @@ out:
 static void __exit ppm_thermal_policy_exit(void)
 {
 	FUNC_ENTER(FUNC_LV_POLICY);
+
+	kfree(cluster_status);
 
 	ppm_main_unregister_policy(&thermal_policy);
 

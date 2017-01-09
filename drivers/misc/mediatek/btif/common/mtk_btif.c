@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 /*-----------linux system header files----------------*/
 
 #include <linux/module.h>
@@ -308,10 +321,10 @@ static int mtk_btif_suspend(struct platform_device *pdev, pm_message_t state)
 	p_mtk_btif p_btif = NULL;
 
 /*Chaozhong: ToDo: to be implement*/
-	BTIF_INFO_FUNC("++\n");
+	BTIF_DBG_FUNC("++\n");
 	p_btif = platform_get_drvdata(pdev);
 	i_ret = _btif_suspend(p_btif);
-	BTIF_INFO_FUNC("--, i_ret:%d\n", i_ret);
+	BTIF_DBG_FUNC("--, i_ret:%d\n", i_ret);
 	return i_ret;
 }
 
@@ -402,10 +415,10 @@ static int mtk_btif_resume(struct platform_device *pdev)
 	int i_ret = 0;
 	p_mtk_btif p_btif = NULL;
 /*Chaozhong: ToDo: to be implement*/
-	BTIF_INFO_FUNC("++\n");
+	BTIF_DBG_FUNC("++\n");
 	p_btif = platform_get_drvdata(pdev);
 	i_ret = _btif_resume(p_btif);
-	BTIF_INFO_FUNC("--, i_ret:%d\n", i_ret);
+	BTIF_DBG_FUNC("--, i_ret:%d\n", i_ret);
 	return 0;
 }
 
@@ -506,7 +519,7 @@ void btif_rx_notify_cb(void)
 	rx_notify_flag = 1;
 	wake_up(&btif_wq);
 	wake_up_interruptible(&btif_read_inq);
-	BTIF_DBG_FUNC("++\n");
+	BTIF_DBG_FUNC("--\n");
 }
 
 unsigned int btif_poll(struct file *filp, poll_table *wait)
@@ -746,9 +759,10 @@ static ssize_t driver_flag_set(struct device_driver *drv,
 	char buf[256];
 	char *p_buf;
 	unsigned long len = count;
-	int x = 0;
-	int y = 0;
-	int z = 0;
+	long x = 0;
+	long y = 0;
+	long z = 0;
+	int result = 0;
 	char *p_token = NULL;
 	char *p_delimiter = " \t";
 
@@ -759,21 +773,27 @@ static ssize_t driver_flag_set(struct device_driver *drv,
 		return -1;
 	}
 
-	p_buf = (char *)buffer;
+	memcpy(buf, buffer, sizeof(buf));
+	p_buf = buf;
 
 	p_token = strsep(&p_buf, p_delimiter);
-	x = NULL != p_token ? kstrtol(p_token, 16, NULL) : 0;
+	if (p_token != NULL) {
+		result = kstrtol(p_token, 16, &x);
+		BTIF_INFO_FUNC("x = 0x%08x\n\r", x);
+	} else
+		x = 0;
+/*	x = (NULL != p_token) ? kstrtol(p_token, 16, NULL) : 0;*/
 
 	p_token = strsep(&p_buf, "\t\n ");
 	if (p_token != NULL) {
-		y = kstrtol(p_token, 16, NULL);
+		result = kstrtol(p_token, 16, &y);
 		BTIF_INFO_FUNC("y = 0x%08x\n\r", y);
 	} else
 		y = 0;
 
 	p_token = strsep(&p_buf, "\t\n ");
 	if (p_token != NULL)
-		z = kstrtol(p_token, 16, NULL);
+		result = kstrtol(p_token, 16, &z);
 	else
 		z = 0;
 
@@ -1290,7 +1310,7 @@ int _btif_rx_dma_setup(p_mtk_btif p_btif)
 /*Enable DMA Rx IRQ*/
 		_btif_irq_ctrl(p_btif_irq, true);
 #endif
-		BTIF_INFO_FUNC("succeed\n");
+		BTIF_DBG_FUNC("succeed\n");
 	}
 	return i_ret;
 }
@@ -1347,7 +1367,7 @@ int _btif_tx_dma_setup(p_mtk_btif p_btif)
 		_btif_irq_ctrl(p_btif_irq, false);
 #endif
 
-		BTIF_INFO_FUNC("succeed\n");
+		BTIF_DBG_FUNC("succeed\n");
 	}
 	return i_ret;
 }
@@ -1394,10 +1414,10 @@ int _btif_lpbk_ctrl(p_mtk_btif p_btif, bool flag)
 
 	if (flag) {
 		i_ret = hal_btif_loopback_ctrl(p_btif->p_btif_info, true);
-		BTIF_INFO_FUNC("loopback function enabled\n");
+		BTIF_DBG_FUNC("loopback function enabled\n");
 	} else {
 		i_ret = hal_btif_loopback_ctrl(p_btif->p_btif_info, false);
-		BTIF_INFO_FUNC("loopback function disabled\n");
+		BTIF_DBG_FUNC("loopback function disabled\n");
 	}
 	if (0 == i_ret)
 		p_btif->lpbk_flag = flag;
@@ -1460,7 +1480,7 @@ int _btif_controller_setup(p_mtk_btif p_btif)
 /*disable IRQ*/
 	_btif_irq_ctrl(p_btif_irq, false);
 	i_ret = 0;
-	BTIF_INFO_FUNC("succeed\n");
+	BTIF_DBG_FUNC("succeed\n");
 	return i_ret;
 }
 
@@ -1534,7 +1554,7 @@ int btif_open(p_mtk_btif p_btif)
 
 	BTIF_STATE_RELEASE(p_btif);
 
-	BTIF_INFO_FUNC("BTIF's Tx Mode:%d, Rx Mode(%d)\n",
+	BTIF_DBG_FUNC("BTIF's Tx Mode:%d, Rx Mode(%d)\n",
 		       p_btif->tx_mode, p_btif->rx_mode);
 	return i_ret;
 }
@@ -2842,7 +2862,7 @@ int btif_dump_reg(p_mtk_btif p_btif)
 
 	if ((B_S_ON != ori_state) && (B_S_MAX > ori_state)) {
 		BTIF_ERR_FUNC("BTIF's original state is %s, not B_S_ON\n", g_state[ori_state]);
-		BTIF_ERR_FUNC("!!!-<-<-<This should never happen in normal mode>->->-!!!");
+		BTIF_ERR_FUNC("!!!!---<<<This should never happen in normal mode>>>---!!!");
 		i_ret = _btif_exit_dpidle(p_btif);
 	}
 
@@ -2904,12 +2924,12 @@ int btif_dump_data(char *p_buf, int len)
 {
 	unsigned int idx = 0;
 
+	pr_debug("  ");
 	for (idx = 0; idx < len; idx++, p_buf++) {
-		pr_debug("%02x ", *p_buf);
+		pr_cont("%02x ", *p_buf);
 		if (7 == (idx % 8))
-			pr_debug("\n");
+			pr_debug("  ");
 	}
-	pr_debug("\n");
 	return 0;
 }
 
@@ -3090,7 +3110,7 @@ int btif_log_buf_reset(P_BTIF_LOG_QUEUE_T p_log_que)
 	memset((p_log_que->p_queue[0]), 0, sizeof(BTIF_LOG_BUF_T));
 
 	spin_unlock_irqrestore(&p_log_que->lock, flags);
-	BTIF_INFO_FUNC("reset %s log buffer\n",
+	BTIF_DBG_FUNC("reset %s log buffer\n",
 		       p_log_que->dir == BTIF_TX ? "Tx" : "Rx");
 	return 0;
 }
@@ -3274,6 +3294,7 @@ static int BTIF_init(void)
 			BTIF_ERR_FUNC("BTIF Rx vFIFO allocation failed\n");
 			goto err_exit2;
 		}
+
 #if !(MTK_BTIF_ENABLE_CLK_REF_COUNTER)
 /*enable BTIF Tx DMA channel's clock gating by default*/
 		i_ret = hal_btif_dma_clk_ctrl(p_rx_dma->p_dma_info,

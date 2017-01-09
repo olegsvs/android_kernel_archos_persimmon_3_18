@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 /*****************************************************************************
  *
  * Filename:
@@ -598,7 +611,7 @@ static kal_uint16 set_gain(kal_uint16 gain)
 		imgsensor.gain = reg_gain;
 		spin_unlock(&imgsensor_drv_lock);
 		write_cmos_sensor(0x0157, (kal_uint8)reg_gain);
-		LOG_INF("gain = %d , reg_gain = 0x%x\n ", gain, reg_gain);
+		LOG_INF("gain = %d , reg_gain = 0x%x\n", gain, reg_gain);
  	}
 
 	return gain;
@@ -1184,8 +1197,6 @@ static kal_uint32 set_test_pattern_mode(kal_bool enable)
 		   }
 	   }
 
-	   return ERROR_NONE;
-
 	spin_lock(&imgsensor_drv_lock);
 	imgsensor.test_pattern = enable;
 	spin_unlock(&imgsensor_drv_lock);
@@ -1222,7 +1233,7 @@ static kal_uint32 get_imgsensor_id(UINT32 *sensor_id)
 			if (*sensor_id == imgsensor_info.sensor_id) {
 
 #ifdef CONFIG_MTK_CAM_CAL
-				read_imx219_eeprom_mtk_fmt();
+//				read_imx219_eeprom_mtk_fmt();
 #endif
 				LOG_INF("i2c write id: 0x%x, sensor id: 0x%x\n", imgsensor.i2c_write_id,*sensor_id);
 				return ERROR_NONE;
@@ -2142,3 +2153,4 @@ UINT32 IMX219_MIPI_RAW_SensorInit(PSENSOR_FUNCTION_STRUCT *pfFunc)
 		*pfFunc=&sensor_func;
 	return ERROR_NONE;
 }	/*	OV5693_MIPI_RAW_SensorInit	*/
+EXPORT_SYMBOL(IMX219_MIPI_RAW_SensorInit);

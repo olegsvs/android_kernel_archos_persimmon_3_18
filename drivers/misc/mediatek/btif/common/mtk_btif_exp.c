@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #ifdef DFT_TAG
 #undef DFT_TAG
 #endif
@@ -67,7 +80,7 @@ int mtk_wcn_btif_open(char *p_owner, unsigned long *p_id)
 	struct list_head *p_user_list = &(p_btif->user_list);
 
 	BTIF_DBG_FUNC("++");
-	BTIF_INFO_FUNC("p_btif(0x%p)\n", p_btif);
+	BTIF_DBG_FUNC("p_btif(0x%p)\n", p_btif);
 
 	if (mutex_lock_killable(&(p_btif->ops_mtx))) {
 		BTIF_ERR_FUNC("mutex_lock_killable return failed\n");
@@ -106,7 +119,7 @@ int mtk_wcn_btif_open(char *p_owner, unsigned long *p_id)
 		p_new_user->u_id = (unsigned long)p_new_user;
 		strncpy(p_new_user->u_name, p_owner, sizeof(p_new_user->u_name) - 1);
 		p_new_user->u_name[sizeof(p_new_user->u_name) - 1] = '\0';
-		BTIF_INFO_FUNC("owner name:%s, recorded name:%s\n",
+		BTIF_DBG_FUNC("owner name:%s, recorded name:%s\n",
 			       p_owner, p_new_user->u_name);
 
 		i_ret = btif_open(p_btif);

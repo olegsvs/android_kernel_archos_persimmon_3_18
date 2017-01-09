@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #ifndef MT_SD_H
 #define MT_SD_H
 
@@ -1199,10 +1212,8 @@ struct msdc_host {
 	u32 read_timeout_emmc;
 	u8 autocmd;
 	u32 sw_timeout;
-	u32 power_cycle;	/* power cycle done in tuning flow */
-	bool power_cycle_enable;	/*Enable power cycle */
-	u32 continuous_fail_request_count;
-	u32 sd_30_busy;
+	u8 power_cycle_cnt;
+	u8 is_in_power_tune;
 	bool tune;
 
 #define MSDC_VIO18_MC1	(0)
@@ -1295,8 +1306,6 @@ static inline unsigned int uffs(unsigned int x)
 {
 	unsigned int r = 1;
 
-	if (!x)
-		return 0;
 	if (!(x & 0xffff)) {
 		x >>= 16;
 		r += 16;
@@ -1352,14 +1361,12 @@ do { \
 do { \
 	unsigned int tv = sdr_read32(reg);    \
 	tv &= ~(field); \
-	if (uffs((unsigned int)field) > 0) \
-		sdr_write32(reg, tv | ((val) << (uffs((unsigned int)field) - 1))); \
+	sdr_write32(reg, tv | ((val) << (uffs((unsigned int)field) - 1))); \
 } while (0)
 #define sdr_get_field(reg, field, val) \
 do { \
 	unsigned int tv = sdr_read32(reg);    \
-	if (uffs((unsigned int)field) > 0) \
-		val = ((tv & (field)) >> (uffs((unsigned int)field) - 1)); \
+	val = ((tv & (field)) >> (uffs((unsigned int)field) - 1)); \
 } while (0)
 #define sdr_set_field_discrete(reg, field, val) \
 do { \
@@ -1397,13 +1404,11 @@ do { \
 } while (0)
 
 /* can modify to read h/w register */
-/* #define is_card_present(h) ((sdr_read32(MSDC_PS) & MSDC_PS_CDSTS) ? 0 : 1);
-*/
+/* #define is_card_present(h) ((sdr_read32(MSDC_PS) & MSDC_PS_CDSTS) ? 0 : 1);*/
 #define is_card_present(h)     (((struct msdc_host *)(h))->card_inserted)
 #define is_card_sdio(h)        (((struct msdc_host *)(h))->hw->register_pm)
 
-/*sd card change voltage wait time= (1/freq) * SDC_VOL_CHG_CNT(default 0x145)
-*/
+/*sd card change voltage wait time= (1/freq) * SDC_VOL_CHG_CNT(default 0x145) */
 #define msdc_set_vol_change_wait_count(count) sdr_set_field(SDC_VOL_CHG, \
 	SDC_VOL_CHG_CNT, (count))
 
@@ -1539,11 +1544,6 @@ extern unsigned int msdc_do_command(struct msdc_host *host,
 #ifdef MTK_SDIO30_ONLINE_TUNING_SUPPORT
 extern unsigned int autok_get_current_vcore_offset(void);
 #endif
-#if defined(FEATURE_MET_MMC_INDEX)
-extern void met_mmc_issue(struct mmc_host *host, struct mmc_request *req);
-extern void met_mmc_dma_stop(struct mmc_host *host, u32 lba, unsigned int len,
-	u32 opcode, unsigned int bd_num);
-#endif
 extern void init_tune_sdio(struct msdc_host *host);
 extern int mmc_flush_cache(struct mmc_card *card);
 
@@ -1567,6 +1567,7 @@ extern void __iomem *apmixed_reg_base1;
 extern void __iomem *topckgen_reg_base;
 
 /* move from board.h */
+typedef void (*msdc_irq_handler_t) (void *);       /* external irq handler */
 typedef void (*pm_callback_t)(pm_message_t state, void *data);
 
 #ifdef CONFIG_MTK_COMBO_COMM
@@ -1574,7 +1575,7 @@ typedef void (*pm_callback_t)(pm_message_t state, void *data);
 #define CFG_DEV_MSDC2
 #endif
 
-#ifdef CONFIG_MTK_C2K_SUPPORT
+#if defined(CONFIG_MTK_MD3_SUPPORT) && (CONFIG_MTK_MD3_SUPPORT > 0)
 #include <mach/mt_c2k_sdio.h>
 #define CFG_DEV_MSDC3
 #define C2K_USE_EINT
@@ -1595,8 +1596,8 @@ typedef void (*pm_callback_t)(pm_message_t state, void *data);
 #define MSDC_CACHE          (1 << 12)	/* eMMC cache feature            */
 #endif
 #define MSDC_HS400          (1 << 13)	/* HS400 speed mode support      */
-/* for Yecon board, need SD power always on!! or cannot recognize the sd card */
-#define MSDC_SD_NEED_POWER  (1 << 31)
+
+#define MSDC_SD_NEED_POWER  (1 << 31)	/* for Yecon board, need SD power always on!! or cannot recognize the sd card */
 
 #define MSDC_SMPL_RISING    (0)
 #define MSDC_SMPL_FALLING   (1)
@@ -1666,15 +1667,15 @@ struct msdc_hw {
 	unsigned char dat_drv;	/* data pad driving */
 	unsigned char rst_drv;	/* RST-N pad driving */
 	unsigned char ds_drv;	/* eMMC5.0 DS pad driving */
-	unsigned char clk_drv_sd_18; /* clock pad driving for SD card at 1.8v sdr104 mode */
-	unsigned char cmd_drv_sd_18; /* command pad driving for SD card at 1.8v sdr104 mode */
-	unsigned char dat_drv_sd_18; /* data pad driving for SD card at 1.8v sdr104 mode */
-	unsigned char clk_drv_sd_18_sdr50; /* clock pad driving for SD card at 1.8v sdr50 mode */
-	unsigned char cmd_drv_sd_18_sdr50; /* command pad driving for SD card at 1.8v sdr50 mode */
-	unsigned char dat_drv_sd_18_sdr50; /* data pad driving for SD card at 1.8v sdr50 mode */
-	unsigned char clk_drv_sd_18_ddr50; /* clock pad driving for SD card at 1.8v ddr50 mode */
-	unsigned char cmd_drv_sd_18_ddr50; /* command pad driving for SD card at 1.8v ddr50 mode */
-	unsigned char dat_drv_sd_18_ddr50; /* data pad driving for SD card at 1.8v ddr50 mode */
+	unsigned char clk_drv_sd_18;	/* clock pad driving for SD card at 1.8v sdr104 mode */
+	unsigned char cmd_drv_sd_18;	/* command pad driving for SD card at 1.8v sdr104 mode */
+	unsigned char dat_drv_sd_18;	/* data pad driving for SD card at 1.8v sdr104 mode */
+	unsigned char clk_drv_sd_18_sdr50;	/* clock pad driving for SD card at 1.8v sdr50 mode */
+	unsigned char cmd_drv_sd_18_sdr50;	/* command pad driving for SD card at 1.8v sdr50 mode */
+	unsigned char dat_drv_sd_18_sdr50;	/* data pad driving for SD card at 1.8v sdr50 mode */
+	unsigned char clk_drv_sd_18_ddr50;	/* clock pad driving for SD card at 1.8v ddr50 mode */
+	unsigned char cmd_drv_sd_18_ddr50;	/* command pad driving for SD card at 1.8v ddr50 mode */
+	unsigned char dat_drv_sd_18_ddr50;	/* data pad driving for SD card at 1.8v ddr50 mode */
 	unsigned long flags;	/* hardware capability flags */
 	unsigned long data_pins;	/* data pins */
 	unsigned long data_offset;	/* data address offset */
@@ -1695,12 +1696,12 @@ struct msdc_hw {
 	unsigned char cmdrrddly;	/*cmd; range: 0~31*/
 	unsigned char cmdrddly;	/*cmd; range: 0~31*/
 
-	unsigned char cmdrtactr_sdr50; /* command response turn around counter, sdr 50 mode*/
-	unsigned char wdatcrctactr_sdr50; /* write data crc turn around counter, sdr 50 mode*/
+	unsigned char cmdrtactr_sdr50;	/* command response turn around counter, sdr 50 mode*/
+	unsigned char wdatcrctactr_sdr50;	/* write data crc turn around counter, sdr 50 mode*/
 	unsigned char intdatlatcksel_sdr50;	/* internal data latch CK select, sdr 50 mode*/
 	unsigned char cmdrtactr_sdr200;	/* command response turn around counter, sdr 200 mode*/
-	unsigned char wdatcrctactr_sdr200; /* write data crc turn around counter, sdr 200 mode*/
-	unsigned char intdatlatcksel_sdr200; /* internal data latch CK select, sdr 200 mode*/
+	unsigned char wdatcrctactr_sdr200;	/* write data crc turn around counter, sdr 200 mode*/
+	unsigned char intdatlatcksel_sdr200;	/* internal data latch CK select, sdr 200 mode*/
 
 	struct msdc_ett_settings *ett_hs200_settings;
 	unsigned int ett_hs200_count;
@@ -1720,7 +1721,7 @@ struct msdc_hw {
 	void (*ext_power_off)(void);
 
 	/* external sdio irq operations */
-	void (*request_sdio_eirq)(sdio_irq_handler_t sdio_irq_handler, void *data);
+	void (*request_sdio_eirq)(msdc_irq_handler_t sdio_irq_handler, void *data);
 	void (*enable_sdio_eirq)(void);
 	void (*disable_sdio_eirq)(void);
 

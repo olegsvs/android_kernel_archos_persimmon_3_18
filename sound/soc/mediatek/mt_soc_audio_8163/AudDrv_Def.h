@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 /******************************************************************************
 *
  *
@@ -30,23 +43,30 @@
 
 #ifdef CONFIG_MTK_CLKMGR
 #define PM_MANAGER_API
+#else
+#define COMMON_CLOCK_FRAMEWORK_API
 #endif
 
 #define AUDIO_MEMORY_SRAM
 #define AUDIO_MEM_IOREMAP
 
 /* below for audio debugging */
-#define DEBUG_AUDDRV
-/* #define DEBUG_AFE_REG */
-/* #define DEBUG_ANA_REG */
-/* #define DEBUG_AUD_CLK */
-/* #define DEBUG_AUD_HDMI */
-/* #define DEBUG_AUD_FMTX */
-/* #define DEBUG_AUD_UL2 */
-/* #define DEBUG_AUD_UL1 */
-/* #define DEBUG_AUD_DL1 */
-/* #define DEBUG_AUD_DAI */
+#define DEBUG_AUDDRV	0x1
+#define DEBUG_AFE_REG	0x2
+#define DEBUG_ANA_REG	0x4
+#define DEBUG_AUD_CLK	0x8
+#define DEBUG_AUD_HDMI	0x10
+#define DEBUG_AUD_FMTX	0x20
+#define DEBUG_AUD_UL1	0x40
+#define DEBUG_AUD_UL2	0x80
+#define DEBUG_AUD_DL1	0x100
+#define DEBUG_AUD_DL2	0x200
+#define DEBUG_AUD_DAI	0x400
+#define DEBUG_AUD_AWB	0x800
 
+extern uint32_t AudDrv_Log_On;
+
+#if 0
 #ifdef DEBUG_AUDDRV
 #define PRINTK_AUDDRV(format, args...) pr_debug(format, ##args)
 #else
@@ -77,12 +97,6 @@
 #define PRINTK_AUD_DL1(format, args...)
 #endif
 
-#ifdef DEBUG_AUD_DL2
-#define PRINTK_AUD_DL2(format, args...)  pr_debug(format, ##args)
-#else
-#define PRINTK_AUD_DL2(format, args...)
-#endif
-
 #ifdef DEBUG_AUD_FMTX
 #define PRINTK_AUD_FMTX(format, args...)  pr_debug(format, ##args)
 #else
@@ -94,13 +108,6 @@
 #else
 #define PRINTK_AUD_HDMI(format, args...)
 #endif
-
-#ifdef DEBUG_AUD_HDMI2
-#define PRINTK_AUD_HDMI2(format, args...)  pr_debug(format, ##args)
-#else
-#define PRINTK_AUD_HDMI2(format, args...)
-#endif
-
 
 #ifdef DEBUG_AUD_UL1
 #define PRINTK_AUD_UL1(format, args...)  pr_debug(format, ##args)
@@ -114,12 +121,6 @@
 #define PRINTK_AUD_UL2(format, args...)
 #endif
 
-#ifdef DEBUG_AUD_UL3
-#define PRINTK_AUD_UL3(format, args...)  pr_debug(format, ##args)
-#else
-#define PRINTK_AUD_UL3(format, args...)
-#endif
-
 #ifdef DEBUG_AUD_AWB
 #define PRINTK_AUD_AWB(format, args...)  pr_debug(format, ##args)
 #else
@@ -131,21 +132,82 @@
 #else
 #define PRINTK_AUD_DAI(format, args...)
 #endif
-
-#ifdef DEBUG_AUD_MODDAI
-#define PRINTK_AUD_MODDAI(format, args...)  pr_debug(format, ##args)
-#else
-#define PRINTK_AUD_MODDAI(format, args...)
-#endif
-
-#ifdef DEBUG_AUD_DAI
-#define PRINTK_AUD_DAI(format, args...)  pr_debug(format, ##args)
-#else
-#define PRINTK_AUD_DAI(format, args...)
 #endif
 
 
-#define PRINTK_AUD_ERROR(format, args...)  pr_debug(format, ##args)
+#define PRINTK_AUDDRV(format, args...)	\
+do { \
+	if (AudDrv_Log_On&DEBUG_AUDDRV) { \
+		pr_warn(format, ##args); } \
+} while (0)
+
+#define PRINTK_AFE_REG(format, args...)	\
+do { \
+	if (AudDrv_Log_On&DEBUG_AFE_REG) { \
+		pr_warn(format, ##args); } \
+} while (0)
+
+#define PRINTK_ANA_REG(format, args...)	\
+do { \
+	if (AudDrv_Log_On&DEBUG_ANA_REG) { \
+		pr_warn(format, ##args); } \
+} while (0)
+
+#define PRINTK_AUD_CLK(format, args...)	\
+do { \
+	if (AudDrv_Log_On&DEBUG_AUD_CLK) { \
+		pr_warn(format, ##args); } \
+} while (0)
+
+#define PRINTK_AUD_DL1(format, args...)	\
+do { \
+	if (AudDrv_Log_On&DEBUG_AUD_DL1) { \
+		pr_warn(format, ##args); } \
+} while (0)
+
+#define PRINTK_AUD_DL2(format, args...)	\
+do { \
+	if (AudDrv_Log_On&DEBUG_AUD_DL2) { \
+		pr_warn(format, ##args); } \
+} while (0)
+
+#define PRINTK_AUD_FMTX(format, args...)	\
+do { \
+	if (AudDrv_Log_On&DEBUG_AUD_FMTX) { \
+		pr_warn(format, ##args); } \
+} while (0)
+
+#define PRINTK_AUD_HDMI(format, args...)	\
+do { \
+	if (AudDrv_Log_On&DEBUG_AUD_HDMI) { \
+		pr_warn(format, ##args); } \
+} while (0)
+
+#define PRINTK_AUD_UL1(format, args...)	\
+do { \
+	if (AudDrv_Log_On&DEBUG_AUD_UL1) { \
+		pr_warn(format, ##args); } \
+} while (0)
+
+#define PRINTK_AUD_UL2(format, args...)	\
+do { \
+	if (AudDrv_Log_On&DEBUG_AUD_UL2) { \
+		pr_warn(format, ##args); } \
+} while (0)
+
+#define PRINTK_AUD_AWB(format, args...)	\
+do { \
+	if (AudDrv_Log_On&DEBUG_AUD_AWB) { \
+		pr_warn(format, ##args); } \
+} while (0)
+
+#define PRINTK_AUD_DAI(format, args...)	\
+do { \
+	if (AudDrv_Log_On&DEBUG_AUD_DAI) { \
+		pr_warn(format, ##args); } \
+} while (0)
+
+#define PRINTK_AUD_ERROR(format, args...)  pr_err(format, ##args)
 
 /* if need assert , use AUDIO_ASSERT(true) */
 #define AUDIO_ASSERT(value) BUG_ON(false)

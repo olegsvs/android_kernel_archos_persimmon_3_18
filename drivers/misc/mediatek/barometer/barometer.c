@@ -1,3 +1,15 @@
+/*
+ * Copyright (C) 2016 MediaTek Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
+ */
 
 #include "inc/barometer.h"
 
@@ -54,8 +66,10 @@ static void baro_work_func(struct work_struct *work)
 	cxt = baro_context_obj;
 	delay_ms = atomic_read(&cxt->delay);
 
-	if (NULL == cxt->baro_data.get_data)
+	if (NULL == cxt->baro_data.get_data) {
 		BARO_LOG("baro driver not register data path\n");
+		return;
+	}
 
 	time.tv_sec = time.tv_nsec = 0;
 	get_monotonic_boottime(&time);
@@ -429,8 +443,14 @@ static ssize_t baro_show_flush(struct device *dev, struct device_attribute *attr
 static ssize_t baro_show_devnum(struct device *dev, struct device_attribute *attr, char *buf)
 {
 	const char *devname = NULL;
+	struct input_handle *handle;
 
-	devname = dev_name(&baro_context_obj->idev->dev);
+	list_for_each_entry(handle, &baro_context_obj->idev->h_list, d_node)
+		if (strncmp(handle->name, "event", 5) == 0) {
+			devname = handle->name;
+			break;
+		}
+
 	return snprintf(buf, PAGE_SIZE, "%s\n", devname + 5);
 }
 
@@ -536,7 +556,7 @@ static int baro_misc_init(struct baro_context *cxt)
 
 	return err;
 }
-
+/*
 static void baro_input_destroy(struct baro_context *cxt)
 {
 	struct input_dev *dev = cxt->idev;
@@ -544,7 +564,7 @@ static void baro_input_destroy(struct baro_context *cxt)
 	input_unregister_device(dev);
 	input_free_device(dev);
 }
-
+*/
 static int baro_input_init(struct baro_context *cxt)
 {
 	struct input_dev *dev;
@@ -703,11 +723,6 @@ static int baro_probe(struct platform_device *pdev)
 	/* exit_misc_register_failed: */
 
 	/* exit_err_sysfs: */
-
-	if (err) {
-		BARO_ERR("sysfs node creation error\n");
-		baro_input_destroy(baro_context_obj);
-	}
 
 real_driver_init_fail:
 exit_alloc_input_dev_failed:

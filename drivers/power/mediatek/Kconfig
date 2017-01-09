@@ -103,6 +103,15 @@ config MTK_FAN5405_SUPPORT
           Set to Yes if FAN5405 is used.
 	default n
 
+config MTK_RT9536_SUPPORT
+	bool "MTK_RT9536_SUPPORT"
+	help
+	  This is to enable MediaTek supports to RT9536.
+	  It depends on config MTK_SMART_BATTERY
+	  and config MTK_SWCHR_SUPPORT
+	  Set to Yes if RT9536 is used.
+	default n
+
 config MTK_DUAL_INPUT_CHARGER_SUPPORT
         bool "MTK_DUAL_INPUT_CHARGER_SUPPORT"
         help
@@ -276,6 +285,15 @@ config MTK_HAFG_20
 	  Set Yes to support Fuel Gauge 2.0 feature.
 	  Set No to disable Fuel Gauge 2.0.
 
+config MTK_EMBEDDED_BATTERY
+	bool "MediaTek Fuel Gauge 2.0 Embedded Battery"
+	default n
+	help
+	  Embedded Battery Feature
+	  Please note that fuel gauge 2.0 feature is must
+	  Set Yes to support Fuel Gauge 2.0 Embedded Battery feature.
+	  Set No to disable Fuel Gauge 2.0 Embedded Battery feature.
+
 config MTK_PUMP_EXPRESS_SUPPORT
 	bool "MediaTek PUMP EXPRESS"
 	default n
@@ -293,6 +311,15 @@ config MTK_PUMP_EXPRESS_PLUS_SUPPORT
 	  to achive better charging ability.
 	  Set Yes to enable PE+.
 	  Set No to disable PE+.
+
+config MTK_PUMP_EXPRESS_PLUS_20_SUPPORT
+	bool "MediaTek PUMP EXPRESS PLUS 2.0"
+	default n
+	help
+	  fast charging, by using switch charger
+	  to achive better charging ability,it reduce more IC heat than PE+
+	  Set Yes to enable PE+20.
+	  Set No to disable PE+20.
 
 config MTK_BIF_SUPPORT
 	bool "MTK_BIF_SUPPORT"

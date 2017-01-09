@@ -1,3 +1,15 @@
+/*
+* Copyright (C) 2013 MediaTek Inc.
+*
+* This program is free software; you can redistribute it and/or modify
+* it under the terms of the GNU General Public License version 2 as
+* published by the Free Software Foundation.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+* See http://www.gnu.org/licenses/gpl-2.0.html for more details.
+*/
 
 #include "inc/accel.h"
 #include "inc/accel_factory.h"
@@ -281,6 +293,7 @@ static ssize_t acc_show_enable_nodata(struct device *dev, struct device_attribut
 static ssize_t acc_store_enable_nodata(struct device *dev, struct device_attribute *attr,
 				       const char *buf, size_t count)
 {
+#ifndef CONFIG_MTK_SCP_SENSORHUB_V1
 	struct acc_context *cxt = NULL;
 
 	ACC_LOG("acc_store_enable nodata buf=%s\n", buf);
@@ -301,6 +314,7 @@ static ssize_t acc_store_enable_nodata(struct device *dev, struct device_attribu
 		ACC_ERR(" acc_store enable nodata cmd error !!\n");
 	}
 	mutex_unlock(&acc_context_obj->acc_op_mutex);
+#endif
 	return count;
 }
 
@@ -394,9 +408,15 @@ static ssize_t acc_show_sensordevnum(struct device *dev,
 	struct acc_context *cxt = NULL;
 	const char *devname = NULL;
 	int ret = 0;
+	struct input_handle *handle;
 
 	cxt = acc_context_obj;
-	devname = dev_name(&cxt->idev->dev);
+	list_for_each_entry(handle, &cxt->idev->h_list, d_node)
+		if (strncmp(handle->name, "event", 5) == 0) {
+			devname = handle->name;
+			break;
+		}
+    
 	ret = sscanf(devname+5, "%d", &devnum);
 	return snprintf(buf, PAGE_SIZE, "%d\n", devnum);
 }
@@ -406,10 +426,11 @@ static ssize_t acc_store_batch(struct device *dev, struct device_attribute *attr
 {
 	struct acc_context *cxt = NULL;
 
-	ACC_LOG("acc_store_batch buf=%s\n", buf);
+	/* ACC_LOG("acc_store_batch buf=%s\n", buf); */
 	mutex_lock(&acc_context_obj->acc_op_mutex);
 	cxt = acc_context_obj;
 	if (cxt->acc_ctl.is_support_batch) {
+		ACC_LOG("acc_store_batch buf=%s\n", buf);
 		if (!strncmp(buf, "1", 1)) {
 			cxt->is_batch_enable = true;
 			if (true == cxt->is_polling_run) {
@@ -436,7 +457,7 @@ static ssize_t acc_store_batch(struct device *dev, struct device_attribute *attr
 		ACC_LOG(" acc_store_batch mot supported\n");
 
 	mutex_unlock(&acc_context_obj->acc_op_mutex);
-	ACC_LOG(" acc_store_batch done: %d\n", cxt->is_batch_enable);
+	/* ACC_LOG(" acc_store_batch done: %d\n", cxt->is_batch_enable); */
 	return count;
 
 }

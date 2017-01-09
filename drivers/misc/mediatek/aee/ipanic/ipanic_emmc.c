@@ -1,4 +1,17 @@
-#include <sd_misc.h>
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
+/*#include <sd_misc.h>*/
 #include <linux/slab.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
@@ -35,7 +48,7 @@ char *ipanic_read_size(int off, int len)
 		LOGE("%s: cannot allocate buffer(len:%d)\n", __func__, len);
 		return NULL;
 	}
-	if (card_dump_func_read(buff, size, off, DUMP_INTO_BOOT_CARD_IPANIC) != 0) {
+	if (card_dump_func_read(buff, size, off, 0 /*DUMP_INTO_BOOT_CARD_IPANIC*/) != 0) {
 		LOGE("%s: read failed(offset:%d,size:%d)\n", __func__, off, size);
 		kfree(buff);
 		return NULL;
@@ -51,7 +64,7 @@ int ipanic_write_size(void *buf, int off, int len)
 		return -2;
 	if (len > 0) {
 		if (card_dump_func_write
-		    ((unsigned char *)buf, len, off, DUMP_INTO_BOOT_CARD_IPANIC))
+		    ((unsigned char *)buf, len, off, 0 /*DUMP_INTO_BOOT_CARD_IPANIC*/))
 			return -1;
 	}
 	return len;

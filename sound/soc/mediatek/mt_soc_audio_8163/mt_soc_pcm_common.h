@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 /******************************************************************************
 *
  *
@@ -49,20 +62,11 @@
 #include <linux/proc_fs.h>
 #include <linux/string.h>
 #include <linux/mutex.h>
-/* #include <linux/xlog.h> */
-/* #include <mach/irqs.h> */
 #include <asm/uaccess.h>
 #include <asm/irq.h>
 #include <asm/io.h>
-/* #include <mach/mt_reg_base.h> */
 #include <asm/div64.h>
 #include <mt-plat/aee.h>
-/* #include <mach/pmic_mt6325_sw.h> */
-/* #include <mach/upmu_common.h> */
-/* #include <mt-plat/upmu_common.h> */
-
-/* #include <mach/mt_gpio.h> */
-/* #include <mach/mt_typedefs.h> */
 #include <mt-plat/mt_gpio.h>
 
 #include <linux/clk.h>
@@ -75,7 +79,6 @@
 #include <sound/soc-dapm.h>
 #include <sound/pcm.h>
 #include <sound/jack.h>
-/* #include <asm/mach-types.h> */
 #include <sound/mt_soc_audio.h>
 
 #include "AudDrv_Common.h"
@@ -89,7 +92,7 @@
 #include "mt_soc_analog_type.h"
 #include "AudDrv_Common_func.h"
 
-/* #define EFUSE_HP_TRIM */
+
 #define CHIP_SRAM_SIZE (36*1024)
 
 /*

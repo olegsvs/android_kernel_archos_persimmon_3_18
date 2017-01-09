@@ -1,4 +1,18 @@
 /*
+* Copyright (C) 2016 MediaTek Inc.
+*
+* This program is free software: you can redistribute it and/or modify it under the terms of the
+* GNU General Public License version 2 as published by the Free Software Foundation.
+*
+* This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
+* without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+* See the GNU General Public License for more details.
+*
+* You should have received a copy of the GNU General Public License along with this program.
+* If not, see <http://www.gnu.org/licenses/>.
+*/
+
+/*
 ** Id: @(#) gl_p2p_cfg80211.c@@
 */
 
@@ -786,7 +800,8 @@ kalGetChnlList(IN P_GLUE_INFO_T prGlueInfo,
 	       IN ENUM_BAND_T eSpecificBand,
 	       IN UINT_8 ucMaxChannelNum, IN PUINT_8 pucNumOfChannel, IN P_RF_CHANNEL_INFO_T paucChannelList)
 {
-	rlmDomainGetChnlList(prGlueInfo->prAdapter, eSpecificBand, ucMaxChannelNum, pucNumOfChannel, paucChannelList);
+	rlmDomainGetChnlList(prGlueInfo->prAdapter, eSpecificBand, FALSE, ucMaxChannelNum,
+			     pucNumOfChannel, paucChannelList);
 }				/* kalGetChnlList */
 
 /* ////////////////////////////////////ICS SUPPORT////////////////////////////////////// */
@@ -882,7 +897,7 @@ VOID kalP2PIndicateScanDone(IN P_GLUE_INFO_T prGlueInfo, IN UINT_8 ucRoleIndex, 
 			ASSERT(FALSE);
 			break;
 		}
-		DBGLOG(P2P, EVENT, "scan complete, cfg80211 scan request is %p\n", prGlueInfo->prScanRequest);
+		DBGLOG(P2P, INFO, "scan complete, cfg80211 scan request is %p\n", prGlueInfo->prScanRequest);
 
 		GLUE_ACQUIRE_SPIN_LOCK(prGlueInfo, SPIN_LOCK_NET_DEV);
 
@@ -957,12 +972,17 @@ VOID kalP2PIndicateMgmtTxStatus(IN P_GLUE_INFO_T prGlueInfo, IN P_MSDU_INFO_T pr
 
 	do {
 		if ((prGlueInfo == NULL) || (prMsduInfo == NULL)) {
-			DBGLOG(P2P, WARN, "Unexpected pointer PARAM. 0x%lx, 0x%lx.\n", prGlueInfo, prMsduInfo);
+			DBGLOG(P2P, WARN, "Unexpected pointer PARAM. 0x%p, 0x%p.\n", prGlueInfo, prMsduInfo);
 			ASSERT(FALSE);
 			break;
 		}
 
 		prGlueP2pInfo = prGlueInfo->prP2PInfo;
+
+		if (!prMsduInfo->prPacket) {
+			DBGLOG(P2P, INFO, "Buffer Cookie has been freed, do not access cookie\n");
+			break;
+		}
 
 		pu8GlCookie =
 		    (PUINT_64) ((ULONG) prMsduInfo->prPacket +

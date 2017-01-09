@@ -60,6 +60,9 @@
 #define I2C_DMA_CON_RX			0x0001
 #define I2C_DMA_START_EN		0x0001
 #define I2C_DMA_INT_FLAG_NONE		0x0000
+#define I2C_DMA_CLR_FLAG		0x0000
+#define I2C_DMA_WARM_RST		0x0001
+#define I2C_DMA_4G_MODE			0x0001
 
 #define I2C_DEFAUT_SPEED		100000	/* hz */
 #define MAX_FS_MODE_SPEED		400000
@@ -93,6 +96,28 @@ enum DMA_REGS_OFFSET {
 	OFFSET_TX_LEN = 0x24,
 	OFFSET_RX_LEN = 0x28,
 	OFFSET_INT_BUF_SIZE = 0x38,
+	OFFSET_DEBUG_STA = 0x50,
+	OFFSET_TX_MEM_ADDR2 = 0x54,
+	OFFSET_RX_MEM_ADDR2 = 0x58,
+};
+
+struct i2c_dma_info {
+	unsigned long base;
+	unsigned int int_flag;
+	unsigned int int_en;
+	unsigned int en;
+	unsigned int rst;
+	unsigned int stop;
+	unsigned int flush;
+	unsigned int con;
+	unsigned int tx_mem_addr;
+	unsigned int rx_mem_addr;
+	unsigned int tx_len;
+	unsigned int rx_len;
+	unsigned int int_buf_size;
+	unsigned int debug_sta;
+	unsigned int tx_mem_addr2;
+	unsigned int rx_mem_addr2;
 };
 
 enum i2c_trans_st_rs {
@@ -109,6 +134,7 @@ enum mt_trans_op {
 	I2C_MASTER_WR = 1,
 	I2C_MASTER_RD,
 	I2C_MASTER_WRRD,
+	I2C_MASTER_MULTI_WR,
 };
 
 enum I2C_REGS_OFFSET {
@@ -153,10 +179,15 @@ struct i2c_dma_buf {
 };
 
 struct mt_i2c_ext {
-#define I2C_HWTRIG_FLAG		0x00000001
+#define I2C_A_FILTER_MSG	0x00000001
 	bool isEnable;
-	bool is_hw_trig;
+	bool isFilterMsg;
 	u32 timing;
+};
+
+struct mtk_i2c_compatible {
+	unsigned char dma_support;  /* 0 : original; 1: 4gb  support 2: 33bit support; 3: 36 bit support */
+	unsigned char idvfs_i2c;
 };
 
 struct mt_i2c {
@@ -176,12 +207,16 @@ struct mt_i2c {
 	bool have_pmic;			/* can use i2c pins form PMIC */
 	bool have_dcm;			/* HW DCM function */
 	bool use_push_pull;		/* IO config push-pull mode */
+	bool appm;			/* I2C for APPM */
+	bool gpupm;			/* I2C for GPUPM */
+	bool buffermode;	/* I2C Buffer mode support */
 	/* set when doing the transfer */
 	u16 irq_stat;			/* interrupt status */
 	unsigned int speed_hz;		/* The speed in transfer */
 	unsigned int clk_src_div;
 	bool trans_stop;		/* i2c transfer stop */
 	enum mt_trans_op op;
+	u16 total_len;
 	u16 msg_len;
 	u8 *msg_buf;			/* pointer to msg data */
 	u16 msg_aux_len;		/* WRRD mode to set AUX_LEN register*/
@@ -190,11 +225,30 @@ struct mt_i2c {
 	u16 high_speed_reg;
 	struct mutex i2c_mutex;
 	struct mt_i2c_ext ext_data;
+	bool is_hw_trig;
+	const struct mtk_i2c_compatible *dev_comp;
 };
 
-extern void i2c_dump_info(struct mt_i2c *i2c);
+#if defined(CONFIG_MTK_FPGA) || defined(CONFIG_FPGA_EARLY_PORTING)
+#define CONFIG_MT_I2C_FPGA_ENABLE
+#endif
 
+#if (defined(CONFIG_MT_I2C_FPGA_ENABLE))
+#define FPGA_CLOCK	12000	/* FPGA crystal frequency (KHz) */
+#define I2C_CLK_DIV	(5)	/* frequency divider*/
+#define I2C_CLK_RATE	((FPGA_CLOCK / I2C_CLK_DIV)	* 1000) /* Hz for FPGA I2C work frequency */
+#endif
+
+
+extern void i2c_dump_info(struct mt_i2c *i2c);
+extern void mt_irq_dump_status(unsigned int irq);
+extern unsigned int enable_4G(void);
 extern int mtk_i2c_transfer(struct i2c_adapter *adap, struct i2c_msg *msgs, int num,
 					u32 ext_flag, u32 timing);
+extern void mt_irq_dump_status(unsigned int irq);
+extern int hw_trig_i2c_enable(struct i2c_adapter *adap);
+extern int hw_trig_i2c_disable(struct i2c_adapter *adap);
+extern int hw_trig_i2c_transfer(struct i2c_adapter *adap, struct i2c_msg *msgs,
+		int num);
 
 #endif

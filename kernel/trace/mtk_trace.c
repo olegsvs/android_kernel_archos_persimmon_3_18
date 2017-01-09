@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #include <linux/ring_buffer.h>
 #include <linux/ftrace_event.h>
 #include "mtk_ftrace.h"
@@ -115,7 +128,7 @@ int resize_ring_buffer_for_hibernation(int enable)
 		tr = top_trace_array();
 		if (!tr)
 			return -ENODEV;
-			ret = tracing_resize_ring_buffer(tr, 0, RING_BUFFER_ALL_CPUS);
+		ret = tracing_resize_ring_buffer(tr, 0, RING_BUFFER_ALL_CPUS);
 	}
 
 	return ret;
@@ -123,9 +136,8 @@ int resize_ring_buffer_for_hibernation(int enable)
 #endif
 
 #ifdef CONFIG_MTK_SCHED_TRACERS
-bool boot_trace;
 static unsigned long buf_size = 25165824UL;
-
+static bool boot_trace;
 static __init int boot_trace_cmdline(char *str)
 {
 	boot_trace = true;
@@ -134,24 +146,52 @@ static __init int boot_trace_cmdline(char *str)
 }
 __setup("boot_trace", boot_trace_cmdline);
 
-void print_enabled_events(struct seq_file *m)
+#include <linux/rtc.h>
+void print_enabled_events(struct trace_buffer *buf, struct seq_file *m)
 {
 	struct ftrace_event_call *call;
 	struct ftrace_event_file *file;
 	struct trace_array *tr;
 
-	seq_puts(m, "# enabled events:");
-	/* mutex_lock(&event_mutex); */
-	list_for_each_entry(tr, &ftrace_trace_arrays, list) {
-		list_for_each_entry(file, &tr->events, list) {
-			call = file->event_call;
-			if (file->flags & FTRACE_EVENT_FL_ENABLED)
-				seq_printf(m, " %s:%s", call->class->system,
-					   ftrace_event_name(call));
-		}
+	unsigned long usec_rem;
+	unsigned long long t;
+	struct rtc_time tm_utc, tm;
+	struct timeval tv = { 0 };
+
+	if (buf->tr)
+		tr = buf->tr;
+	else
+		return;
+	if (tr->name != NULL)
+		seq_printf(m, "# instance: %s, enabled events:", tr->name);
+	else
+		seq_puts(m, "# enabled events:");
+	list_for_each_entry(file, &tr->events, list) {
+		call = file->event_call;
+		if (file->flags & FTRACE_EVENT_FL_ENABLED)
+			seq_printf(m, " %s:%s", call->class->system,
+				   ftrace_event_name(call));
 	}
-	/* mutex_unlock(&event_mutex); */
 	seq_puts(m, "\n");
+
+	t = sched_clock();
+	do_gettimeofday(&tv);
+	t = ns2usecs(t);
+	usec_rem = do_div(t, USEC_PER_SEC);
+	rtc_time_to_tm(tv.tv_sec, &tm_utc);
+	rtc_time_to_tm(tv.tv_sec - sys_tz.tz_minuteswest * 60, &tm);
+
+	seq_printf(m, "# kernel time now: %5llu.%06lu\n",
+		   t, usec_rem);
+	seq_printf(m, "# UTC time:\t%d-%02d-%02d %02d:%02d:%02d.%03u\n",
+			tm_utc.tm_year + 1900, tm_utc.tm_mon + 1,
+			tm_utc.tm_mday, tm_utc.tm_hour,
+			tm_utc.tm_min, tm_utc.tm_sec,
+			(unsigned int)tv.tv_usec);
+	seq_printf(m, "# android time:\t%d-%02d-%02d %02d:%02d:%02d.%03u\n",
+			tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
+			tm.tm_hour, tm.tm_min, tm.tm_sec,
+			(unsigned int)tv.tv_usec);
 }
 
 /* ftrace's switch function for MTK solution */
@@ -181,6 +221,7 @@ static void ftrace_events_enable(int enable)
 
 
 		trace_set_clr_event("mtk_events", NULL, 1);
+		trace_set_clr_event("mtk_nand", NULL, 1);
 		trace_set_clr_event("ipi", NULL, 1);
 
 		trace_set_clr_event("met_bio", NULL, 1);
@@ -196,10 +237,13 @@ static void ftrace_events_enable(int enable)
 static __init int boot_ftrace(void)
 {
 	struct trace_array *tr;
+	int ret;
 
 	if (boot_trace) {
 		tr = top_trace_array();
-		tracing_update_buffers();
+		ret = tracing_update_buffers();
+		if (ret != 0)
+			pr_debug("unable to expand buffer, ret=%d\n", ret);
 		ftrace_events_enable(1);
 		set_tracer_flag(tr, TRACE_ITER_OVERWRITE, 0);
 		pr_debug("[ftrace]boot-time profiling...\n");
@@ -211,6 +255,8 @@ core_initcall(boot_ftrace);
 #ifdef CONFIG_MTK_FTRACE_DEFAULT_ENABLE
 static __init int enable_ftrace(void)
 {
+	int ret;
+
 	if (!boot_trace) {
 		/* enable ftrace facilities */
 		ftrace_events_enable(1);
@@ -219,8 +265,12 @@ static __init int enable_ftrace(void)
 		 * if we want to collect boot-time ftrace
 		 * to avoid the boot time impacted by
 		 * early-expanded ring buffer */
-		tracing_update_buffers();
-		pr_debug("[ftrace]ftrace ready...\n");
+		ret = tracing_update_buffers();
+		if (ret != 0)
+			pr_debug("fail to update buffer, ret=%d\n",
+				 ret);
+		else
+			pr_debug("[ftrace]ftrace ready...\n");
 	}
 	return 0;
 }
@@ -247,8 +297,8 @@ hotplug_event_notify(struct notifier_block *self,
 		trace_cpu_hotplug(cpu, 1, per_cpu(last_event_ts, cpu));
 		per_cpu(last_event_ts, cpu) = ns2usecs(ftrace_now(cpu));
 		break;
-	case CPU_DEAD:
-	case CPU_DEAD_FROZEN:
+	case CPU_DYING:
+	case CPU_DYING_FROZEN:
 		trace_cpu_hotplug(cpu, 0, per_cpu(last_event_ts, cpu));
 		per_cpu(last_event_ts, cpu) = ns2usecs(ftrace_now(cpu));
 		break;

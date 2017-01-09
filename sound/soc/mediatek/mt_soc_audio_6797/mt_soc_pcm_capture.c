@@ -1,17 +1,19 @@
 /*
- * Copyright (C) 2007 The Android Open Source Project
+ * Copyright (C) 2015 MediaTek Inc.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ * You should have received a copy of the GNU General Public License
+ * along with this program
+ * If not, see <http://www.gnu.org/licenses/>.
  */
 /*******************************************************************************
  *
@@ -96,16 +98,16 @@ static struct snd_pcm_hardware mtk_capture_hardware = {
 
 static void StopAudioCaptureHardware(struct snd_pcm_substream *substream)
 {
-	pr_warn("StopAudioCaptureHardware\n");
+	pr_aud("StopAudioCaptureHardware\n");
 
-	/* here to set interrupt */
 	SetMemoryPathEnable(Soc_Aud_Digital_Block_I2S_IN_ADC, false);
 	if (GetMemoryPathEnable(Soc_Aud_Digital_Block_I2S_IN_ADC) == false)
 		SetI2SAdcEnable(false);
 
 	SetMemoryPathEnable(Soc_Aud_Digital_Block_MEM_VUL, false);
 
-	SetIrqEnable(Soc_Aud_IRQ_MCU_MODE_IRQ2_MCU_MODE, false);
+	/* here to set interrupt */
+	irq_remove_user(substream, Soc_Aud_IRQ_MCU_MODE_IRQ2_MCU_MODE);
 
 	/* here to turn off digital part */
 	SetConnection(Soc_Aud_InterCon_DisConnect, Soc_Aud_InterConnectionInput_I03, Soc_Aud_InterConnectionOutput_O09);
@@ -129,7 +131,7 @@ static void ConfigAdcI2S(struct snd_pcm_substream *substream)
 
 static void StartAudioCaptureHardware(struct snd_pcm_substream *substream)
 {
-	pr_warn("StartAudioCaptureHardware\n");
+	pr_aud("StartAudioCaptureHardware\n");
 
 	ConfigAdcI2S(substream);
 	SetI2SAdcIn(mAudioDigitalI2S);
@@ -156,9 +158,10 @@ static void StartAudioCaptureHardware(struct snd_pcm_substream *substream)
 	}
 
 	/* here to set interrupt */
-	SetIrqMcuCounter(Soc_Aud_IRQ_MCU_MODE_IRQ2_MCU_MODE, substream->runtime->period_size);
-	SetIrqMcuSampleRate(Soc_Aud_IRQ_MCU_MODE_IRQ2_MCU_MODE, substream->runtime->rate);
-	SetIrqEnable(Soc_Aud_IRQ_MCU_MODE_IRQ2_MCU_MODE, true);
+	irq_add_user(substream,
+		     Soc_Aud_IRQ_MCU_MODE_IRQ2_MCU_MODE,
+		     substream->runtime->rate,
+		     substream->runtime->period_size);
 
 	/* set memory */
 	SetSampleRate(Soc_Aud_Digital_Block_MEM_VUL, substream->runtime->rate);
@@ -175,7 +178,7 @@ static int mtk_capture_pcm_prepare(struct snd_pcm_substream *substream)
 static int mtk_capture_alsa_stop(struct snd_pcm_substream *substream)
 {
 	/* AFE_BLOCK_T *Vul_Block = &(VUL_Control_context->rBlock); */
-	pr_warn("mtk_capture_alsa_stop\n");
+	pr_aud("mtk_capture_alsa_stop\n");
 	StopAudioCaptureHardware(substream);
 	RemoveMemifSubStream(Soc_Aud_Digital_Block_MEM_VUL, substream);
 	return 0;
@@ -250,7 +253,6 @@ static void SetVULBuffer(struct snd_pcm_substream *substream,
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	AFE_BLOCK_T *pblock = &VUL_Control_context->rBlock;
 
-	pr_warn("SetVULBuffer\n");
 	pblock->pucPhysBufAddr =  runtime->dma_addr;
 	pblock->pucVirtBufAddr =  runtime->dma_area;
 	pblock->u4BufferSize = runtime->dma_bytes;
@@ -260,7 +262,7 @@ static void SetVULBuffer(struct snd_pcm_substream *substream,
 	pblock->u4DataRemained  = 0;
 	pblock->u4fsyncflag     = false;
 	pblock->uResetFlag      = true;
-	pr_warn("u4BufferSize = %d pucVirtBufAddr = %p pucPhysBufAddr = 0x%x\n",
+	pr_aud("u4BufferSize = %d pucVirtBufAddr = %p pucPhysBufAddr = 0x%x\n",
 	       pblock->u4BufferSize, pblock->pucVirtBufAddr, pblock->pucPhysBufAddr);
 	/* set memory address info to memif */
 	Afe_Set_Reg(AFE_VUL_BASE , pblock->pucPhysBufAddr , 0xffffffff);
@@ -275,23 +277,24 @@ static int mtk_capture_pcm_hw_params(struct snd_pcm_substream *substream,
 	struct snd_dma_buffer *dma_buf = &substream->dma_buffer;
 	int ret = 0;
 
-	pr_warn("mtk_capture_pcm_hw_params\n");
-
 	dma_buf->dev.type = SNDRV_DMA_TYPE_DEV;
 	dma_buf->dev.dev = substream->pcm->card->dev;
 	dma_buf->private_data = NULL;
 
-	if (mCaptureUseSram == true) {
-		runtime->dma_bytes = params_buffer_bytes(hw_params);
-		pr_warn("mtk_capture_pcm_hw_params mCaptureUseSram dma_bytes = %zu\n", runtime->dma_bytes);
-		substream->runtime->dma_area = (unsigned char *)Get_Afe_SramBase_Pointer();
-		substream->runtime->dma_addr = Get_Afe_Sram_Phys_Addr();
+	runtime->dma_bytes = params_buffer_bytes(hw_params);
+
+	if (AllocateAudioSram(&substream->runtime->dma_addr,	&substream->runtime->dma_area,
+		substream->runtime->dma_bytes, substream) == 0) {
+		pr_aud("AllocateAudioSram success\n");
+		SetHighAddr(Soc_Aud_Digital_Block_MEM_VUL, false);
 	} else if (Capture_dma_buf->area) {
-		pr_warn("Capture_dma_buf = %p Capture_dma_buf->area = %p apture_dma_buf->addr = 0x%lx\n",
+		pr_aud("Capture_dma_buf = %p Capture_dma_buf->area = %p apture_dma_buf->addr = 0x%lx\n",
 		       Capture_dma_buf, Capture_dma_buf->area, (long) Capture_dma_buf->addr);
-		runtime->dma_bytes = params_buffer_bytes(hw_params);
 		runtime->dma_area = Capture_dma_buf->area;
 		runtime->dma_addr = Capture_dma_buf->addr;
+		SetHighAddr(Soc_Aud_Digital_Block_MEM_VUL, true);
+		mCaptureUseSram = true;
+		AudDrv_Emi_Clk_On();
 	} else {
 		pr_warn("mtk_capture_pcm_hw_params snd_pcm_lib_malloc_pages\n");
 		ret =  snd_pcm_lib_malloc_pages(substream, params_buffer_bytes(hw_params));
@@ -299,17 +302,22 @@ static int mtk_capture_pcm_hw_params(struct snd_pcm_substream *substream,
 
 	SetVULBuffer(substream, hw_params);
 
-	pr_warn("mtk_capture_pcm_hw_params dma_bytes = %zu dma_area = %p dma_addr = 0x%lx\n",
+	pr_aud("mtk_capture_pcm_hw_params dma_bytes = %zu dma_area = %p dma_addr = 0x%lx\n",
 	       substream->runtime->dma_bytes, substream->runtime->dma_area, (long)substream->runtime->dma_addr);
 	return ret;
 }
 
 static int mtk_capture_pcm_hw_free(struct snd_pcm_substream *substream)
 {
-	pr_warn("mtk_capture_pcm_hw_free\n");
-	if (Capture_dma_buf->area)
+	pr_aud("mtk_capture_pcm_hw_free\n");
+	if (Capture_dma_buf->area) {
+		if (mCaptureUseSram == true) {
+			AudDrv_Emi_Clk_Off();
+			mCaptureUseSram = false;
+		} else
+			freeAudioSram((void *)substream);
 		return 0;
-	else
+	} else
 		return snd_pcm_lib_free_pages(substream);
 
 }
@@ -327,27 +335,6 @@ static int mtk_capture_pcm_open(struct snd_pcm_substream *substream)
 	AudDrv_Clk_On();
 	AudDrv_ADC_Clk_On();	/* TODO: sholud move to later sequence, where can have hires or not info */
 	VUL_Control_context = Get_Mem_ControlT(Soc_Aud_Digital_Block_MEM_VUL);
-
-	/* can allocate sram_dbg */
-	AfeControlSramLock();
-
-#ifndef CAPTURE_FORCE_USE_DRAM
-	if (GetSramState() ==  SRAM_STATE_FREE) {
-		pr_warn("mtk_capture_pcm_open use sram\n");
-		mtk_capture_hardware.buffer_bytes_max = GetCaptureSramSize();
-		/* TODO: KC: should update .period_bytes_max also? */
-		SetSramState(SRAM_STATE_CAPTURE);
-		mCaptureUseSram = true;
-	} else {
-		pr_warn("mtk_capture_pcm_open use dram\n");
-		mtk_capture_hardware.buffer_bytes_max = UL1_MAX_BUFFER_SIZE;
-	}
-#else
-	pr_warn("mtk_capture_pcm_open use dram\n");
-	mtk_capture_hardware.buffer_bytes_max = UL1_MAX_BUFFER_SIZE;
-#endif
-
-	AfeControlSramUnLock();
 
 	runtime->hw = mtk_capture_hardware;
 	memcpy((void *)(&(runtime->hw)), (void *)&mtk_capture_hardware , sizeof(struct snd_pcm_hardware));
@@ -367,22 +354,12 @@ static int mtk_capture_pcm_open(struct snd_pcm_substream *substream)
 		return ret;
 	}
 
-	if (mCaptureUseSram == false)
-		AudDrv_Emi_Clk_On();
-
-	pr_warn("mtk_capture_pcm_open return\n");
+	pr_aud("mtk_capture_pcm_open return\n");
 	return 0;
 }
 
 static int mtk_capture_pcm_close(struct snd_pcm_substream *substream)
 {
-	if (mCaptureUseSram == false)
-		AudDrv_Emi_Clk_Off();
-
-	if (mCaptureUseSram == true) {
-		ClearSramState(SRAM_STATE_CAPTURE);
-		mCaptureUseSram = false;
-	}
 	AudDrv_ADC_Clk_Off();
 	AudDrv_Clk_Off();
 	return 0;
@@ -390,7 +367,7 @@ static int mtk_capture_pcm_close(struct snd_pcm_substream *substream)
 
 static int mtk_capture_alsa_start(struct snd_pcm_substream *substream)
 {
-	pr_warn("mtk_capture_alsa_start\n");
+	pr_aud("mtk_capture_alsa_start\n");
 	SetMemifSubStream(Soc_Aud_Digital_Block_MEM_VUL, substream);
 	StartAudioCaptureHardware(substream);
 
@@ -399,7 +376,7 @@ static int mtk_capture_alsa_start(struct snd_pcm_substream *substream)
 
 static int mtk_capture_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 {
-	pr_warn("mtk_capture_pcm_trigger cmd = %d\n", cmd);
+	pr_aud("mtk_capture_pcm_trigger cmd = %d\n", cmd);
 
 	switch (cmd) {
 	case SNDRV_PCM_TRIGGER_START:

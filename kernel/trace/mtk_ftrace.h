@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #ifndef _MTK_FTRACE_H
 #define  _MTK_FTRACE_H
 
@@ -25,9 +38,10 @@ ssize_t tracing_resize_ring_buffer(struct trace_array *tr,
 				   unsigned long size, int cpu_id);
 
 #ifdef CONFIG_MTK_SCHED_TRACERS
-void print_enabled_events(struct seq_file *m);
+struct trace_buffer;
+void print_enabled_events(struct trace_buffer *buf, struct seq_file *m);
 void update_buf_size(unsigned long size);
 #else
-#define print_enabled_events(m)
-#endif /* CONFIG_TRACING && CONFIG_MTK_SCHED_TRACERS */
+#define print_enabled_events(b, m)
+#endif/* CONFIG_TRACING && CONFIG_MTK_SCHED_TRACERS */
 #endif

@@ -1,18 +1,15 @@
-/*************************************************************************************************
-imx135_otp.c
----------------------------------------------------------
-OTP Application file From Truly for imx135
-2013.01.14
----------------------------------------------------------
-NOTE:
-The modification is appended to initialization of image sensor.
-After sensor initialization, use the function , and get the id value.
-bool otp_wb_update(BYTE zone)
-and
-bool otp_lenc_update(BYTE zone),
-then the calibration of AWB and LSC will be applied.
-After finishing the OTP written, we will provide you the golden_rg and golden_bg settings.
-**************************************************************************************************/
+/*
+* Copyright (C) 2016 MediaTek Inc.
+*
+* This program is free software; you can redistribute it and/or modify
+* it under the terms of the GNU General Public License version 2 as
+* published by the Free Software Foundation.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+* See http://www.gnu.org/licenses/gpl-2.0.html for more details.
+*/
 
 #include <linux/videodev2.h>
 #include <linux/i2c.h>
@@ -596,10 +593,7 @@ bool otp_update(BYTE update_sensor_otp_awb, BYTE update_sensor_otp_lsc)
     BYTE MID = 0x00;
     int i;
 
-    LOG_INF("update_sensor_otp_awb: %d, update_sensor_otp_lsc: %d _otp_awb_set %d _otp_lsc_set%d\n",
-		update_sensor_otp_awb, update_sensor_otp_lsc, _otp_awb_set, _otp_lsc_set);
-    if(_otp_awb_set ==1 &&_otp_lsc_set ==1)
-		return 1;
+    LOG_INF("update_sensor_otp_awb: %d, update_sensor_otp_lsc: %d\n", update_sensor_otp_awb, update_sensor_otp_lsc );
 
     for(i=0;i<3;i++)
     {
@@ -628,25 +622,24 @@ bool otp_update(BYTE update_sensor_otp_awb, BYTE update_sensor_otp_lsc)
     }
 
     if(0 != update_sensor_otp_awb && _otp_awb_set == 0) {
+        if(otp_wb_update(zone)){
   		    spin_lock(&imx135_otp_lock);
             _otp_awb_set = 1;
             spin_unlock(&imx135_otp_lock);
-        if(otp_wb_update(zone)){
-	    return 0;
         }
     }
 
 
     if(0 != update_sensor_otp_lsc && _otp_lsc_set == 0)
     {
-        spin_lock(&imx135_otp_lock);
-        _otp_lsc_set = 1;
-     	spin_unlock(&imx135_otp_lock);
         if(!otp_lenc_update())
         {
             LOG_INF("OTP Update LSC Err\n");
             return 0;
         }
+		spin_lock(&imx135_otp_lock);
+        _otp_lsc_set = 1;
+     	spin_unlock(&imx135_otp_lock);
     }
     return 1;
 }

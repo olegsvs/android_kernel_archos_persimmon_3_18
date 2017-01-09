@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #ifndef USB_HW_H
 #define USB_HW_H
 
@@ -12,7 +25,10 @@
 #define SUPPORT_OTG
 #endif
 /* This should be defined if superspeed is supported */
+#if !defined(CONFIG_USB_MU3D_ONLY_U2_MODE)
 #define SUPPORT_U3
+#endif
+
 #ifdef SUPPORT_U3
 
 #define U3D_DFT_SPEED SSUSB_SPEED_SUPER
@@ -98,8 +114,12 @@ extern void __iomem *u3_base;
 extern void __iomem *u3_sif_base;
 extern void __iomem *u3_sif2_base;
 
-#ifdef CONFIG_MTK_FPGA
+#ifdef CONFIG_FPGA_EARLY_PORTING
+#ifdef USB_ELBRUS
+extern void __iomem *i2c_base;
+#else
 extern void __iomem *i2c1_base;
+#endif
 #endif
 
 /**

@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 
 #ifndef __RV_H__
 #define __RV_H__
@@ -11,9 +24,20 @@
 #include <linux/workqueue.h>
 #include <linux/slab.h>
 #include <linux/module.h>
-#include <linux/hwmsensor.h>
-#include <linux/earlysuspend.h>
-#include <linux/hwmsen_dev.h>
+
+#include <linux/i2c.h>
+#include <linux/irq.h>
+#include <linux/uaccess.h>
+#include <linux/delay.h>
+#include <linux/kobject.h>
+#include <linux/atomic.h>
+#include <linux/ioctl.h>
+
+#include <batch.h>
+#include <sensors_io.h>
+#include <hwmsen_helper.h>
+#include <hwmsensor.h>
+
 
 /* #define DEBUG */
 
@@ -36,11 +60,13 @@
 
 #define RV_INVALID_VALUE -1
 
-#define EVENT_TYPE_RV_X					ABS_RY
-#define EVENT_TYPE_RV_Y					ABS_RZ
-#define EVENT_TYPE_RV_Z					ABS_THROTTLE
-#define EVENT_TYPE_RV_SCALAR		ABS_RUDDER
+#define EVENT_TYPE_RV_X					REL_RX
+#define EVENT_TYPE_RV_Y					REL_RY
+#define EVENT_TYPE_RV_Z					REL_RZ
+#define EVENT_TYPE_RV_SCALAR			REL_WHEEL
 #define EVENT_TYPE_RV_STATUS			REL_X
+#define EVENT_TYPE_RV_TIMESTAMP_HI		REL_HWHEEL
+#define EVENT_TYPE_RV_TIMESTAMP_LO		REL_DIAL
 
 #define RV_VALUE_MAX (32767)
 #define RV_VALUE_MIN (-32768)
@@ -76,7 +102,7 @@ struct rotationvector_init_info {
 };
 
 struct rotationvector_data {
-	hwm_sensor_data rotationvector_data;
+	struct hwm_sensor_data rotationvector_data;
 	int data_updata;
 	/* struct mutex lock; */
 };
@@ -98,7 +124,6 @@ struct rotationvector_context {
 	struct timer_list timer;	/* polling timer */
 	atomic_t trace;
 
-	struct early_suspend early_drv;
 	atomic_t early_suspend;
 	/* struct rotationvector_drv_obj    drv_obj; */
 	struct rotationvector_data drv_data;
@@ -118,7 +143,7 @@ struct rotationvector_context {
 
 /* for auto detect */
 extern int rotationvector_driver_add(struct rotationvector_init_info *obj);
-extern int rotationvector_data_report(int x, int y, int z, int scalar, int status);
+extern int rotationvector_data_report(int x, int y, int z, int scalar, int status, int64_t nt);
 extern int rotationvector_register_control_path(struct rotationvector_control_path *ctl);
 extern int rotationvector_register_data_path(struct rotationvector_data_path *data);
 

@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #include <linux/module.h>
 #include <linux/proc_fs.h>
 #include <linux/uaccess.h>
@@ -625,13 +638,14 @@ static ssize_t stage1_store(struct kobject *kobj, struct kobj_attribute *attr,
 	int i, j;
 	int id;
 	int select;
-	struct msdc_host *host;
 	int ret;
+	struct msdc_host *host;
+
 	/* char *p_log; */
 	/* id = 3; */
 	select = -1;
 	/* sscanf(kobj->name, "%d", &id); */
-	kstrtoint(kobj->name, 0, &id);
+	ret = kstrtoint(kobj->name, 0, &id);
 
 	if (id >= HOST_MAX_NUM) {
 		pr_err("[%s] id<%d> is bigger than HOST_MAX_NUM<%d>\n", __func__, id, HOST_MAX_NUM);
@@ -654,7 +668,7 @@ static ssize_t stage1_store(struct kobject *kobj, struct kobj_attribute *attr,
 	switch (select) {
 	case VOLTAGE:
 		/* sscanf(buf, "%u", &cur_voltage[id]); */
-		kstrtou32(buf, 0, &cur_voltage[id]);
+		ret = kstrtou32(buf, 0, &cur_voltage[id]);
 		break;
 	case PARAMS:
 		memset(cur_name, 0, DEVNAME_SIZE);
@@ -704,12 +718,12 @@ static ssize_t stage1_store(struct kobject *kobj, struct kobj_attribute *attr,
 		break;
 	case DONE:
 		/* sscanf(buf, "%d", &i); */
-		kstrtoint(buf, 0, &i);
+		ret = kstrtoint(buf, 0, &i);
 		p_autok_thread_data->is_autok_done[id] = (u8) i;
 		break;
 	case LOG:
 		/* sscanf(buf, "%d", &i); */
-		kstrtoint(buf, 0, &i);
+		ret = kstrtoint(buf, 0, &i);
 		if (is_full_log != i) {
 			is_full_log = i;
 			if (i == 0) {
@@ -740,12 +754,13 @@ static ssize_t stage1_show(struct kobject *kobj, struct kobj_attribute *attr, ch
 	int id;
 	int len, count = 0;
 	int select;
+	int ret;
 	struct msdc_host *host;
 	/* char *p_log; */
 	/* id = 3; */
 
 	/* sscanf(kobj->name, "%d", &id); */
-	kstrtoint(kobj->name, 0, &id);
+	ret = kstrtoint(kobj->name, 0, &id);
 
 	if (id >= HOST_MAX_NUM) {
 		pr_err("[%s] id<%d> is bigger than HOST_MAX_NUM<%d>\n", __func__, id, HOST_MAX_NUM);
@@ -865,12 +880,13 @@ static ssize_t stage2_show(struct kobject *kobj, struct kobj_attribute *attr, ch
 	int count;
 	char data_buf[1024] = "";
 	int len = 0;
+	int ret;
 
 	id = 2;
 
 	count = 0;
 	/* sscanf(attr->attr.name, "%d", &id); */
-	kstrtoint(attr->attr.name, 0, &id);
+	ret = kstrtoint(attr->attr.name, 0, &id);
 
 /* =========================================================================// */
 	if (!sdio_host_debug) {
@@ -912,10 +928,12 @@ static ssize_t stage2_store(struct kobject *kobj, struct kobj_attribute *attr,
 			    const char *buf, size_t count)
 {
 	int id;
+	int ret;
 	struct msdc_host *host;
+
 	/* id = 3; */
 	/* sscanf(attr->attr.name, "%d", &id); */
-	kstrtoint(attr->attr.name, 0, &id);
+	ret = kstrtoint(attr->attr.name, 0, &id);
 
 	if (id >= HOST_MAX_NUM) {
 		pr_err("[%s] id<%d> is bigger than HOST_MAX_NUM<%d>\n", __func__, id, HOST_MAX_NUM);
@@ -1060,6 +1078,7 @@ static ssize_t host_store(struct kobject *kobj, struct kobj_attribute *attr,
 	int select;
 	int test_len, cur_len;
 	char cur_name[80];
+	int ret;
 
 	select = 0;
 	/* struct msdc_host *host; */
@@ -1078,7 +1097,7 @@ static ssize_t host_store(struct kobject *kobj, struct kobj_attribute *attr,
 	switch (select) {
 	case READY:
 		/* sscanf(buf, "%d", &id); */
-		kstrtoint(buf, 0, &id);
+		ret = kstrtoint(buf, 0, &id);
 		for (i = 0; i < HOST_MAX_NUM; i++) {
 			if (p_autok_thread_data->p_autok_progress[i].host_id == -1) {
 				/* p_autok_thread_data->p_autok_progress[i] = id; */
@@ -1099,7 +1118,7 @@ static ssize_t host_store(struct kobject *kobj, struct kobj_attribute *attr,
 		break;
 	case DEBUG:
 		/* sscanf(buf, "%d", &i); */
-		kstrtoint(buf, 0, &i);
+		ret = kstrtoint(buf, 0, &i);
 		sdio_host_debug = i;
 		break;
 	case SS_CORNER:

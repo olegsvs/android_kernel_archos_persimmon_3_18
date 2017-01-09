@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/device.h>
@@ -14,9 +27,11 @@
 #include "lastpc.h"
 
 static const struct of_device_id lastpc_of_ids[] = {
+	{ .compatible = "mediatek,lastpc-v1", },
 	{ .compatible = "mediatek,mt6580-mcucfg", },
 	{ .compatible = "mediatek,mt6735-mcucfg", },
 	{ .compatible = "mediatek,mt8163-mcucfg", },
+	{ .compatible = "mediatek,mt8167-mcucfg", },
 	{ .compatible = "mediatek,mt8173-mcucfg", },
 	{}
 };

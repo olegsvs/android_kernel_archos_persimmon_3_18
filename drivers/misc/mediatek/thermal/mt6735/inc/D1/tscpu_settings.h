@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #include "mt_gpufreq.h"
 /*=============================================================
  * Genernal
@@ -10,6 +23,7 @@
 /*=============================================================
  * CONFIG (SW related)
  *=============================================================*/
+#define ENALBE_SW_FILTER		(1)
 #define THERMAL_GET_AHB_BUS_CLOCK		    (0)
 #define THERMAL_PERFORMANCE_PROFILE         (0)
 
@@ -111,10 +125,8 @@ they means one reading is a avg of X samples */
  *REG ACCESS
  *=============================================================*/
 
-#define thermal_readl(addr)         DRV_Reg32(addr)
-#define thermal_writel(addr, val)   mt_reg_sync_writel((val), ((void *)addr))
-#define thermal_setl(addr, val)     mt_reg_sync_writel(thermal_readl(addr) | (val), ((void *)addr))
-#define thermal_clrl(addr, val)     mt_reg_sync_writel(thermal_readl(addr) & ~(val), ((void *)addr))
+#define thermal_setl(addr, val)     mt_reg_sync_writel(readl(addr) | (val), ((void *)addr))
+#define thermal_clrl(addr, val)     mt_reg_sync_writel(readl(addr) & ~(val), ((void *)addr))
 
 #define MTKTSCPU_TEMP_CRIT 120000	/* 120.000 degree Celsius */
 
@@ -135,16 +147,17 @@ they means one reading is a avg of X samples */
 /*=============================================================
  *LOG
  *=============================================================*/
+#define TSCPU_LOG_TAG		"[CPU_Thermal]"
 
 #define tscpu_dprintk(fmt, args...)   \
 	do {                                    \
 		if (tscpu_debug_log) {                \
-			pr_debug("[Power/CPU_Thermal]" fmt, ##args); \
+			pr_debug(TSCPU_LOG_TAG fmt, ##args); \
 		}                                   \
 	} while (0)
 
-#define tscpu_printk(fmt, args...) pr_debug("[Power/CPU_Thermal]" fmt, ##args)
-#define tscpu_warn(fmt, args...)  pr_warn("[Power/CPU_Thermal]" fmt, ##args)
+#define tscpu_printk(fmt, args...) pr_debug(TSCPU_LOG_TAG fmt, ##args)
+#define tscpu_warn(fmt, args...)  pr_warn(TSCPU_LOG_TAG fmt, ##args)
 /*=============================================================
  * Structures
  *=============================================================*/
@@ -175,6 +188,12 @@ enum thermal_state {
 	TSCPU_RESUME = 1,
 	TSCPU_NORMAL = 2,
 	TSCPU_INIT = 3
+};
+enum atm_state {
+	ATM_WAKEUP = 0,
+	ATM_CPULIMIT  = 1,
+	ATM_GPULIMIT  = 2,
+	ATM_DONE    = 3,
 };
 #endif
 
@@ -246,7 +265,6 @@ extern char *adaptive_cooler_name;
 extern unsigned int adaptive_cpu_power_limit;
 extern unsigned int adaptive_gpu_power_limit;
 extern int TARGET_TJS[MAX_CPT_ADAPTIVE_COOLERS];
-extern unsigned int get_adaptive_power_limit(int type);
 
 /*common/coolers/mtk_cooler_dtm.c*/
 extern unsigned int static_cpu_power_limit;
@@ -275,7 +293,7 @@ extern void tscpu_thermal_initial_all_bank(void);
 extern int tscpu_switch_bank(thermal_bank_name bank);
 extern void tscpu_thermal_read_bank_temp(thermal_bank_name bank, ts_e type, int order);
 extern void tscpu_thermal_cal_prepare(void);
-extern void tscpu_thermal_cal_prepare_2(U32 ret);
+extern void tscpu_thermal_cal_prepare_2(__u32 ret);
 extern irqreturn_t tscpu_thermal_all_bank_interrupt_handler(int irq, void *dev_id);
 extern int tscpu_thermal_clock_on(void);
 extern int tscpu_thermal_clock_off(void);
@@ -292,7 +310,6 @@ In drivers/misc/mediatek/auxadc/mt_auxadc.c
 It's not our api, ask them to provide header file
 */
 extern int IMM_IsAdcInitReady(void);
-/*aee related*/
 #if (CONFIG_THERMAL_AEE_RR_REC == 1)
 extern void aee_rr_rec_thermal_temp1(u8 val);
 extern void aee_rr_rec_thermal_temp2(u8 val);
@@ -300,6 +317,8 @@ extern void aee_rr_rec_thermal_temp3(u8 val);
 extern void aee_rr_rec_thermal_temp4(u8 val);
 extern void aee_rr_rec_thermal_temp5(u8 val);
 extern void aee_rr_rec_thermal_status(u8 val);
+extern void aee_rr_rec_thermal_ATM_status(u8 val);
+extern void aee_rr_rec_thermal_ktime(u64 val);
 
 extern u8 aee_rr_curr_thermal_temp1(void);
 extern u8 aee_rr_curr_thermal_temp2(void);
@@ -307,4 +326,7 @@ extern u8 aee_rr_curr_thermal_temp3(void);
 extern u8 aee_rr_curr_thermal_temp4(void);
 extern u8 aee_rr_curr_thermal_temp5(void);
 extern u8 aee_rr_curr_thermal_status(void);
+extern u8 aee_rr_curr_thermal_ATM_status(void);
+extern u64 aee_rr_curr_thermal_ktime(void);
 #endif
+/*aee related*/

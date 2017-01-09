@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/init.h>
@@ -420,12 +433,16 @@ enum hrtimer_restart ledTimeOutCallback(struct hrtimer *timer)
 static struct hrtimer g_timeOutTimer;
 void timerInit(void)
 {
-	INIT_WORK(&workTimeOut, work_timeOutFunc);
-	g_timeOutTimeMs = 1000;
-	hrtimer_init(&g_timeOutTimer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
-	g_timeOutTimer.function = ledTimeOutCallback;
-}
+	static int init_flag;
 
+	if (init_flag == 0) {
+		init_flag = 1;
+		INIT_WORK(&workTimeOut, work_timeOutFunc);
+		g_timeOutTimeMs = 1000;
+		hrtimer_init(&g_timeOutTimer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+		g_timeOutTimer.function = ledTimeOutCallback;
+	}
+}
 
 
 static int constant_flashlight_ioctl(unsigned int cmd, unsigned long arg)
@@ -567,7 +584,7 @@ MUINT32 constantFlashlightInit(PFLASHLIGHT_FUNCTION_STRUCT *pfFunc)
 		*pfFunc = &constantFlashlightFunc;
 	return 0;
 }
-
+EXPORT_SYMBOL(constantFlashlightInit);
 
 
 /* LED flash control for high current capture mode*/

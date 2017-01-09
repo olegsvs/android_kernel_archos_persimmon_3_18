@@ -30,6 +30,7 @@ config ARM
 	select HAVE_ARCH_AUDITSYSCALL if (AEABI && !OABI_COMPAT)
 	select HAVE_ARCH_JUMP_LABEL if !XIP_KERNEL
 	select HAVE_ARCH_KGDB
+	select HAVE_ARCH_MMAP_RND_BITS if MMU
 	select HAVE_ARCH_SECCOMP_FILTER if (AEABI && !OABI_COMPAT)
 	select HAVE_ARCH_TRACEHOOK
 	select HAVE_BPF_JIT
@@ -211,6 +212,15 @@ config GENERIC_ISA_DMA
 config FIQ
 	bool
 
+config MTK_NO_ATF
+    bool
+    default n
+
+config MTK_KERNEL_IN_SECURE_MODE
+    bool
+    depends on (!TRUSTY) && (!TRUSTONIC_TEE_SUPPORT) && (MTK_NO_ATF)
+    default y
+
 config NEED_RET_TO_USER
 	bool
 
@@ -295,6 +305,14 @@ config MMU
 	help
 	  Select if you want MMU-based virtualised addressing space
 	  support by paged memory management. If unsure, say 'Y'.
+
+config ARCH_MMAP_RND_BITS_MIN
+	default 8
+
+config ARCH_MMAP_RND_BITS_MAX
+	default 14 if PAGE_OFFSET=0x40000000
+	default 15 if PAGE_OFFSET=0x80000000
+	default 16
 
 #
 # The "ARM system type" choice list is ordered alphabetically by option
@@ -934,8 +952,42 @@ config ARCH_MT6580
 	select MTK_CPU_STRESS
 	select MTK_IRQ_NEW_DESIGN
 	select MTK_IRQ_NEW_DESIGN_DEBUG
+	select MTK_NO_ATF
 	help
 	  This enable support for MediaTek MT6580
+
+
+config ARCH_MT6570
+	bool "MediaTek MT6570"
+	select GENERIC_TIME
+	select GENERIC_CLOCKEVENTS
+	select ARCH_HAS_CPUFREQ
+	select ARM_AMBA
+	select CPU_V7
+	select FIQ_GLUE if (!TRUSTONIC_TEE_SUPPORT && !TRUSTY)
+	select HAVE_SMP
+	select NEED_MACH_MEMORY_H
+	select IRQ_DOMAIN
+	select IRQ_DOMAIN_DEBUG
+	select GENERIC_SCHED_CLOCK
+	select VFP_OPT
+	select KERNEL_MODE_NEON
+	select CRYPTO_AES_ARM_BS
+	select CRYPTO_SHA2_ARM_CE
+	select MTK_BASE_POWER
+	select ARM_HAS_SG_CHAIN
+	select MTK_EIC
+	select PINCTRL
+	select PINCTRL_MT6570
+	select MFD_SYSCON
+	select ARM_ERRATA_814220
+	select MTK_IRQ_NEW_DESIGN
+	select MTK_IRQ_NEW_DESIGN_DEBUG
+	select MTK_NO_ATF
+	help
+	  This enable support for MediaTek MT6570.
+
+
 
 config ARCH_MT6755
 	bool "MediaTek MT6755"
@@ -951,9 +1003,8 @@ config ARCH_MT6755
 	select GENERIC_SCHED_CLOCK
 	select ARCH_REQUIRE_GPIOLIB
 	select MTK_SYS_CIRQ
+	select MTK_GIC
 	select MTK_EIC
-	select ARMV7_COMPAT
-        select ARMV7_COMPAT_CPUINFO
 	select CPU_IDLE
 	select PINCTRL
 	select KERNEL_MODE_NEON
@@ -962,12 +1013,62 @@ config ARCH_MT6755
 	select MTK_BASE_POWER
 	select ARM_HAS_SG_CHAIN
 	select COMMON_CLK if !MTK_CLKMGR
-	select PINCTRL_MT6735
 	select PINCTRL_MT6755
 	select MTK_POWER_GS
-	select MTK_LM_MODE
+	select MTK_LM_MODE if !MTK_GMO_RAM_OPTIMIZE
+	select POWER_SUPPLY
+	select MTK_IRQ_NEW_DESIGN
+	select MTK_IRQ_NEW_DESIGN_DEBUG
+	select MTK_SYSTRACKER_V2
+	select MTK_TIMER
+	select ARM_ERRATA_855873
 	help
 	  This enable support for MediaTek MT6755
+
+config ARCH_MT6755_TURBO
+	bool "MediaTek MT6755 Turbo"
+	help
+	  This enables support for MediaTek MT6755 turbo mode
+	  Support for k55tv1 related projects
+	  CPU: 1.25 + 2.15 GHZ
+	  GPU: 800 MHZ
+
+config ARCH_MT6757
+    bool "MediaTek MT6757"
+    select GENERIC_TIME
+    select GENERIC_CLOCKEVENTS
+    select ARCH_HAS_CPUFREQ
+    select ARM_AMBA
+    select CPU_V7
+    select HAVE_SMP
+    select NEED_MACH_MEMORY_H
+    select IRQ_DOMAIN
+    select IRQ_DOMAIN_DEBUG
+    select GENERIC_SCHED_CLOCK
+    select MTK_SYS_CIRQ
+    select MTK_EIC
+    select ARMV7_COMPAT
+    select ARMV7_COMPAT_CPUINFO
+    select CPU_IDLE
+    select PINCTRL
+    select PINCTRL_MT6757
+    select MFD_SYSCON
+    select MTK_BASE_POWER
+    select MTK_SYSTRACKER_V2
+    select MTK_GIC_V3_EXT
+    select ARM_GIC_V3
+    select MTK_LM_MODE
+    select MTK_EIC_HISTORY_DUMP
+    select ARM_HAS_SG_CHAIN
+    select MTK_TIMER
+    select POWER_SUPPLY
+    help
+      This enables support for MediaTek MT6757
+      Support for aarch64/aarch32 Architecture
+      Support for fpga6757_64 related projects
+      Support for evb6757_64 related projects
+      Support for k57_64 related projects
+
 
 config ARCH_MT8127
 	bool "MediaTek MT8127"
@@ -989,10 +1090,36 @@ config ARCH_MT8127
 	select MFD_SYSCON
 	select CPU_IDLE
 	select ARM_ERRATA_814220
+    select MTK_SYS_CIRQ
+    select MTK_GIC_EXT
 	help
 	  This enable support for MediaTek MT8127
 
-
+config ARCH_MT7623
+    bool "MediaTek MT7623"
+    select ARCH_MEDIATEK
+    select SPARSE_IRQ
+    select COMMON_CLK if !MTK_CLKMGR
+    select GENERIC_CLOCKEVENTS
+    select ARM_AMBA
+    select CPU_V7
+    select HAVE_SMP
+    select NEED_MACH_MEMORY_H
+    select IRQ_DOMAIN
+    select IRQ_DOMAIN_DEBUG
+    select ARCH_REQUIRE_GPIOLIB
+    select KERNEL_MODE_NEON
+    select CRYPTO_AES_ARM_BS
+    select ARM_HAS_SG_CHAIN
+    select MTK_BASE_POWER
+    select MFD_SYSCON
+    select CPU_IDLE
+    select ARM_ERRATA_814220
+    select MIGHT_HAVE_PCI
+    select MTK_SYS_CIRQ
+    select MTK_GIC_EXT
+    help
+      This enable support for MediaTek MT7623
 
 endchoice
 
@@ -1497,6 +1624,24 @@ config ARM_ERRATA_836870
 
           ATF and Preloader are already enable this patch in default in 32-bit and 64 bit project, so
           we could enable this kernel config in default.
+
+config ARM_ERRATA_855873
+	bool "ARM errata: An eviction might overtake a cache clean operation"
+	help
+	  This option enables the workaround for the 855873 Cortex-A53
+	  (up to r0p4) erratum. Because of this erratum, the processor
+	  might issue an eviction and an L2 cache clean operation to
+	  the interconnect in the wrong order.
+
+config ARM_ERRATA_824069
+	bool "ARM errata: Cache line might not be marked as clean after a CleanShared snoop"
+	help
+	  This option enables the workaround for the 824069 Cortex-A53
+	  (up to r0p2) erratum. If a Cortex-A53 processor is executing
+	  a store or PLDW instruction at the same time as a processor
+	  in another cluster is executing a cache maintenance operation
+	  to the same address, then this erratum might cause
+	  a clean cache line to be incorrectly marked as dirty.
 
 endmenu
 

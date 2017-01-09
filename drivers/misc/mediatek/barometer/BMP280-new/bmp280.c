@@ -82,6 +82,7 @@ enum BAR_TRC {
 	BAR_TRC_RAWDATA = 0x02,
 	BAR_TRC_IOCTL   = 0x04,
 	BAR_TRC_FILTER  = 0x08,
+	BAR_TRC_INFO  = 0x10,
 };
 
 /* s/w filter */
@@ -120,8 +121,8 @@ struct bmp_i2c_data {
 	u8 hw_filter;
 	u8 oversampling_p;
 	u8 oversampling_t;
-	u32 last_temp_measurement;
-	u32 temp_measurement_period;
+	unsigned long last_temp_measurement;
+	unsigned long temp_measurement_period;
 	struct bmp280_calibration_data bmp280_cali;
 
 	/* calculated temperature correction coefficient */
@@ -252,7 +253,7 @@ static int bmp_i2c_write_block(struct i2c_client *client, u8 addr,
 		/* register address */
 		buffer[0] = addr + offset;
 
-		if (left > C_I2C_FIFO_SIZE) {
+		if (left >= C_I2C_FIFO_SIZE) {
 			memcpy(&buffer[1], &txbuf[offset], C_I2C_FIFO_SIZE - 1);
 			msg.len = C_I2C_FIFO_SIZE;
 			left -= C_I2C_FIFO_SIZE - 1;
@@ -307,7 +308,7 @@ static int bmp_get_chip_type(struct i2c_client *client)
 	u8 chip_id = 0;
 	struct bmp_i2c_data *obj = i2c_get_clientdata(client);
 
-	BAR_FUN(f);
+	/* BAR_FUN(f); */
 
 	err = bmp_i2c_read_block(client, BMP_CHIP_ID_REG, &chip_id, 0x01);
 	if (err != 0)
@@ -318,16 +319,17 @@ static int bmp_get_chip_type(struct i2c_client *client)
 	case BMP280_CHIP_ID2:
 	case BMP280_CHIP_ID3:
 		obj->sensor_type = BMP280_TYPE;
-		strcpy(obj->sensor_name, "bmp280");
+		strncpy(obj->sensor_name, "bmp280", sizeof(obj->sensor_name));
 		break;
 	default:
 		obj->sensor_type = INVALID_TYPE;
-		strcpy(obj->sensor_name, "unknown sensor");
+		strncpy(obj->sensor_name, "unknown sensor", sizeof(obj->sensor_name));
 		break;
 	}
 
-	BAR_LOG("[%s]chip id = %#x, sensor name = %s\n", __func__,
-		chip_id, obj->sensor_name);
+	if (atomic_read(&obj->trace) & BAR_TRC_INFO)
+		BAR_LOG("[%s]chip id = %#x, sensor name = %s\n", __func__,
+			chip_id, obj->sensor_name);
 
 	if (obj->sensor_type == INVALID_TYPE) {
 		BAR_ERR("unknown pressure sensor\n");
@@ -398,8 +400,9 @@ static int bmp_set_powermode(struct i2c_client *client,
 	struct bmp_i2c_data *obj = i2c_get_clientdata(client);
 	u8 err = 0, data = 0, actual_power_mode = 0;
 
-	BAR_LOG("[%s] power_mode = %d, old power_mode = %d\n", __func__,
-		power_mode, obj->power_mode);
+	if (atomic_read(&obj->trace) & BAR_TRC_INFO)
+		BAR_LOG("[%s] power_mode = %d, old power_mode = %d\n", __func__,
+			power_mode, obj->power_mode);
 
 	if (power_mode == obj->power_mode)
 		return 0;
@@ -441,8 +444,9 @@ static int bmp_set_filter(struct i2c_client *client,
 	struct bmp_i2c_data *obj = i2c_get_clientdata(client);
 	u8 err = 0, data = 0, actual_filter = 0;
 
-	BAR_LOG("[%s] hw filter = %d, old hw filter = %d\n", __func__,
-		filter, obj->hw_filter);
+	if (atomic_read(&obj->trace) & BAR_TRC_INFO)
+		BAR_LOG("[%s] hw filter = %d, old hw filter = %d\n", __func__,
+			filter, obj->hw_filter);
 
 	if (filter == obj->hw_filter)
 		return 0;
@@ -490,8 +494,9 @@ static int bmp_set_oversampling_p(struct i2c_client *client,
 	struct bmp_i2c_data *obj = i2c_get_clientdata(client);
 	u8 err = 0, data = 0, actual_oversampling_p = 0;
 
-	BAR_LOG("[%s] oversampling_p = %d, old oversampling_p = %d\n", __func__,
-		oversampling_p, obj->oversampling_p);
+	if (atomic_read(&obj->trace) & BAR_TRC_INFO)
+		BAR_LOG("[%s] oversampling_p = %d, old oversampling_p = %d\n", __func__,
+			oversampling_p, obj->oversampling_p);
 
 	if (oversampling_p == obj->oversampling_p)
 		return 0;
@@ -541,8 +546,9 @@ static int bmp_set_oversampling_t(struct i2c_client *client,
 	struct bmp_i2c_data *obj = i2c_get_clientdata(client);
 	u8 err = 0, data = 0, actual_oversampling_t = 0;
 
-	BAR_LOG("[%s] oversampling_t = %d, old oversampling_t = %d\n", __func__,
-		oversampling_t, obj->oversampling_t);
+	if (atomic_read(&obj->trace) & BAR_TRC_INFO)
+		BAR_LOG("[%s] oversampling_t = %d, old oversampling_t = %d\n", __func__,
+			oversampling_t, obj->oversampling_t);
 
 	if (oversampling_t == obj->oversampling_t)
 		return 0;
@@ -589,13 +595,15 @@ static int bmp_set_oversampling_t(struct i2c_client *client,
 static int bmp_read_raw_temperature(struct i2c_client *client,
 			s32 *temperature)
 {
-	struct bmp_i2c_data *obj = i2c_get_clientdata(client);
+	struct bmp_i2c_data *obj;
 	s32 err = 0;
 
 	if (NULL == client) {
 		err = -EINVAL;
 		return err;
 	}
+
+	obj = i2c_get_clientdata(client);
 
 	mutex_lock(&obj->lock);
 
@@ -623,13 +631,15 @@ static int bmp_read_raw_temperature(struct i2c_client *client,
 
 static int bmp_read_raw_pressure(struct i2c_client *client, s32 *pressure)
 {
-	struct bmp_i2c_data *priv = i2c_get_clientdata(client);
+	struct bmp_i2c_data *priv;
 	s32 err = 0;
 
 	if (NULL == client) {
 		err = -EINVAL;
 		return err;
 	}
+
+	priv = i2c_get_clientdata(client);
 
 	mutex_lock(&priv->lock);
 
@@ -707,7 +717,7 @@ static int bmp_read_raw_pressure(struct i2c_client *client, s32 *pressure)
 static int bmp_get_temperature(struct i2c_client *client,
 		char *buf, int bufsize)
 {
-	struct bmp_i2c_data *obj = i2c_get_clientdata(client);
+	struct bmp_i2c_data *obj;
 	int status;
 	s32 utemp = 0;/* uncompensated temperature */
 	s32 temperature = 0;
@@ -719,6 +729,8 @@ static int bmp_get_temperature(struct i2c_client *client,
 		*buf = 0;
 		return -2;
 	}
+
+	obj = i2c_get_clientdata(client);
 
 	status = bmp_read_raw_temperature(client, &utemp);
 	if (status != 0)
@@ -745,8 +757,11 @@ static int bmp_get_temperature(struct i2c_client *client,
 	}
 
 	sprintf(buf, "%08x", temperature);
-	if (atomic_read(&obj->trace) & BAR_TRC_IOCTL)
+	if (atomic_read(&obj->trace) & BAR_TRC_IOCTL) {
+		BAR_LOG("temperature: %d\n", temperature);
+		BAR_LOG("temperature/100: %d\n", temperature/100);
 		BAR_LOG("compensated temperature value: %s\n", buf);
+	}
 
 	return status;
 }
@@ -757,7 +772,7 @@ static int bmp_get_temperature(struct i2c_client *client,
 */
 static int bmp_get_pressure(struct i2c_client *client, char *buf, int bufsize)
 {
-	struct bmp_i2c_data *obj = i2c_get_clientdata(client);
+	struct bmp_i2c_data *obj;
 	int status;
 	s32 temperature = 0, upressure = 0, pressure = 0;
 	char temp_buf[BMP_BUFSIZE];
@@ -770,8 +785,13 @@ static int bmp_get_pressure(struct i2c_client *client, char *buf, int bufsize)
 		return -2;
 	}
 
+	obj = i2c_get_clientdata(client);
+
 	/* update the ambient temperature according to the given meas. period */
-	if (time_before((unsigned long)(obj->last_temp_measurement +
+	/* below method will have false problem when jiffies wrap around. so replace */
+/*	if (obj->last_temp_measurement +
+			obj->temp_measurement_period < jiffies) {*/
+	if (time_before_eq((unsigned long)(obj->last_temp_measurement +
 			obj->temp_measurement_period), jiffies)) {
 
 		status = bmp_get_temperature(client,
@@ -819,8 +839,11 @@ static int bmp_get_pressure(struct i2c_client *client, char *buf, int bufsize)
 	}
 
 	sprintf(buf, "%08x", pressure);
-	if (atomic_read(&obj->trace) & BAR_TRC_IOCTL)
+	if (atomic_read(&obj->trace) & BAR_TRC_IOCTL) {
+		BAR_LOG("pressure: %d\n", pressure);
+		BAR_LOG("pressure/100: %d\n", pressure/100);
 		BAR_LOG("compensated pressure value: %s\n", buf);
+	}
 exit:
 	return status;
 }
@@ -830,7 +853,7 @@ static int bmp_init_client(struct i2c_client *client)
 {
 	int err = 0;
 
-	BAR_FUN();
+	/* BAR_FUN(); */
 
 	err = bmp_get_chip_type(client);
 	if (err < 0) {
@@ -1317,7 +1340,7 @@ static long bmp_unlocked_ioctl(struct file *file, unsigned int cmd,
 			err = -EINVAL;
 			break;
 		}
-		strcpy(strbuf, obj->sensor_name);
+		strncpy(strbuf, obj->sensor_name, sizeof(strbuf));
 		if (copy_to_user(data, strbuf, strlen(strbuf)+1)) {
 			err = -EFAULT;
 			break;
@@ -1412,13 +1435,15 @@ static int bmp_suspend(struct i2c_client *client, pm_message_t msg)
 	struct bmp_i2c_data *obj = i2c_get_clientdata(client);
 	int err = 0;
 
-	BAR_FUN();
+	if (NULL == obj) {
+		BAR_ERR("null pointer\n");
+		return -EINVAL;
+	}
+
+	if (atomic_read(&obj->trace) & BAR_TRC_INFO)
+		BAR_FUN();
 
 	if (msg.event == PM_EVENT_SUSPEND) {
-		if (NULL == obj) {
-			BAR_ERR("null pointer\n");
-			return -EINVAL;
-		}
 
 		atomic_set(&obj->suspend, 1);
 		err = bmp_set_powermode(obj->client, BMP_SUSPEND_MODE);
@@ -1436,12 +1461,13 @@ static int bmp_resume(struct i2c_client *client)
 	struct bmp_i2c_data *obj = i2c_get_clientdata(client);
 	int err;
 
-	BAR_FUN();
-
 	if (NULL == obj) {
 		BAR_ERR("null pointer\n");
 		return -EINVAL;
 	}
+
+	if (atomic_read(&obj->trace) & BAR_TRC_INFO)
+		BAR_FUN();
 
 	bmp_power(obj->hw, 1);
 
@@ -1468,7 +1494,7 @@ static int bmp_resume(struct i2c_client *client)
 static int bmp_i2c_detect(struct i2c_client *client,
 		struct i2c_board_info *info)
 {
-	strcpy(info->type, BMP_DEV_NAME);
+	strncpy(info->type, BMP_DEV_NAME, sizeof(info->type));
 	return 0;
 }
 
@@ -1480,6 +1506,7 @@ static int bmp_open_report_data(int open)
 
 static int bmp_enable_nodata(int en)
 {
+	struct bmp_i2c_data *obj = i2c_get_clientdata(obj_i2c_data->client);
 	int res = 0;
 	int retry = 0;
 	bool power = false;
@@ -1499,6 +1526,7 @@ static int bmp_enable_nodata(int en)
 		}
 		BAR_ERR("bmp_set_powermode fail\n");
 	}
+	obj->last_temp_measurement = jiffies - obj->temp_measurement_period;
 
 
 	if (res != 0) {

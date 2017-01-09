@@ -431,13 +431,11 @@ void gpio_irq_cbp_rst_ind(void)
 
 	level = !!c2k_gpio_get_value(cbp_rst_ind->rst_ind_gpio);
 	if (level != cbp_rst_ind->rst_ind_polar) {	/*1:cbp reset happened */
-		if (cdata->modem) {
-			LOGPRT(LOG_INFO, "%s: set md off.\n", __func__);
-			spin_lock_irqsave(&cdata->modem->status_lock, flags);
-			cdata->modem->status = MD_OFF;
-			spin_unlock_irqrestore(&cdata->modem->status_lock,
-					       flags);
-		}
+		LOGPRT(LOG_INFO, "%s: set md off.\n", __func__);
+		spin_lock_irqsave(&cdata->modem->status_lock, flags);
+		cdata->modem->status = MD_OFF;
+		spin_unlock_irqrestore(&cdata->modem->status_lock,
+				       flags);
 #ifdef CONFIG_EVDO_DT_VIA_SUPPORT
 		wake_up(&cbp_flow_ctrl->wait_q);
 		wake_up(&cbp_data_ack->wait_q);
@@ -475,7 +473,6 @@ static irqreturn_t gpio_irq_cbp_excp_ind(int irq, void *data)
 
 static irqreturn_t c2k_wdt_isr(int irq, void *data)
 {
-	unsigned long flags;
 	struct cbp_platform_data *cdata = &cbp_data;
 
 	LOGPRT(LOG_ERR,
@@ -484,10 +481,6 @@ static irqreturn_t c2k_wdt_isr(int irq, void *data)
 	dump_c2k_iram();
 	/*wake_lock_timeout(&cmdata->wlock, MDM_RST_LOCK_TIME *HZ); */
 	modem_notify_event(MDM_EVT_NOTIFY_WDT);
-
-	spin_lock_irqsave(&cdata->modem->status_lock, flags);
-	cdata->modem->status = MD_OFF;
-	spin_unlock_irqrestore(&cdata->modem->status_lock, flags);
 
 	atomic_set(&cdata->modem->tx_fifo_cnt, TX_FIFO_SZ);
 	wake_up(&cdata->modem->wait_tx_done_q);
@@ -618,7 +611,7 @@ static ssize_t cbp_reset_store(struct kobject *kobj,
 	if (val) {
 		/*sys_reset_cbp(); */
 		/*c2k_modem_reset_platform(); */
-		c2k_reset_modem();
+		c2k_reset_modem(0);
 
 		LOGPRT(LOG_INFO, "AP reset CBP.\n");
 	} else
@@ -897,7 +890,6 @@ static int cbp_probe(struct platform_device *pdev)
 		ret =
 		    c2k_gpio_request_irq(plat->gpio_cp_exception,
 					 gpio_irq_cbp_excp_ind,
-					 IRQF_SHARED | IRQF_TRIGGER_RISING |
 					 IRQF_TRIGGER_FALLING,
 					 DRIVER_NAME "(c2k EE)", cbp_excp_ind);
 #if defined(CONFIG_MTK_LEGACY)

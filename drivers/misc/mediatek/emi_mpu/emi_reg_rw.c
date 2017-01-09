@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/interrupt.h>
@@ -58,8 +71,8 @@ unsigned int mt_emi_reg_read(unsigned int offset)
 	return 0;
 }
 
-int mt_emi_mpu_set_region_protection(unsigned int start,
-				     unsigned int end,
+int mt_emi_mpu_set_region_protection(unsigned long long start,
+				     unsigned long long end,
 				     unsigned int region_permission)
 {
 #if defined(CONFIG_ARM_PSCI) || defined(CONFIG_MTK_PSCI)

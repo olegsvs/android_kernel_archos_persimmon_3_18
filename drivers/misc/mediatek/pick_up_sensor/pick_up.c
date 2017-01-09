@@ -1,11 +1,23 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #include "pick_up.h"
 
 static struct pkup_context *pkup_context_obj;
 
 static struct pkup_init_info *pick_up_init = { 0 };	/* modified */
 
-static void pkup_early_suspend(struct early_suspend *h);
-static void pkup_late_resume(struct early_suspend *h);
+
 
 static int resume_enable_status;
 
@@ -181,7 +193,7 @@ static ssize_t pkup_show_active(struct device *dev, struct device_attribute *att
 	return snprintf(buf, PAGE_SIZE, "%d\n", cxt->is_active_data);
 }
 
-static ssize_t pkup_store_delay(struct device *dev, struct device_attribute *attr, char *buf)
+static ssize_t pkup_store_delay(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
 {
 	int len = 0;
 
@@ -235,10 +247,16 @@ static ssize_t pkup_show_flush(struct device *dev, struct device_attribute *attr
 
 static ssize_t pkup_show_devnum(struct device *dev, struct device_attribute *attr, char *buf)
 {
-	char *devname = NULL;
+	const char *devname = NULL;
+	struct input_handle *handle;
 
-	devname = dev_name(&pkup_context_obj->idev->dev);
-	return snprintf(buf, PAGE_SIZE, "%s\n", devname + 5);	/* TODO: why +5? */
+	list_for_each_entry(handle, &pkup_context_obj->idev->h_list, d_node)
+		if (strncmp(handle->name, "event", 5) == 0) {
+			devname = handle->name;
+			break;
+		}
+
+	return snprintf(buf, PAGE_SIZE, "%s\n", devname + 5);
 }
 
 static int pick_up_remove(struct platform_device *pdev)
@@ -313,7 +331,7 @@ static int pkup_misc_init(struct pkup_context *cxt)
 
 	/* kernel-3.10\include\linux\Miscdevice.h */
 	/* use MISC_DYNAMIC_MINOR exceed 64 */
-	cxt->mdev.minor = M_PKUP_MISC_MINOR;
+	cxt->mdev.minor = MISC_DYNAMIC_MINOR;
 	cxt->mdev.name = PKUP_MISC_DEV_NAME;
 
 	err = misc_register(&cxt->mdev);
@@ -419,7 +437,7 @@ int pkup_register_control_path(struct pkup_control_path *ctl)
 	return 0;
 }
 
-static int pkup_probe(struct platform_device *pdev)
+static int pkup_probe(void)
 {
 	int err;
 
@@ -443,13 +461,6 @@ static int pkup_probe(struct platform_device *pdev)
 		PKUP_ERR("unable to register pkup input device!\n");
 		goto exit_alloc_input_dev_failed;
 	}
-#if defined(CONFIG_HAS_EARLYSUSPEND) && defined(CONFIG_EARLYSUSPEND)
-	atomic_set(&(pkup_context_obj->early_suspend), 0);
-	pkup_context_obj->early_drv.level = EARLY_SUSPEND_LEVEL_STOP_DRAWING - 1,
-	    pkup_context_obj->early_drv.suspend = pkup_early_suspend,
-	    pkup_context_obj->early_drv.resume = pkup_late_resume,
-	    register_early_suspend(&pkup_context_obj->early_drv);
-#endif				/* #if defined(CONFIG_HAS_EARLYSUSPEND) && defined(CONFIG_EARLYSUSPEND) */
 
 	PKUP_LOG("----pkup_probe OK !!\n");
 	return 0;
@@ -467,7 +478,7 @@ exit_alloc_data_failed:
 	return err;
 }
 
-static int pkup_remove(struct platform_device *pdev)
+static int pkup_remove(void)
 {
 	int err = 0;
 
@@ -482,80 +493,11 @@ static int pkup_remove(struct platform_device *pdev)
 	kfree(pkup_context_obj);
 	return 0;
 }
-
-static void pkup_early_suspend(struct early_suspend *h)
-{
-	atomic_set(&(pkup_context_obj->early_suspend), 1);
-	if (!atomic_read(&pkup_context_obj->wake))	/* not wake up, disable in early suspend */
-		pkup_real_enable(PKUP_SUSPEND);
-
-	PKUP_LOG(" pkup_early_suspend ok------->hwm_obj->early_suspend=%d\n",
-		 atomic_read(&(pkup_context_obj->early_suspend)));
-}
-
-/*----------------------------------------------------------------------------*/
-static void pkup_late_resume(struct early_suspend *h)
-{
-	atomic_set(&(pkup_context_obj->early_suspend), 0);
-	if (!atomic_read(&pkup_context_obj->wake) && resume_enable_status)
-		pkup_real_enable(PKUP_RESUME);
-
-	PKUP_LOG(" pkup_late_resume ok------->hwm_obj->early_suspend=%d\n",
-		 atomic_read(&(pkup_context_obj->early_suspend)));
-}
-
-#if !defined(CONFIG_HAS_EARLYSUSPEND) || !defined(USE_EARLY_SUSPEND)
-static int pkup_suspend(struct platform_device *dev, pm_message_t state)
-{
-	atomic_set(&(pkup_context_obj->suspend), 1);
-	if (!atomic_read(&pkup_context_obj->wake))/* not wake up, disable in early suspend */
-		pkup_real_enable(PKUP_SUSPEND);
-
-	PKUP_LOG(" pkup_suspend ok------->hwm_obj->suspend=%d\n",
-		 atomic_read(&(pkup_context_obj->suspend)));
-	return 0;
-}
-
-/*----------------------------------------------------------------------------*/
-static int pkup_resume(struct platform_device *dev)
-{
-	atomic_set(&(pkup_context_obj->suspend), 0);
-	if (!atomic_read(&pkup_context_obj->wake) && resume_enable_status)
-		pkup_real_enable(PKUP_RESUME);
-
-	PKUP_LOG(" pkup_resume ok------->hwm_obj->suspend=%d\n",
-		 atomic_read(&(pkup_context_obj->suspend)));
-	return 0;
-}
-#endif	/* #if !defined(CONFIG_HAS_EARLYSUSPEND) || !defined(USE_EARLY_SUSPEND) */
-
-#ifdef CONFIG_OF
-static const struct of_device_id m_pkup_pl_of_match[] = {
-	{.compatible = "mediatek,m_pkup_pl",},
-	{},
-};
-#endif
-
-static struct platform_driver pkup_driver = {
-	.probe = pkup_probe,
-	.remove = pkup_remove,
-#if !defined(CONFIG_HAS_EARLYSUSPEND) || !defined(USE_EARLY_SUSPEND)
-	.suspend = pkup_suspend,
-	.resume = pkup_resume,
-#endif
-	.driver = {
-		   .name = PKUP_PL_DEV_NAME,
-#ifdef CONFIG_OF
-		   .of_match_table = m_pkup_pl_of_match,
-#endif
-		   }
-};
-
 static int __init pkup_init(void)
 {
 	PKUP_FUN();
 
-	if (platform_driver_register(&pkup_driver)) {
+	if (pkup_probe()) {
 		PKUP_ERR("failed to register pkup driver\n");
 		return -ENODEV;
 	}
@@ -565,7 +507,7 @@ static int __init pkup_init(void)
 
 static void __exit pkup_exit(void)
 {
-	platform_driver_unregister(&pkup_driver);
+	pkup_remove();
 	platform_driver_unregister(&pick_up_driver);
 }
 

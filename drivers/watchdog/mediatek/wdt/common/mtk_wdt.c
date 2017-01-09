@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #include <linux/init.h>		/* For init/exit macros */
 #include <linux/module.h>	/* For MODULE_ marcros  */
 #include <linux/kernel.h>
@@ -9,7 +22,7 @@
 #include <linux/spinlock.h>
 #include <linux/watchdog.h>
 #include <linux/platform_device.h>
-
+#include <linux/irqchip/mtk-gic-extend.h>
 #include <asm/uaccess.h>
 #include <linux/types.h>
 #include "mt_wdt.h"
@@ -34,7 +47,7 @@
 #include <linux/reset.h>
 
 void __iomem *toprgu_base = 0;
-int wdt_irq_id = 0;
+unsigned int wdt_irq_id = 0;
 #define AP_RGU_WDT_IRQ_ID    wdt_irq_id
 
 #define DRV_NAME "mtk-wdt"
@@ -510,7 +523,9 @@ static void wdt_fiq(void *arg, void *regs, void *svc_sp)
 #else				/* CONFIG_FIQ_GLUE */
 static irqreturn_t mtk_wdt_isr(int irq, void *dev_id)
 {
+	writel(__raw_readl(MTK_WDT_STATUS), MTK_WDT_NONRST_REG);
 	pr_err("fwq mtk_wdt_isr\n");
+
 #ifndef __USING_DUMMY_WDT_DRV__	/* FPGA will set this flag */
 
 	wdt_report_info();
@@ -528,8 +543,6 @@ static int mtk_wdt_probe(struct platform_device *dev)
 {
 	int ret = 0;
 	unsigned int interval_val;
-
-	pr_err("******** MTK WDT driver probe!! ********\n");
 
 	if (!toprgu_base) {
 		toprgu_base = of_iomap(dev->dev.of_node, 0);
@@ -549,11 +562,12 @@ static int mtk_wdt_probe(struct platform_device *dev)
 
 #ifndef __USING_DUMMY_WDT_DRV__	/* FPGA will set this flag */
 #ifndef CONFIG_FIQ_GLUE
-	pr_debug("******** MTK WDT register irq ********\n");
+	pr_err("*** MTK WDT register irq ***\n");
 	ret = request_irq(AP_RGU_WDT_IRQ_ID, (irq_handler_t)mtk_wdt_isr,
 			  IRQF_TRIGGER_NONE, DRV_NAME, NULL);
 #else
-	pr_debug("******** MTK WDT register fiq ********\n");
+	wdt_irq_id = get_hardware_irq(wdt_irq_id);
+	pr_err("*** MTK WDT register fiq: fiq number is %d ***\n", wdt_irq_id);
 	ret = request_fiq(AP_RGU_WDT_IRQ_ID, wdt_fiq, IRQF_TRIGGER_FALLING, NULL);
 #endif
 
@@ -561,8 +575,6 @@ static int mtk_wdt_probe(struct platform_device *dev)
 		pr_err("mtk_wdt_probe : failed to request irq (%d)\n", ret);
 		return ret;
 	}
-	pr_debug("mtk_wdt_probe : Success to request irq\n");
-
 
 	/* Set timeout vale and restart counter */
 	g_last_time_time_out_value = 30;
@@ -585,7 +597,6 @@ static int mtk_wdt_probe(struct platform_device *dev)
 #define KERNEL_MAGIC		(0x2)
 #define MAGIC_NUM_MASK		(0x3)
 
-
 #ifdef CONFIG_MTK_WD_KICKER	/* Initialize to dual mode */
 	pr_debug("mtk_wdt_probe : Initialize to dual mode\n");
 	mtk_wdt_mode_config(TRUE, TRUE, TRUE, FALSE, TRUE);
@@ -603,10 +614,8 @@ static int mtk_wdt_probe(struct platform_device *dev)
 	writel(interval_val, MTK_WDT_INTERVAL);
 #endif
 	udelay(100);
-	pr_debug("mtk_wdt_probe : done WDT_MODE(%x),MTK_WDT_NONRST_REG(%x)\n",
+	pr_err("mtk_wdt_probe: WDT_MODE(%x),MTK_WDT_NONRST_REG(%x)\n",
 		__raw_readl(MTK_WDT_MODE), __raw_readl(MTK_WDT_NONRST_REG));
-	pr_debug("mtk_wdt_probe : done MTK_WDT_REQ_MODE(%x)\n", __raw_readl(MTK_WDT_REQ_MODE));
-	pr_debug("mtk_wdt_probe : done MTK_WDT_REQ_IRQ_EN(%x)\n", __raw_readl(MTK_WDT_REQ_IRQ_EN));
 
 	toprgu_register_reset_controller(dev->dev.of_node, toprgu_base, 0x18);
 
@@ -657,6 +666,23 @@ void mtk_wd_resume(void)
 	pr_debug("[WDT] resume(%d)\n", g_wdt_enable);
 }
 
+int mtk_wd_SetNonResetReg2(unsigned int offset, bool value)
+{
+	unsigned int tmp;
+
+	spin_lock(&rgu_reg_operation_spinlock);
+
+	tmp = __raw_readl(MTK_WDT_NONRST_REG2);
+	if (value)
+		tmp |= 1 << offset;
+	else
+		tmp &= ~(1 << offset);
+	writel(tmp, MTK_WDT_NONRST_REG2);
+
+	spin_unlock(&rgu_reg_operation_spinlock);
+
+	return __raw_readl(MTK_WDT_NONRST_REG2);
+}
 static struct platform_driver mtk_wdt_driver = {
 	.probe = mtk_wdt_probe,
 	.remove = mtk_wdt_remove,
@@ -669,6 +695,30 @@ static struct platform_driver mtk_wdt_driver = {
 	},
 };
 
+/* this function is for those user who need WDT APIs before WDT driver's probe */
+static int __init mtk_wdt_get_base_addr(void)
+{
+	struct device_node *np_rgu = NULL;
+	int i;
+
+	for (i = 0; rgu_of_match[i].compatible; i++) {
+		np_rgu = of_find_compatible_node(NULL, NULL, rgu_of_match[i].compatible);
+		if (np_rgu)
+			break;
+	}
+
+	if (!toprgu_base) {
+		toprgu_base = of_iomap(np_rgu, 0);
+		if (!toprgu_base)
+			pr_err("RGU iomap failed\n");
+
+		pr_debug("RGU base: 0x%p\n", toprgu_base);
+	}
+
+	return 0;
+}
+
+core_initcall(mtk_wdt_get_base_addr);
 module_platform_driver(mtk_wdt_driver);
 
 MODULE_AUTHOR("MTK");

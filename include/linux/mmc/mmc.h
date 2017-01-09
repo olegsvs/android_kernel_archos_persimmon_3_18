@@ -53,11 +53,6 @@
 #define MMC_SEND_TUNING_BLOCK    19   /* adtc                    R1  */
 #define MMC_SEND_TUNING_BLOCK_HS200	21	/* adtc R1  */
 
-#define MMC_TUNING_BLK_PATTERN_4BIT_SIZE	 64
-#define MMC_TUNING_BLK_PATTERN_8BIT_SIZE	128
-extern const u8 tuning_blk_pattern_4bit[MMC_TUNING_BLK_PATTERN_4BIT_SIZE];
-extern const u8 tuning_blk_pattern_8bit[MMC_TUNING_BLK_PATTERN_8BIT_SIZE];
-
   /* class 3 */
 #define MMC_WRITE_DAT_UNTIL_STOP 20   /* adtc [31:0] data addr   R1  */
 
@@ -88,6 +83,13 @@ extern const u8 tuning_blk_pattern_8bit[MMC_TUNING_BLK_PATTERN_8BIT_SIZE];
   /* class 8 */
 #define MMC_APP_CMD              55   /* ac   [31:16] RCA        R1  */
 #define MMC_GEN_CMD              56   /* adtc [0] RD/WR          R1  */
+
+  /* class 11 */
+#define MMC_SET_QUEUE_CONTEXT    44   /* ac   [31:0] data addr   R1  */
+#define MMC_QUEUE_READ_ADDRESS   45   /* ac   [31:0] data addr   R1  */
+#define MMC_READ_REQUESTED_QUEUE 46   /* adtc                    R1  */
+#define MMC_WRITE_REQUESTED_QUEUE 47  /* adtc                    R1  */
+#define MMC_CMDQ_TASK_MGMT       48   /* ac                      R1b */
 
 static inline bool mmc_op_multi(u32 opcode)
 {

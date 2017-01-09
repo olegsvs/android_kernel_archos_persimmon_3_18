@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #ifndef _XHCI_MTK_H
 #define _XHCI_MTK_H
 
@@ -105,13 +118,32 @@
 #define XHCI_SIF_REGS_ADDR_RES_NAME		"ssusb_sif"
 #define XHCI_SIF2_REGS_ADDR_RES_NAME	"ssusb_sif2"
 
+#define K_ALET	(1<<6)
+#define K_CRIT	(1<<5)
+#define K_ERR	(1<<4)
+#define K_WARNIN	(1<<3)
+#define K_NOTICE	(1<<2)
+#define K_INFO		(1<<1)
+#define K_DEBUG	(1<<0)
+
+/*Set the debug level for xhci driver*/
+extern u32 xhci_debug_level;
+
 extern struct xhci_hcd *mtk_xhci;
 
+#define mtk_xhci_mtk_printk(level, fmt, args...) do { \
+		if (xhci_debug_level & level) { \
+			pr_debug("[XHCI]" fmt, ## args); \
+		} \
+	} while (0)
+
 extern int mtk_xhci_ip_init(struct usb_hcd *hcd, struct xhci_hcd *xhci);
+extern int get_num_u3_ports(struct xhci_hcd *xhci);
+extern int get_num_u2_ports(struct xhci_hcd *xhci);
 
 extern void mtk_xhci_ck_timer_init(struct xhci_hcd *);
-void mtk_xhci_set(struct usb_hcd *hcd, struct xhci_hcd *xhci);
-void mtk_xhci_reset(struct xhci_hcd *xhci);
+extern int mtk_xhci_set(struct usb_hcd *hcd, struct xhci_hcd *xhci);
+extern void mtk_xhci_reset(struct xhci_hcd *xhci);
 extern bool mtk_is_host_mode(void);
 
 #ifdef CONFIG_USB_MTK_DUALMODE

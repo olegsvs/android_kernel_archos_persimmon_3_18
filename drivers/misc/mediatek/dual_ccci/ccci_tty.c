@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 /*****************************************************************************
  *
  * Filename:
@@ -235,13 +248,37 @@ static void ccci_tty_callback(void *private)
 		}
 	}
 }
+#ifdef DUMP_CHANNEL_DATA
+#define DUMP_BUF_SIZE 200
+static void ccci_ch_dump(int md_id, char *str, void *msg_buf, int len)
+{
+	unsigned char *char_ptr = (unsigned char *)msg_buf;
+	char buf[DUMP_BUF_SIZE];
+	int i, j;
+
+	for (i = 0, j = 0; i < len && i < DUMP_BUF_SIZE && j + 4 < DUMP_BUF_SIZE; i++) {
+		if (((32 <= char_ptr[i]) && (char_ptr[i] <= 126))) {
+			buf[j++] = char_ptr[i];
+		} else {
+			if (DUMP_BUF_SIZE - j > 4) {
+				snprintf(buf+j, DUMP_BUF_SIZE-j, "[%02X]", char_ptr[i]);
+				j += 4;
+			} else {
+				buf[j++] = '.';
+			}
+		}
+	}
+	buf[j] = '\0';
+	CCCI_MSG_INF(md_id, "tty", "%s %d>%s\n", str, len, buf);
+}
+#endif
 
 static ssize_t ccci_tty_read(struct file *file, char *buf, size_t count,
 			     loff_t *ppos)
 {
 	struct tty_instance_t *tty_instance = (struct tty_instance_t *) file->private_data;
 
-	int part, size, ret = 0;
+	int part = 0, size = 0, ret = 0;
 	int value;
 	unsigned read, write, length;
 	struct ccci_msg_t msg;
@@ -249,6 +286,9 @@ static ssize_t ccci_tty_read(struct file *file, char *buf, size_t count,
 	int md_id = tty_instance->m_md_id;
 	int data_be_read;
 	char *u_buf = buf;
+#ifdef DUMP_CHANNEL_DATA
+	char dump_buf[DUMP_BUF_SIZE] = {0};
+#endif
 
 	read = tty_instance->shared_mem->rx_control.read;
 	write = tty_instance->shared_mem->rx_control.write;
@@ -258,7 +298,7 @@ static ssize_t ccci_tty_read(struct file *file, char *buf, size_t count,
 	do {
 		size = ccci_tty_readable(tty_instance);
 
-		if (size == 0) {
+		if (size <= 0) {
 			if (file->f_flags & O_NONBLOCK) {
 				ret = -EAGAIN;
 				goto out;
@@ -281,7 +321,7 @@ static ssize_t ccci_tty_read(struct file *file, char *buf, size_t count,
 		} else
 			break;
 
-	} while (size == 0);
+	} while (size <= 0);
 
 	data_be_read = (int)count;
 	if (tty_debug_enable[md_id] & (1UL << tty_instance->idx))
@@ -310,6 +350,10 @@ static ssize_t ccci_tty_read(struct file *file, char *buf, size_t count,
 			ret = -EFAULT;
 			goto out;
 		}
+#ifdef DUMP_CHANNEL_DATA
+		memcpy(dump_buf, &rx_buffer[read],
+			(part > DUMP_BUF_SIZE - 1 ? DUMP_BUF_SIZE - 1 : part));
+#endif
 		/*  Copy second part */
 		if (copy_to_user(&u_buf[part], rx_buffer, data_be_read - part)) {
 			CCCI_MSG_INF(md_id, "tty",
@@ -321,17 +365,27 @@ static ssize_t ccci_tty_read(struct file *file, char *buf, size_t count,
 			ret = -EFAULT;
 			goto out;
 		}
+#ifdef DUMP_CHANNEL_DATA
+		if (part < DUMP_BUF_SIZE)
+			memcpy(dump_buf + part, rx_buffer,
+				((data_be_read - part) > DUMP_BUF_SIZE - part - 1 ?
+					DUMP_BUF_SIZE - part - 1 : data_be_read - part));
+#endif
 	} else {
 		/*  Just need read once */
 		if (copy_to_user(u_buf, &rx_buffer[read], data_be_read)) {
 			CCCI_MSG_INF(md_id, "tty",
-				     "read: copy_to_user fail:u_buf=%08x,rx_buffer=0x%08x,read=%d,size=%d ret=%d line=%d\n",
-				     (unsigned int)u_buf,
-				     (unsigned int)rx_buffer, read,
-				     data_be_read, ret, __LINE__);
+				"read: copy_to_user fail:u_buf=%08x,rx_buffer=0x%08x,read=%d,size=%d ret=%d line=%d\n",
+				(unsigned int)u_buf,
+				(unsigned int)rx_buffer, read,
+				data_be_read, ret, __LINE__);
 			ret = -EFAULT;
 			goto out;
 		}
+#ifdef DUMP_CHANNEL_DATA
+		memcpy(dump_buf, &rx_buffer[read],
+			(data_be_read > DUMP_BUF_SIZE - 1 ? DUMP_BUF_SIZE - 1 : data_be_read));
+#endif
 	}
 
 	/*  Update read pointer */
@@ -359,7 +413,11 @@ static ssize_t ccci_tty_read(struct file *file, char *buf, size_t count,
 	}
 
 	ret = data_be_read;
-
+#ifdef DUMP_CHANNEL_DATA
+	if (tty_instance->uart_rx_ack == CCCI_UART2_RX_ACK)
+		ccci_ch_dump(md_id, "chr_read", dump_buf,
+			(data_be_read > DUMP_BUF_SIZE - 1 ? DUMP_BUF_SIZE - 1 : data_be_read));
+#endif
  out:
 	if (tty_debug_enable[md_id] & (1UL << tty_instance->idx))
 		CCCI_DBG_MSG(md_id, "tty",
@@ -375,13 +433,16 @@ static ssize_t ccci_tty_write(struct file *file, const char __user *buf,
 			      size_t count, loff_t *ppos)
 {
 	struct tty_instance_t *tty_instance = (struct tty_instance_t *) file->private_data;
-	int ret = 0, part;
+	int ret = 0, part = 0;
 	int data_be_write, size, value;
 	unsigned read, write, length;
 	int xmit_retry = 0;
 	struct ccci_msg_t msg;
 	char *tx_buffer;
 	int md_id = tty_instance->m_md_id;
+#ifdef DUMP_CHANNEL_DATA
+	char dump_buf[DUMP_BUF_SIZE] = {0};
+#endif
 
 	if (count == 0)
 		return 0;
@@ -481,7 +542,16 @@ static ssize_t ccci_tty_write(struct file *file, const char __user *buf,
 			goto out;
 		}
 	}
-
+#ifdef DUMP_CHANNEL_DATA
+	ret = copy_from_user(dump_buf, buf, (data_be_write > DUMP_BUF_SIZE - 1 ? DUMP_BUF_SIZE - 1 : data_be_write));
+	if (ret) {
+		CCCI_MSG_INF(md_id, "tty",
+			"write bk temp: copy from user fail:tx_buffer=0x%08x,write=%d, buf=%08x, part=%d ret=%d line=%d\n",
+			(unsigned int)tx_buffer, write,
+			(unsigned int)buf, part, ret, __LINE__);
+		ret = 0;
+	}
+#endif
 	/*  Updata read pointer */
 	write += data_be_write;
 	if (write >= length)
@@ -522,7 +592,11 @@ static ssize_t ccci_tty_write(struct file *file, const char __user *buf,
 	} else {
 		ret = data_be_write;
 	}
-
+#ifdef DUMP_CHANNEL_DATA
+	if (tty_instance->uart_tx == CCCI_UART2_TX)
+		ccci_ch_dump(md_id, "chr_write", dump_buf,
+			(data_be_write > DUMP_BUF_SIZE - 1 ? DUMP_BUF_SIZE-1 : data_be_write));
+#endif
  out:
 	if (tty_debug_enable[md_id] & (1UL << tty_instance->idx))
 		CCCI_DBG_MSG(md_id, "tty",
@@ -873,12 +947,21 @@ int ccci_tty_init(int md_id)
 	else if (md_id == MD_SYS2)
 		snprintf(ctlb->node_name, 16, "ccci%d_tty", md_id + 1);
 
-	ccci_uart_base_req(md_id, 0, (int *)&ctlb->uart1_shared_mem, &smem_phy, &smem_size);
+	ret = ccci_uart_base_req(md_id, 0, (int *)&ctlb->uart1_shared_mem,
+		&smem_phy, &smem_size);
+	if (ret) {
+		CCCI_MSG_INF(md_id, "tty", "[Error]ccci_uart_base_req ret=%d\n", ret);
+		goto _DEL_TTY_DRV;
+	}
 	/* CCCI_DBG_MSG(md_id, "tty", "TTY0 %x:%x:%d\n", (unsigned int)ctlb->uart1_shared_mem,  */
 	/*             (unsigned int)smem_phy, smem_size); */
 
 	/*  Get tty config information */
-	ccci_get_sub_module_cfg(md_id, "tty", (char *)&tty_buf_len, sizeof(int));
+	if (ccci_get_sub_module_cfg(md_id, "tty",
+		(char *)&tty_buf_len, sizeof(int)) != sizeof(int)) {
+		CCCI_MSG_INF(md_id, "tty", "[Error]get tty version fail\n");
+		goto _DEL_TTY_DRV;
+	}
 	tty_buf_len = (tty_buf_len - sizeof(struct shared_mem_tty_t)) / 2;
 	ctlb->tty_buf_size = tty_buf_len;
 
@@ -1008,7 +1091,8 @@ int ccci_tty_init(int md_id)
 
  _RELEASE_CTL_MEMORY:
 	kfree(ctlb);
-	tty_ctlb[md_id] = NULL;
+	if (md_id >= 0 && md_id < MAX_MD_NUM)
+		tty_ctlb[md_id] = NULL;
 
 	return ret;
 }

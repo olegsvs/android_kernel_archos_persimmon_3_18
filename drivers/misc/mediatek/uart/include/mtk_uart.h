@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #ifndef __MTK_UART_H__
 #define __MTK_UART_H__
 
@@ -97,6 +110,7 @@ struct mtk_uart_setting {
 	u8 hw_flow;		/*support hardware flow control or not?! */
 	u8 vff;			/*support vfifo or not!? */
 	u16 _align;
+	bool support_33bits;
 };
 /*---------------------------------------------------------------------------*/
 #define C_UART_DEBUG_BUF_NUM (5)
@@ -190,6 +204,8 @@ struct mtk_uart {
 	int fctl_mode;		/*flow control */
 	int poweron_count;
 	int timeout_count;	/*for console write */
+	int cnt1;	/*for console write */
+	int cnt2;	/*for console write */
 
 	unsigned int fcr_back_up;	/* FCR register is a write only register */
 

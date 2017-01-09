@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 /******************************************************************************
 *
  *
@@ -107,6 +120,9 @@ define for PCM settings
 #define Dl2_MAX_BUFFER_SIZE     (48*1024)
 #define Dl2_MIN_PERIOD_SIZE       1
 #define Dl2_MAX_PERIOD_SIZE     Dl2_MAX_BUFFER_SIZE
+#define Dl3_MAX_BUFFER_SIZE     (32*1024)
+#define Dl3_MIN_PERIOD_SIZE       1
+#define Dl3_MAX_PERIOD_SIZE     Dl3_MAX_BUFFER_SIZE
 
 #define MAX_BUFFER_SIZE     (32*1024)
 #define MIN_PERIOD_SIZE       1
@@ -116,7 +132,7 @@ define for PCM settings
 #define UL1_MIN_PERIOD_SIZE       1
 #define UL1_MAX_PERIOD_SIZE     UL1_MAX_BUFFER_SIZE
 
-#define UL2_MAX_BUFFER_SIZE     (64*1024)
+#define UL2_MAX_BUFFER_SIZE     (32*1024)
 #define UL2_MIN_PERIOD_SIZE       1
 #define UL2_MAX_PERIOD_SIZE     UL2_MAX_BUFFER_SIZE
 
@@ -124,7 +140,10 @@ define for PCM settings
 #define AWB_MIN_PERIOD_SIZE       1
 #define AWB_MAX_PERIOD_SIZE     AWB_MAX_BUFFER_SIZE
 
-#define HDMI_MAX_BUFFER_SIZE     (192*1024)
+#define MOD_DAI_MAX_BUFFER_SIZE     (16*1024)
+#define MOD_DAI_MIN_PERIOD_SIZE       (1)
+#define MOD_DAI_MAX_PERIOD_SIZE     MOD_DAI_MAX_BUFFER_SIZE
+#define HDMI_MAX_BUFFER_SIZE     (384*1024)
 #define HDMI_MIN_PERIOD_SIZE       1
 #define HDMI_MAX_PERIODBYTE_SIZE     HDMI_MAX_BUFFER_SIZE
 #define HDMI_MAX_2CH_16BIT_PERIOD_SIZE     (HDMI_MAX_PERIODBYTE_SIZE/(2*2)) /* 2 channels , 16bits */
@@ -170,13 +189,14 @@ define for PCM settings
 #define SOC_NORMAL_USE_CHANNELS_MIN    1
 #define SOC_NORMAL_USE_CHANNELS_MAX    2
 #define SOC_NORMAL_USE_PERIODS_MIN     1
-#define SOC_NORMAL_USE_PERIODS_MAX     4
+#define SOC_NORMAL_USE_PERIODS_MAX     16
 #define SOC_NORMAL_USE_BUFFERSIZE_MAX     (48*1024)	/* TODO: KC: need to reserve 4k for md32 */
 
+#define SOC_HIFI_BUFFER_SIZE (128 * 1024)
 
 #define SOC_HIGH_USE_RATE        (SNDRV_PCM_RATE_CONTINUOUS | SNDRV_PCM_RATE_8000_192000)
 #define SOC_HIGH_USE_RATE_MIN        8000
-#define SOC_HIGH_USE_RATE_MAX       192000
+#define SOC_HIGH_USE_RATE_MAX       260000
 #define SOC_HIGH_USE_CHANNELS_MIN    1
 #define SOC_HIGH_USE_CHANNELS_MAX    8
 #ifdef AUDIO_ALLOCATE_SMP_RATE_DECLARE
@@ -195,8 +215,8 @@ const unsigned int soc_normal_supported_sample_rates[9] = {
 };
 
 /* Conventional and unconventional sample rate supported */
-const unsigned int soc_high_supported_sample_rates[13] = {
-	8000, 11025, 12000, 16000, 22050, 24000, 32000, 44100, 48000, 88200, 96000, 176400, 192000
+const unsigned int soc_high_supported_sample_rates[14] = {
+	8000, 11025, 12000, 16000, 22050, 24000, 32000, 44100, 48000, 88200, 96000, 176400, 192000, 260000
 };
 #else
 extern const unsigned int soc_fm_supported_sample_rates[3];
@@ -209,5 +229,7 @@ unsigned long audio_frame_to_bytes(struct snd_pcm_substream *substream, unsigned
 unsigned long audio_bytes_to_frame(struct snd_pcm_substream *substream, unsigned long count);
 
 extern void *AFE_BASE_ADDRESS;
+
+extern int mtk_soc_always_hd;
 
 #endif

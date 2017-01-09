@@ -1,17 +1,19 @@
 /*
- * Copyright (C) 2007 The Android Open Source Project
+ * Copyright (C) 2015 MediaTek Inc.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ * You should have received a copy of the GNU General Public License
+ * along with this program
+ * If not, see <http://www.gnu.org/licenses/>.
  */
 /*******************************************************************************
  *
@@ -39,6 +41,7 @@
 #ifndef _AUDIO_DIGITAL_TYPE_H
 #define _AUDIO_DIGITAL_TYPE_H
 
+#include <linux/list.h>
 
 /*****************************************************************************
  *                ENUM DEFINITION
@@ -438,13 +441,6 @@ typedef struct {
 	bool MrgIf_En;
 } AudioMrgIf;
 
-/* class for irq mode and counter. */
-typedef struct {
-	unsigned int mStatus;	/* on,off */
-	unsigned int mIrqMcuCounter;
-	unsigned int mIrqMcuCounterSave;
-	unsigned int mSampleRate;
-} AudioIrqMcuMode;
 
 typedef struct {
 	int mFormat;
@@ -881,5 +877,28 @@ typedef struct {
 	uint32 REG_AFE_ADDA4_ULCF_CFG_30_29;
 #endif
 } AudioAfeRegCache;
+
+
+/*
+ * IRQ Manager
+ */
+#define IRQ_MIN_RATE 48000
+#define IRQ_MAX_RATE 260000
+#define IRQ_TOLERANCE_US 10 /* irq period difference that can be tolerated */
+
+struct irq_user {
+	const void *user;
+	unsigned int request_rate;
+	unsigned int request_count;
+	struct list_head list;
+};
+
+struct irq_manager {
+	bool is_on;
+	unsigned int rate;
+	unsigned int count;
+	struct list_head users;
+	const struct irq_user *selected_user;
+};
 
 #endif

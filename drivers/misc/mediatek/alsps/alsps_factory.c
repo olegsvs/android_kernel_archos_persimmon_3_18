@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2016 MediaTek Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
+ */
+
 #include "inc/alsps_factory.h"
 
 static int alsps_factory_open(struct inode *inode, struct file *file)
@@ -200,12 +213,67 @@ static long alsps_factory_unlocked_ioctl(struct file *file, unsigned int cmd, un
 	}
 	return err;
 }
+#ifdef CONFIG_COMPAT
+static long alsps_factory_compat_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
+{
+	long err = 0;
 
+	void __user *arg32 = compat_ptr(arg);
+
+	if (!file->f_op || !file->f_op->unlocked_ioctl)
+		return -ENOTTY;
+
+	switch (cmd) {
+	case COMPAT_ALSPS_SET_PS_MODE:
+		err = file->f_op->unlocked_ioctl(file, ALSPS_SET_PS_MODE, (unsigned long)arg32);
+		break;
+	case COMPAT_ALSPS_GET_PS_RAW_DATA:
+		err = file->f_op->unlocked_ioctl(file, ALSPS_GET_PS_RAW_DATA, (unsigned long)arg32);
+		break;
+	case COMPAT_ALSPS_SET_ALS_MODE:
+		err = file->f_op->unlocked_ioctl(file, ALSPS_SET_ALS_MODE, (unsigned long)arg32);
+		break;
+	case COMPAT_ALSPS_GET_ALS_RAW_DATA:
+		err = file->f_op->unlocked_ioctl(file, ALSPS_GET_ALS_RAW_DATA, (unsigned long)arg32);
+		break;
+	case COMPAT_ALSPS_GET_PS_TEST_RESULT:
+		err = file->f_op->unlocked_ioctl(file, ALSPS_GET_PS_TEST_RESULT, (unsigned long)arg32);
+		break;
+	case COMPAT_ALSPS_GET_PS_THRESHOLD_HIGH:
+		err = file->f_op->unlocked_ioctl(file, ALSPS_GET_PS_THRESHOLD_HIGH, (unsigned long)arg32);
+		break;
+	case COMPAT_ALSPS_GET_PS_THRESHOLD_LOW:
+		err = file->f_op->unlocked_ioctl(file, ALSPS_GET_PS_THRESHOLD_LOW, (unsigned long)arg32);
+		break;
+	case COMPAT_ALSPS_SET_PS_THRESHOLD:
+		err = file->f_op->unlocked_ioctl(file, ALSPS_SET_PS_THRESHOLD, (unsigned long)arg32);
+		break;
+	case COMPAT_ALSPS_IOCTL_SET_CALI:
+		err = file->f_op->unlocked_ioctl(file, ALSPS_IOCTL_SET_CALI, (unsigned long)arg32);
+		break;
+	case COMPAT_ALSPS_IOCTL_GET_CALI:
+		err = file->f_op->unlocked_ioctl(file, ALSPS_IOCTL_GET_CALI, (unsigned long)arg32);
+		break;
+	case COMPAT_ALSPS_IOCTL_CLR_CALI:
+		err = file->f_op->unlocked_ioctl(file, ALSPS_IOCTL_CLR_CALI, (unsigned long)arg32);
+		break;
+	default:
+		ALSPS_ERR("unknown IOCTL: 0x%08x\n", cmd);
+		err = -ENOIOCTLCMD;
+		break;
+	}
+
+	return err;
+}
+#endif
 
 static const struct file_operations alsps_factory_fops = {
 	.open = alsps_factory_open,
 	.release = alsps_factory_release,
 	.unlocked_ioctl = alsps_factory_unlocked_ioctl,
+#ifdef CONFIG_COMPAT
+	.compat_ioctl = alsps_factory_compat_ioctl,
+#endif
 };
 
 static struct miscdevice alsps_factory_device = {

@@ -1,3 +1,16 @@
+/*
+* Copyright (C) 2013 MediaTek Inc.
+*
+* This program is free software; you can redistribute it and/or modify
+* it under the terms of the GNU General Public License version 2 as
+* published by the Free Software Foundation.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+* See http://www.gnu.org/licenses/gpl-2.0.html for more details.
+*/
+
 #ifndef __BATCH_H__
 #define __BATCH_H__
 
@@ -9,9 +22,9 @@
 #include <linux/workqueue.h>
 #include <linux/slab.h>
 #include <linux/module.h>
-#include <hwmsensor.h>
+#include "hwmsensor.h"
 #include <linux/string.h>
-#include <hwmsen_dev.h>
+#include "hwmsen_dev.h"
 
 #define BATCH_TAG					"<BATCHDEV> "
 #define BATCH_FUN(f)				pr_debug(BATCH_TAG"%s\n", __func__)
@@ -45,6 +58,15 @@
 #define BATCH_DIV_MAX (32767)
 #define BATCH_DIV_MIN (1)
 
+#define SENSOR_DEACTIVE_BATCH_FLUSH			0
+#define SENSOR_ACTIVE_BATCH_FLUSH			1
+#define SENSOR_TIMEOUT_BATCH_FLUSH			2
+#define SENSOR_DELAYCHANGE_BATCH_FLUSH		3
+#define SENSOR_BATCH_TO_NORMAL_FLUSH		4
+#define SENSOR_FLUSH_FIFO					5
+#define SENSOR_TIMEOUTCHANGE_BATCH_FLUSH	6
+#define SENSOR_MAX_BATCH_FLUSH_CMD			7
+
 enum {
 	SENSORS_BATCH_DRY_RUN               = 0x00000001,
 	SENSORS_BATCH_WAKE_UPON_FIFO_FULL   = 0x00000002
@@ -75,6 +97,7 @@ struct batch_data_path {
 	int (*get_data)(int handle, struct hwm_sensor_data *data);
 	int (*get_fifo_status)(int *len, int *status, char *reserved,
 		struct batch_timestamp_info *p_batch_timestampe_info);
+	int (*batch_timeout)(int handle, int cmd);
 	int samplingPeriodMs;
 	int maxBatchReportLatencyMs;/* report latency for every sensor */
 	int flags;/* reserved */
@@ -107,7 +130,8 @@ struct batch_context {
 	struct wakeup_source read_data_wake_lock;
 	struct batch_dev_list	dev_list;
 
-	uint32_t			active_sensor;
+	uint64_t		active_sensor;
+	uint64_t		batch_sensor;
 	int				batch_result;
 	int				flush_result;
 	bool			is_first_data_after_enable;
@@ -115,6 +139,7 @@ struct batch_context {
 	int			div_flag;
 	int				numOfDataLeft;
 	int                 force_wake_upon_fifo_full;
+	atomic_t		min_timeout_handle;
 	struct batch_timestamp_info timestamp_info[ID_SENSOR_MAX_HANDLE+1];
 };
 
@@ -125,7 +150,8 @@ enum BATCH_NOTIFY_TYPE {
 	TYPE_BATCHTIMEOUT   = 3,
 	TYPE_BATCHFULL   = 4,
 	TYPE_ERROR = 5,
-	TYPE_DATAREADY   = 6
+	TYPE_DATAREADY   = 6,
+	TYPE_DIRECT_PUSH   = 7
 };
 
 /* driver API for third party vendor */

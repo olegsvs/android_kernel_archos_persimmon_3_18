@@ -1,18 +1,24 @@
 /*
+* Copyright (C) 2016 MediaTek Inc.
+*
+* This program is free software: you can redistribute it and/or modify it under the terms of the
+* GNU General Public License version 2 as published by the Free Software Foundation.
+*
+* This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
+* without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+* See the GNU General Public License for more details.
+*
+* You should have received a copy of the GNU General Public License along with this program.
+* If not, see <http://www.gnu.org/licenses/>.
+*/
+
+/*
 ** Id: stats.c#1
 */
 
 /*! \file stats.c
     \brief This file includes statistics support.
 */
-
-/*
-** Log: stats.c
- *
- * 07 17 2014 samp.lin
- * NULL
- * Initial version.
- */
 
 /*******************************************************************************
  *						C O M P I L E R	 F L A G S
@@ -80,11 +86,11 @@ static VOID statsParsePktInfo(PUINT_8 pucPkt, UINT_8 status, UINT_8 eventType)
 			u2IcmpSeq = *(UINT_16 *) &pucIcmp[6];
 			switch (eventType) {
 			case EVENT_RX:
-				DBGLOG(SW4, INFO, "<RX> ICMP: Type %d, Id BE 0x%04x, Seq BE 0x%04x\n",
+				DBGLOG(RX, TRACE, "<RX> ICMP: Type %d, Id BE 0x%04x, Seq BE 0x%04x\n",
 							ucIcmpType, u2IcmpId, u2IcmpSeq);
 				break;
 			case EVENT_TX:
-				DBGLOG(SW4, INFO, "<TX> ICMP: Type %d, Id 0x04%x, Seq BE 0x%04x\n",
+				DBGLOG(TX, TRACE, "<TX> ICMP: Type %d, Id 0x04%x, Seq BE 0x%04x\n",
 								ucIcmpType, u2IcmpId, u2IcmpSeq);
 				break;
 			}
@@ -106,11 +112,11 @@ static VOID statsParsePktInfo(PUINT_8 pucPkt, UINT_8 status, UINT_8 eventType)
 			u4TransID = pucBootp[4]<<24  | pucBootp[5]<<16 | pucBootp[6]<<8  | pucBootp[7];
 			switch (eventType) {
 			case EVENT_RX:
-				DBGLOG(SW4, INFO, "<RX> DHCP: IPID 0x%02x, MsgType 0x%x, TransID 0x%04x\n",
+				DBGLOG(RX, INFO, "<RX> DHCP: IPID 0x%02x, MsgType 0x%x, TransID 0x%04x\n",
 								u2IpId, pucBootp[0], u4TransID);
 				break;
 			case EVENT_TX:
-				DBGLOG(SW4, INFO, "<TX> DHCP: IPID 0x%02x, MsgType 0x%x, TransID 0x%04x\n",
+				DBGLOG(TX, INFO, "<TX> DHCP: IPID 0x%02x, MsgType 0x%x, TransID 0x%04x\n",
 								u2IpId, pucBootp[0], u4TransID);
 				break;
 			}
@@ -128,11 +134,11 @@ static VOID statsParsePktInfo(PUINT_8 pucPkt, UINT_8 status, UINT_8 eventType)
 		case 0: /* eap packet */
 			switch (eventType) {
 			case EVENT_RX:
-				DBGLOG(SW4, INFO, "<RX> EAP Packet: code %d, id %d, type %d\n",
+				DBGLOG(RX, INFO, "<RX> EAP Packet: code %d, id %d, type %d\n",
 						pucEapol[4], pucEapol[5], pucEapol[7]);
 				break;
 			case EVENT_TX:
-				DBGLOG(SW4, INFO, "<TX> EAP Packet: code %d, id %d, type %d\n",
+				DBGLOG(TX, INFO, "<TX> EAP Packet: code %d, id %d, type %d\n",
 						pucEapol[4], pucEapol[5], pucEapol[7]);
 				break;
 			}
@@ -140,21 +146,21 @@ static VOID statsParsePktInfo(PUINT_8 pucPkt, UINT_8 status, UINT_8 eventType)
 		case 1: /* eapol start */
 			switch (eventType) {
 			case EVENT_RX:
-				DBGLOG(SW4, INFO, "<RX> EAPOL: start\n");
+				DBGLOG(RX, INFO, "<RX> EAPOL: start\n");
 				break;
 			case EVENT_TX:
-				DBGLOG(SW4, INFO, "<RX> EAPOL: start\n");
+				DBGLOG(TX, INFO, "<TX> EAPOL: start\n");
 				break;
 			}
 			break;
 		case 3: /* key */
 			switch (eventType) {
 			case EVENT_RX:
-				DBGLOG(SW4, INFO, "<RX> EAPOL: key, KeyInfo 0x%04x\n",
+				DBGLOG(RX, INFO, "<RX> EAPOL: key, KeyInfo 0x%04x\n",
 						*((PUINT_16)(&pucEapol[5])));
 				break;
 			case EVENT_TX:
-				DBGLOG(SW4, INFO, "<TX> EAPOL: key, KeyInfo 0x%04x\n",
+				DBGLOG(TX, INFO, "<TX> EAPOL: key, KeyInfo 0x%04x\n",
 						*((PUINT_16)(&pucEapol[5])));
 				break;
 			}
@@ -171,16 +177,30 @@ static VOID statsParsePktInfo(PUINT_8 pucPkt, UINT_8 status, UINT_8 eventType)
 
 		switch (eventType) {
 		case EVENT_RX:
-			DBGLOG(SW4, INFO, "<RX> WAPI: subType %d, Len %d, Seq %d\n",
+			DBGLOG(RX, INFO, "<RX> WAPI: subType %d, Len %d, Seq %d\n",
 					ucSubType, u2Length, u2Seq);
 			break;
 		case EVENT_TX:
-			DBGLOG(SW4, INFO, "<TX> WAPI: subType %d, Len %d, Seq %d\n",
+			DBGLOG(TX, INFO, "<TX> WAPI: subType %d, Len %d, Seq %d\n",
 					ucSubType, u2Length, u2Seq);
 			break;
 		}
 		break;
 	}
+	case 0x890d:
+		switch (eventType) {
+		case EVENT_RX:
+			DBGLOG(RX, INFO,
+				"<RX> TDLS type %d, category %d, Action %d, Token %d\n",
+				pucEthBody[0], pucEthBody[1], pucEthBody[2], pucEthBody[3]);
+			break;
+		case EVENT_TX:
+			DBGLOG(TX, INFO,
+				"<TX> TDLS type %d, category %d, Action %d, Token %d\n",
+				pucEthBody[0], pucEthBody[1], pucEthBody[2], pucEthBody[3]);
+			break;
+		}
+		break;
 	}
 }
 /*----------------------------------------------------------------------------*/

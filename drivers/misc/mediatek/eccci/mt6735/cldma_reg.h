@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #ifndef __CLDMA_REG_H__
 #define __CLDMA_REG_H__
 
@@ -218,7 +231,20 @@
 #define cldma_read32(b, a)				ioread32((void __iomem *)((b)+(a)))
 #define cldma_read16(b, a)				ioread16((void __iomem *)((b)+(a)))
 #define cldma_read8(b, a)				ioread8((void __iomem *)((b)+(a)))
+static inline void cldma_reg_set_tx_start_addr(void *base, int idx, dma_addr_t addr)
+{
+	cldma_write32(base, CLDMA_AP_TQSAR(idx), (u32)addr);
+}
+static inline void cldma_reg_set_tx_start_addr_bk(void *base, int idx, dma_addr_t addr)
+{
+	/*Set start bak address in power on domain*/
+	cldma_write32(base, CLDMA_AP_TQSABAK(idx), (u32)addr);
+}
 
+static inline void cldma_reg_set_rx_start_addr(void *base, int idx, dma_addr_t addr)
+{
+	cldma_write32(base, CLDMA_AP_RQSAR(idx), (u32)addr);
+}
 /*bitmap*/
 #define CLDMA_BM_INT_ALL			0xFFFFFFFF
 /* L2 interrupt */

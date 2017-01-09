@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #include <linux/types.h>
 #include <mt-plat/charging.h>
 #include <mt-plat/upmu_common.h>
@@ -167,7 +180,6 @@ static unsigned int charging_hw_init(void *data)
 	pr_notice("[BATTERY:ncp1854] ChargerHwInit_ncp1854\n");
 
 	ncp1854_status = ncp1854_get_chip_status();
-	ncp1854_set_otg_en(0x0); //add by darren /copy from other project
 	ncp1854_set_trans_en(0);
 	ncp1854_set_tj_warn_opt(0x0);	/* set at disabled, by MT6325 BATON */
 	/* ncp1854_set_int_mask(0x0); //disable all interrupt */
@@ -176,14 +188,9 @@ static unsigned int charging_hw_init(void *data)
 	ncp1854_set_chgto_dis(0x1);	/* disable charge timer */
 	/* WEAK WAIT, WEAK SAFE, WEAK CHARGE */
 	if ((ncp1854_status == 0x8) || (ncp1854_status == 0x9) || (ncp1854_status == 0xA))
-	{
 		ncp1854_set_ctrl_vbat(0x1C);	/* VCHG = 4.0V */
-	}
-	else{
-        ncp1854_set_ctrl_vbat(0x2C); //VCHG = 4.4V// higt voltage for 4.4v
-	}
 
-	ncp1854_set_ieoc(0x2); /* cut off current = 250mA  6-2 by darren*/
+	ncp1854_set_ieoc(0x0);
 	ncp1854_set_iweak(0x3);	/* weak charge current = 300mA */
 
 	ncp1854_set_aicl_en(0x1);	/* enable AICL as PT team suggest */
@@ -246,7 +253,7 @@ static unsigned int charging_set_cv_voltage(void *data)
 	unsigned int set_chr_cv;
 
 	if (batt_cust_data.high_battery_voltage_support)
-		cv_value = BATTERY_VOLT_04_400000_V;
+		cv_value = BATTERY_VOLT_04_350000_V;
 
 	/* use nearest value */
 	array_size = GETARRAYNUM(VBAT_CV_VTH);
@@ -428,16 +435,13 @@ static unsigned int charging_get_battery_status(void *data)
 static unsigned int charging_get_charger_det_status(void *data)
 {
 	unsigned int status = STATUS_OK;
-	unsigned int val = 0;
 
 #if defined(CONFIG_POWER_EXT) || defined(CONFIG_MTK_FPGA)
-	val = 1;
+	*(kal_bool *) (data) = 1;
 	battery_log(BAT_LOG_CRTI, "[charging_get_charger_det_status] chr exist for fpga.\n");
 #else
-	val = pmic_get_register_value(PMIC_RGS_CHRDET);
+	*(kal_bool *) (data) = pmic_get_register_value_nolock(PMIC_RGS_CHRDET);
 #endif
-
-	*(kal_bool *) (data) = val;
 
 	return status;
 }
@@ -452,26 +456,6 @@ static unsigned int charging_get_charger_type(void *data)
 	*(CHARGER_TYPE *) (data) = hw_charging_get_charger_type();
 #endif
 
-	return status;
-}
-
-static unsigned int charging_get_is_pcm_timer_trigger(void *data)
-{
-	unsigned int status = STATUS_OK;
-	/*
-#if defined(CONFIG_POWER_EXT) || defined(CONFIG_MTK_FPGA)
-	*(kal_bool *) (data) = KAL_FALSE;
-#else
-
-	if (slp_get_wake_reason() == WR_PCM_TIMER)
-		*(kal_bool *) (data) = KAL_TRUE;
-	else
-		*(kal_bool *) (data) = KAL_FALSE;
-
-	battery_log(BAT_LOG_CRTI, "slp_get_wake_reason=%d\n", slp_get_wake_reason());
-
-#endif
-*/
 	return status;
 }
 
@@ -517,24 +501,13 @@ static unsigned int charging_set_power_off(void *data)
 	return status;
 }
 
-static unsigned int charging_get_power_source(void *data)
-{
-	return STATUS_UNSUPPORTED;
-}
-
-static unsigned int charging_get_csdac_full_flag(void *data)
-{
-	return STATUS_UNSUPPORTED;
-}
-
-
 static unsigned int charging_set_ta_current_pattern(void *data)
 {
 	unsigned int status = STATUS_OK;
 	unsigned int increase = *(unsigned int *) (data);
 
 #if defined(HIGH_BATTERY_VOLTAGE_SUPPORT)
-	 BATTERY_VOLTAGE_ENUM cv_voltage = BATTERY_VOLT_04_375000_V; //4.35 -> 4.375 modify by darren
+	BATTERY_VOLTAGE_ENUM cv_voltage = BATTERY_VOLT_04_350000_V;
 #else
 	BATTERY_VOLTAGE_ENUM cv_voltage = BATTERY_VOLT_04_200000_V;
 #endif
@@ -667,47 +640,17 @@ static unsigned int charging_set_ta_current_pattern(void *data)
 	return status;
 }
 
-static unsigned int charging_set_error_state(void *data)
+static unsigned int charging_set_vbus_ovp_en(void *data)
 {
-	return STATUS_UNSUPPORTED;
+	return STATUS_OK;
 }
 
-static unsigned int charging_diso_init(void *data)
+static unsigned int charging_set_vindpm(void *data)
 {
-	return STATUS_UNSUPPORTED;
+	return STATUS_OK;
 }
 
-static unsigned int charging_get_diso_state(void *data)
-{
-	return STATUS_UNSUPPORTED;
-}
-
-static unsigned int (*const charging_func[CHARGING_CMD_NUMBER]) (void *data) = {
-	charging_hw_init,
-	charging_dump_register,
-	charging_enable,
-	charging_set_cv_voltage,
-	charging_get_current,
-	charging_set_current,
-	charging_set_input_current,
-	charging_get_charging_status,
-	charging_reset_watch_dog_timer,
-	charging_set_hv_threshold,
-	charging_get_hv_status,
-	charging_get_battery_status,
-	charging_get_charger_det_status,
-	charging_get_charger_type,
-	charging_get_is_pcm_timer_trigger,
-	charging_set_platform_reset,
-	charging_get_platform_boot_mode,
-	charging_set_power_off,
-	charging_get_power_source,
-	charging_get_csdac_full_flag,
-	charging_set_ta_current_pattern,
-	charging_set_error_state,
-	charging_diso_init,
-	charging_get_diso_state
-};
+static unsigned int(*charging_func[CHARGING_CMD_NUMBER]) (void *data);
 
 /*
 * FUNCTION
@@ -729,12 +672,38 @@ static unsigned int (*const charging_func[CHARGING_CMD_NUMBER]) (void *data) = {
 */
 signed int chr_control_interface(CHARGING_CTRL_CMD cmd, void *data)
 {
-	signed int status;
+	static signed int init = -1;
 
-	if (cmd < CHARGING_CMD_NUMBER)
-		status = charging_func[cmd] (data);
-	else
-		return STATUS_UNSUPPORTED;
+	if (init == -1) {
+		init = 0;
+		charging_func[CHARGING_CMD_INIT] = charging_hw_init;
+		charging_func[CHARGING_CMD_DUMP_REGISTER] = charging_dump_register;
+		charging_func[CHARGING_CMD_ENABLE] = charging_enable;
+		charging_func[CHARGING_CMD_SET_CV_VOLTAGE] = charging_set_cv_voltage;
+		charging_func[CHARGING_CMD_GET_CURRENT] = charging_get_current;
+		charging_func[CHARGING_CMD_SET_CURRENT] = charging_set_current;
+		charging_func[CHARGING_CMD_SET_INPUT_CURRENT] = charging_set_input_current;
+		charging_func[CHARGING_CMD_GET_CHARGING_STATUS] =  charging_get_charging_status;
+		charging_func[CHARGING_CMD_RESET_WATCH_DOG_TIMER] = charging_reset_watch_dog_timer;
+		charging_func[CHARGING_CMD_SET_HV_THRESHOLD] = charging_set_hv_threshold;
+		charging_func[CHARGING_CMD_GET_HV_STATUS] = charging_get_hv_status;
+		charging_func[CHARGING_CMD_GET_BATTERY_STATUS] = charging_get_battery_status;
+		charging_func[CHARGING_CMD_GET_CHARGER_DET_STATUS] = charging_get_charger_det_status;
+		charging_func[CHARGING_CMD_GET_CHARGER_TYPE] = charging_get_charger_type;
+		charging_func[CHARGING_CMD_SET_PLATFORM_RESET] = charging_set_platform_reset;
+		charging_func[CHARGING_CMD_GET_PLATFORM_BOOT_MODE] = charging_get_platform_boot_mode;
+		charging_func[CHARGING_CMD_SET_POWER_OFF] = charging_set_power_off;
+		charging_func[CHARGING_CMD_SET_TA_CURRENT_PATTERN] = charging_set_ta_current_pattern;
+		charging_func[CHARGING_CMD_SET_VBUS_OVP_EN] = charging_set_vbus_ovp_en;
+		charging_func[CHARGING_CMD_SET_VINDPM] = charging_set_vindpm;
+	}
 
-	return status;
+	if (cmd < CHARGING_CMD_NUMBER) {
+		if (charging_func[cmd] != NULL)
+			return charging_func[cmd](data);
+	}
+
+	pr_debug("[%s]UNSUPPORT Function: %d\n", __func__, cmd);
+
+	return STATUS_UNSUPPORTED;
 }

@@ -781,16 +781,16 @@ static ssize_t show_daemon_name(struct device_driver *ddri, char *buf)
 {
 	char strbuf[24];
 
-	sprintf(strbuf, "orientationd");
-	return sprintf(buf, "%s", strbuf);
+	snprintf(strbuf, sizeof(strbuf), "orientationd");
+	return snprintf(buf, PAGE_SIZE, "%s", strbuf);
 }
 
 static ssize_t show_daemon2_name(struct device_driver *ddri, char *buf)
 {
 	char strbuf[24];
 
-	sprintf(strbuf, "geomagneticd");
-	return sprintf(buf, "%s", strbuf);
+	snprintf(strbuf, sizeof(strbuf), "geomagneticd");
+	return snprintf(buf, PAGE_SIZE, "%s", strbuf);
 }
 
 
@@ -2031,7 +2031,7 @@ static atomic_t dev_open_count;
 
 static int yamaha530_i2c_detect(struct i2c_client *client, struct i2c_board_info *info)
 {
-	strcpy(info->type, YAMAHA530_DEV_NAME);
+	strncpy(info->type, YAMAHA530_DEV_NAME, sizeof(info->type));
 	return 0;
 }
 
@@ -2053,6 +2053,8 @@ static int yamaha532_m_set_delay(u64 ns)
 
     if (value <= 20)
 	sample_delay = 20;
+	else
+		sample_delay = value;
 
     return geomagnetic_set_delay(sample_delay);
 }
@@ -2099,7 +2101,6 @@ static int yamaha530_i2c_remove(struct i2c_client *client)
 		&geomagnetic_raw_attribute_group);
 	input_unregister_device(data->input_data);
 	kfree(data);
-		kfree(data);
     }
 
 	this_client = NULL;

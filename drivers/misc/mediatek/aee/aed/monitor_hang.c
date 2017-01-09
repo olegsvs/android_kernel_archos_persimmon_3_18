@@ -1,10 +1,16 @@
 /*
- * (C) Copyright 2010
- * MediaTek <www.MediaTek.com>
+ * Copyright (C) 2016 MediaTek Inc.
  *
- * Android Exception Device
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
  *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
  */
+
 #include <linux/cdev.h>
 #include <linux/delay.h>
 #include <linux/device.h>
@@ -30,6 +36,15 @@
 #include "aed.h"
 #include <linux/pid.h>
 #include <mt-plat/mt_boot_common.h>
+
+
+#ifdef CONFIG_MTK_ION
+#include <mtk/ion_drv.h>
+#endif
+
+#ifdef CONFIG_MTK_GPU_SUPPORT
+#include <mt-plat/mtk_gpu_utility.h>
+#endif
 
 static DEFINE_SPINLOCK(pwk_hang_lock);
 static int wdt_kick_status;
@@ -352,7 +367,6 @@ static void show_bt_by_pid(int task_pid)
 
 static void ShowStatus(void)
 {
-
 	InDumpAllStack = 1;
 
 	LOGE("[Hang_Detect] dump system_ui all thread bt\n");
@@ -388,9 +402,24 @@ static void ShowStatus(void)
 		show_bt_by_pid(mmcqd1);
 
 	LOGE("[Hang_Detect] dump debug_show_all_locks\n");
+	/* debug_locks = 1; */
 	debug_show_all_locks();
+
 	LOGE("[Hang_Detect] show_free_areas\n");
 	show_free_areas(0);
+
+	#ifdef CONFIG_MTK_ION
+		LOGE("[Hang_Detect] dump ion mm usage\n");
+		ion_mm_heap_memory_detail();
+		LOGE("[Hang_Detect] dump ion mm usage end.\n");
+	#endif
+	#ifdef CONFIG_MTK_GPU_SUPPORT
+		LOGE("[Hang_Detect] dump gpu mm usage\n");
+		if (mtk_dump_gpu_memory_usage() == false)
+			LOGE("[Hang_Detect] mtk_dump_gpu_memory_usage not support\n");
+		LOGE("[Hang_Detect] dump gpu mm usage end\n");
+	#endif
+	LOGE("[Hang_Detect] show status end\n");
 	system_server_pid = 0;
 	surfaceflinger_pid = 0;
 	system_ui_pid = 0;
@@ -421,23 +450,21 @@ static int hang_detect_thread(void *arg)
 				ShowStatus();
 
 			if (hang_detect_counter == 0) {
-				LOGE("[Hang_Detect] we should triger	HWT	...\n");
 				if (aee_mode != AEE_MODE_CUSTOMER_USER) {
+					LOGE("[Hang_Detect] we should triger Kernel API DB	...\n");
 					aee_kernel_warning_api
 						(__FILE__, __LINE__,
 						 DB_OPT_NE_JBT_TRACES | DB_OPT_DISPLAY_HANG_DUMP,
 						 "\nCRDISPATCH_KEY:SS Hang\n",
-						 "we triger HWT ");
+						 "we triger Kernel API DB ");
 					msleep(30 * 1000);
-				} else {	/* only Customer user load  trigger HWT */
+				} else {	/* only Customer user load  trigger KE */
+					LOGE("[Hang_Detect] we should triger KE...\n");
 					aee_kernel_exception_api(__FILE__, __LINE__,
 						 DB_OPT_NE_JBT_TRACES | DB_OPT_DISPLAY_HANG_DUMP,
 						 "\nCRDISPATCH_KEY:SS Hang\n",
-						 "we triger HWT ");
+						 "we triger Kernel API DB ");
 					msleep(30 * 1000);
-					local_irq_disable();
-					while (1)
-						;
 					BUG();
 				}
 			}
@@ -598,8 +625,10 @@ void aee_kernel_wdt_kick_Powkey_api(const
 	spin_lock(&pwk_hang_lock);
 	wdt_kick_status |= msg;
 	spin_unlock(&pwk_hang_lock);
+	/*  //reduce kernel log
 	if (pwk_start_monitor)
 		LOGE("powerkey_kick:%s:%x,%x\r", module, msg, wdt_kick_status);
+	*/
 
 }
 EXPORT_SYMBOL
@@ -609,7 +638,9 @@ EXPORT_SYMBOL
 void aee_powerkey_notify_press(unsigned long
 		pressed) {
 	if (pressed) {	/* pwk down or up ???? need to check */
+		spin_lock(&pwk_hang_lock);
 		wdt_kick_status = 0;
+		spin_unlock(&pwk_hang_lock);
 		hwt_kick_times = 0;
 		pwk_start_monitor = 1;
 		LOGE("(%s) HW keycode powerkey\n", pressed ? "pressed" : "released");

@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 
 #include <linux/module.h>
 #include <linux/types.h>
@@ -88,8 +101,6 @@ TZ_RESULT KREE_ServRequestIrq(u32 op, u8 uparam[REE_SERVICE_BUFFER_SIZE])
 		}
 
 		virq = tz_hwirq_to_virq(param->irq, flags);
-		pr_debug("%s: [irq] of_map got virq:%u, hwirq:%u(gic#)\n"
-			 , __func__, virq, param->irq);
 
 		if (virq > 0)
 			rret = request_irq(virq, KREE_IrqHandler, flags,
@@ -99,7 +110,8 @@ TZ_RESULT KREE_ServRequestIrq(u32 op, u8 uparam[REE_SERVICE_BUFFER_SIZE])
 
 		if (rret) {
 			kfree(token);
-			pr_warn("request_irq return error: %d\n", rret);
+			pr_warn("%s (virq:%d, hwirq:%d) return error: %d\n",
+				__func__, virq, param->irq, rret);
 			if (rret == -ENOMEM)
 				ret = TZ_RESULT_ERROR_OUT_OF_MEMORY;
 			else
@@ -244,11 +256,14 @@ unsigned int kree_fiq_get_intack(void)
 
 void kree_fiq_eoi(unsigned int iar)
 {
+	TZ_RESULT ret;
 	MTEEC_PARAM param[4];
 
 	param[0].value.a = iar;
-	KREE_TeeServiceCall(irq_session, TZCMD_IRQ_EOI,
+	ret = KREE_TeeServiceCall(irq_session, TZCMD_IRQ_EOI,
 				TZ_ParamTypes1(TZPT_VALUE_INPUT), param);
+	if (ret != TZ_RESULT_SUCCESS)
+		pr_warn("%s() fails! ret=0x%x\n", __func__, ret);
 }
 
 int kree_raise_softfiq(unsigned int mask, unsigned int irq)

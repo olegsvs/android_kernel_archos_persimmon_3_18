@@ -347,7 +347,7 @@ int ubi_eba_unmap_leb(struct ubi_device *ubi, struct ubi_volume *vol,
 
 	dbg_eba("erase LEB %d:%d, PEB %d", vol_id, lnum, pnum);
 #ifdef MTK_TMP_DEBUG_LOG
-	ubi_msg("erase LEB %d:%d, PEB %d", vol_id, lnum, pnum);
+	dbg_eba("erase LEB %d:%d, PEB %d", vol_id, lnum, pnum);
 #endif
 #ifdef CONFIG_MTK_HIBERNATION
 	if (strcmp(vol->name, IPOH_VOLUME_NANE) == 0 && ubi->ipoh_ops == 0) {
@@ -477,8 +477,27 @@ retry:
 					ubi_warn("corrupted VID header at PEB %d, LEB %d:%d",
 						 pnum, vol_id, lnum);
 					err = -EBADMSG;
-				} else
-					ubi_ro_mode(ubi);
+				} else {
+					/*
+					 * Ending up here in the non-Fastmap case
+					 * is a clear bug as the VID header had to
+					 * be present at scan time to have it referenced.
+					 * With fastmap the story is more complicated.
+					 * Fastmap has the mapping info without the need
+					 * of a full scan. So the LEB could have been
+					 * unmapped, Fastmap cannot know this and keeps
+					 * the LEB referenced.
+					 * This is valid and works as the layer above UBI
+					 * has to do bookkeeping about used/referenced
+					 * LEBs in any case.
+					 */
+					if (ubi->fast_attach) {
+						err = -EBADMSG;
+					} else {
+						err = -EINVAL;
+						ubi_ro_mode(ubi);
+					}
+				}
 			}
 			goto out_free;
 		} else if (err == UBI_IO_BITFLIPS)
@@ -500,7 +519,7 @@ retry:
 				goto out_unlock;
 			scrub = 1;
 			if (!check) {
-				ubi_msg("force data checking");
+				dbg_eba("force data checking");
 				check = 1;
 				goto retry;
 			}
@@ -566,7 +585,7 @@ retry:
 		return new_pnum;
 	}
 
-	ubi_msg("recover PEB %d, move data to PEB %d", pnum, new_pnum);
+	dbg_eba("recover PEB %d, move data to PEB %d", pnum, new_pnum);
 
 	err = ubi_io_read_vid_hdr(ubi, pnum, vid_hdr, 1);
 	if (err && err != UBI_IO_BITFLIPS) {
@@ -619,7 +638,7 @@ retry:
 	up_read(&ubi->fm_sem);
 	ubi_wl_put_peb(ubi, vol_id, lnum, pnum, 1);
 
-	ubi_msg("data was successfully recovered");
+	dbg_eba("data was successfully recovered");
 	return 0;
 
 out_unlock:
@@ -644,7 +663,7 @@ write_error:
 		ubi_free_vid_hdr(ubi, vid_hdr);
 		return err;
 	}
-	ubi_msg("try again");
+	dbg_eba("try again");
 	goto retry;
 }
 
@@ -709,10 +728,10 @@ peb_retry:
 
 		sprintf(ubi->databuf, "VIDVIDVID");
 		if ((ubi->peb_size-ubi->next_offset[a_lnum]) < ubi->mtd->writesize) {
-			ubi_msg("no space on backup %d peb %d\n", a_lnum, another_pnum);
+			dbg_eba("no space on backup %d peb %d\n", a_lnum, another_pnum);
 		} else {
 			err = ubi_io_write_oob(ubi, ubi->databuf, ubi->oobbuf, another_pnum, ubi->next_offset[a_lnum]);
-			ubi_msg("backup[1] 'backup volume' %d:%d to %d:%d", backup_pnum, 1, another_pnum,
+			dbg_eba("backup[1] 'backup volume' %d:%d to %d:%d", backup_pnum, 1, another_pnum,
 				ubi->next_offset[a_lnum]/ubi->mtd->writesize);
 			if (err) {
 				ubi_warn("failed to write to LEB 0x%x:%d, PEB %d",
@@ -723,7 +742,7 @@ peb_retry:
 			ubi->next_offset[a_lnum] += ubi->mtd->writesize;
 		}
 	}
-	/* ubi_msg("map backup :%d", backup_pnum); */
+	/* dbg_eba("map backup :%d", backup_pnum); */
 	err = ubi_io_write_vid_hdr(ubi, backup_pnum, vid_hdr);
 	ubi_free_vid_hdr(ubi, vid_hdr);
 	if (err) {
@@ -739,11 +758,11 @@ peb_retry:
 			ubi_ro_mode(ubi);
 			return err;
 		}
-		ubi_msg("try another backup PEB");
+		dbg_eba("try another backup PEB");
 		goto peb_retry;
 	}
 	ubi->next_offset[lnum] = _start * ubi->mtd->writesize; /*skip paired page of 0/1*/
-	ubi_msg("blb write start from page %d:%d\n", backup_pnum, _start);
+	dbg_eba("blb write start from page %d:%d\n", backup_pnum, _start);
 	backup_vol->eba_tbl[lnum] = backup_pnum;
 
 	if (old_pnum != UBI_LEB_UNMAPPED) {
@@ -787,7 +806,7 @@ int blb_get_peb(struct ubi_device *ubi, int lnum, int renew)
 	if (renew) {
 		int a_lnum = (lnum+1)%2;
 
-		ubi_msg("leb_write_lock %d %d:%d\n", __LINE__, UBI_BACKUP_VOLUME_ID, a_lnum);
+		dbg_eba("leb_write_lock %d %d:%d\n", __LINE__, UBI_BACKUP_VOLUME_ID, a_lnum);
 		leb_write_lock(ubi, UBI_BACKUP_VOLUME_ID, a_lnum);
 		backup_pnum = blb_renew_leb(ubi, lnum);
 		leb_write_unlock(ubi, UBI_BACKUP_VOLUME_ID, a_lnum);
@@ -817,7 +836,7 @@ int blb_record_page1(struct ubi_device *ubi, int pnum,
 #endif
 	if (work == 1) {
 		if (mutex_trylock(&ubi->blb_mutex) == 0) {
-			ubi_msg("mutex_trylock err");
+			dbg_eba("mutex_trylock err");
 			dump_stack();
 			return -EIO;
 		}
@@ -825,7 +844,7 @@ int blb_record_page1(struct ubi_device *ubi, int pnum,
 		mutex_lock(&ubi->blb_mutex);
 	}
 
-	ubi_msg("leb_write_lock %d %d:%d\n", __LINE__, UBI_BACKUP_VOLUME_ID, 1);
+	dbg_eba("leb_write_lock %d %d:%d\n", __LINE__, UBI_BACKUP_VOLUME_ID, 1);
 	leb_write_lock(ubi, UBI_BACKUP_VOLUME_ID, 1);
 
 blb_vid_retry:
@@ -857,7 +876,7 @@ blb_vid_retry:
 	dbg_eba("write backup page to leb 0x%x:%d, PEB %d, Offset 0x%x",
 		UBI_BACKUP_VOLUME_ID, 1, backup_pnum, ubi->next_offset[1]);
 	err = ubi_io_write_oob(ubi, ubi->databuf, ubi->oobbuf, backup_pnum, ubi->next_offset[1]);
-	ubi_msg("backup[1] %d:%d to %d:%d, num %d", pnum, 1, backup_pnum,
+	dbg_eba("backup[1] %d:%d to %d:%d, num %d", pnum, 1, backup_pnum,
 			ubi->next_offset[1]/ubi->mtd->writesize, 1);
 	if (err) {
 		ubi_warn("failed to write to LEB 0x%x:%d, PEB %d",
@@ -875,7 +894,7 @@ blb_vid_retry:
 			mutex_unlock(&ubi->blb_mutex);
 			return err;
 		}
-		ubi_msg("try another backup PEB");
+		dbg_eba("try another backup PEB");
 		renew = 1;
 		goto blb_vid_retry;
 	}
@@ -908,7 +927,7 @@ int blb_record_share(struct ubi_device *ubi, int vol_id, int lnum, int pnum, int
 	if (backup_cnt > 0) {
 		dbg_eba("needs to backup %d LSB pages", backup_cnt);
 		mutex_lock(&ubi->blb_mutex);
-		ubi_msg("leb_write_lock %d %d:%d\n", __LINE__, UBI_BACKUP_VOLUME_ID, 0);
+		dbg_eba("leb_write_lock %d %d:%d\n", __LINE__, UBI_BACKUP_VOLUME_ID, 0);
 		leb_write_lock(ubi, UBI_BACKUP_VOLUME_ID, 0);
 
 retry_backup_leb:
@@ -964,7 +983,7 @@ retry_backup_leb:
 			dbg_eba("write backup page to leb 0x%x:%d, PEB %d, Offset 0x%x",
 				UBI_BACKUP_VOLUME_ID, 0, backup_pnum, ubi->next_offset[0]);
 			err = ubi_io_write_oob(ubi, ubi->databuf, ubi->oobbuf, backup_pnum, ubi->next_offset[0]);
-			ubi_msg("backup[0] %d:%d to %d:%d, num %d", pnum, page_no, backup_pnum,
+			dbg_eba("backup[0] %d:%d to %d:%d, num %d", pnum, page_no, backup_pnum,
 					ubi->next_offset[0]/ubi->mtd->writesize, num);
 			if (err) {
 				ubi_warn("failed to write to LEB 0x%x:%d, PEB %d",
@@ -983,7 +1002,7 @@ retry_backup_leb:
 					mutex_unlock(&ubi->blb_mutex);
 					return err;
 				}
-				ubi_msg("try another backup PEB");
+				dbg_eba("try another backup PEB");
 				renew = 1;
 				goto retry_backup_leb;
 			}
@@ -1145,7 +1164,7 @@ int ubi_eba_write_leb(struct ubi_device *ubi, struct ubi_volume *vol, int lnum,
 		dbg_eba("write %d bytes at offset %d of LEB %d:%d, PEB %d",
 			len, offset, vol_id, lnum, pnum);
 #ifdef MTK_TMP_DEBUG_LOG
-		ubi_msg("write %d bytes at offset %d of LEB %d:%d, PEB %d",
+		dbg_eba("write %d bytes at offset %d of LEB %d:%d, PEB %d",
 			len, offset, vol_id, lnum, pnum);
 #endif
 
@@ -1226,7 +1245,7 @@ retry:
 	dbg_eba("write VID hdr and %d bytes at offset %d of LEB %d:%d, PEB %d",
 		len, offset, vol_id, lnum, pnum);
 #ifdef MTK_TMP_DEBUG_LOG
-	ubi_msg("write VID hdr and %d bytes at offset %d of LEB %d:%d, PEB %d",
+	dbg_eba("write VID hdr and %d bytes at offset %d of LEB %d:%d, PEB %d",
 		len, offset, vol_id, lnum, pnum);
 #endif
 
@@ -1283,7 +1302,7 @@ write_error:
 	}
 
 	vid_hdr->sqnum = cpu_to_be64(ubi_next_sqnum(ubi));
-	ubi_msg("try another PEB");
+	dbg_eba("try another PEB");
 	goto retry;
 }
 
@@ -1403,7 +1422,7 @@ write_error:
 	}
 
 	vid_hdr->sqnum = cpu_to_be64(ubi_next_sqnum(ubi));
-	ubi_msg("try another PEB");
+	dbg_eba("try another PEB");
 	goto retry;
 }
 
@@ -1490,7 +1509,7 @@ retry:
 #endif
 
 #ifdef MTK_TMP_DEBUG_LOG
-	ubi_msg("change LEB %d:%d, PEB %d to PEB %d with len %d",
+	dbg_eba("change LEB %d:%d, PEB %d to PEB %d with len %d",
 		vol_id, lnum, vol->eba_tbl[lnum], pnum, len);
 #endif
 	err = ubi_io_write_data(ubi, buf, pnum, 0, len);
@@ -1535,7 +1554,7 @@ write_error:
 	}
 
 	vid_hdr->sqnum = cpu_to_be64(ubi_next_sqnum(ubi));
-	ubi_msg("try another PEB");
+	dbg_eba("try another PEB");
 	goto retry;
 }
 
@@ -1600,7 +1619,7 @@ int ubi_eba_copy_tlc_leb(struct ubi_device *ubi, int from, int to,
 		goto out;
 	}
 	/* write ec hdr */
-	ec_hdr = kzalloc(ubi->ec_hdr_alsize, GFP_KERNEL);
+	ec_hdr = vzalloc(ubi->ec_hdr_alsize);
 	if (!ec_hdr)
 		return -ENOMEM;
 	err = ubi_io_fill_ec_hdr(ubi, to, ec_hdr, ubi->move_to->ec + 1);
@@ -1680,7 +1699,7 @@ int ubi_eba_copy_tlc_leb(struct ubi_device *ubi, int from, int to,
 			goto out_unlock_buf;
 		cond_resched();
 		err = ubi_io_sync_erase(ubi, to, 0);
-		ubi_msg("update PEB %d ec %d -> %d\n", to, e->ec, e->ec+err);
+		ubi_err("update PEB %d ec %d -> %d\n", to, e->ec, e->ec+err);
 		cond_resched();
 		spin_lock(&ubi->wl_lock);
 		if (err >= 1)
@@ -1755,7 +1774,7 @@ out_unlock_buf:
 out_unlock_leb:
 	leb_write_unlock(ubi, vol_id, lnum);
 out_free:
-	kfree(ec_hdr);
+	vfree(ec_hdr);
 out:
 	return err;
 }
@@ -1864,7 +1883,7 @@ int ubi_eba_copy_leb(struct ubi_device *ubi, int from, int to,
 			ubi_calc_data_len(ubi, ubi->peb_buf, data_size);
 
 #ifdef MTK_TMP_DEBUG_LOG
-	ubi_msg("copy LEB %d:%d, PEB %d to PEB %d, size %d", vol_id, lnum, from, to, data_size);
+	dbg_eba("copy LEB %d:%d, PEB %d to PEB %d, size %d", vol_id, lnum, from, to, data_size);
 #endif
 	cond_resched();
 	crc = crc32(UBI_CRC32_INIT, ubi->peb_buf, data_size);
@@ -2057,7 +2076,7 @@ int self_check_eba(struct ubi_device *ubi, struct ubi_attach_info *ai_fastmap,
 		}
 
 		fm_eba[i] = kmalloc(vol->reserved_pebs * sizeof(**fm_eba),
-				    GFP_KERNEL);
+					GFP_KERNEL);
 		if (!fm_eba[i]) {
 			ret = -ENOMEM;
 			goto out_free;
@@ -2141,7 +2160,7 @@ int ubi_eba_init(struct ubi_device *ubi, struct ubi_attach_info *ai)
 		cond_resched();
 
 		vol->eba_tbl = kmalloc(vol->reserved_pebs * sizeof(int),
-				       GFP_KERNEL);
+					GFP_KERNEL);
 		if (!vol->eba_tbl) {
 			err = -ENOMEM;
 			goto out_free;

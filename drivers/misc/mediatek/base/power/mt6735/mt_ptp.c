@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 unsigned int reg_dump_addr_off[] = {
 	0x0000,
 	0x0004,
@@ -742,9 +755,9 @@ static int base_ops_init02(struct ptp_det *det)
 		return -2;
 	}
 
-	ptp_notice("%s(%s) start (ptp_level = 0x%08X).\n", __func__, det->name, ptp_level);
+	/* ptp_notice("%s(%s) start (ptp_level = 0x%08X).\n", __func__, det->name, ptp_level);
 	ptp_notice("DCVOFFSETIN = 0x%08X\n", det->DCVOFFSETIN);
-	ptp_notice("AGEVOFFSETIN = 0x%08X\n", det->AGEVOFFSETIN);
+	ptp_notice("AGEVOFFSETIN = 0x%08X\n", det->AGEVOFFSETIN); */
 	/* det->ops->dump_status(det); */
 	det->ops->set_phase(det, PTP_PHASE_INIT02);
 
@@ -772,7 +785,7 @@ static int base_ops_mon_mode(struct ptp_det *det)
 		return -2;
 	}
 
-	ptp_notice("%s(%s) start (ptp_level = 0x%08X).\n", __func__, det->name, ptp_level);
+	/* ptp_notice("%s(%s) start (ptp_level = 0x%08X).\n", __func__, det->name, ptp_level); */
 
 	ts_bank = det->ctrl_id;
 	get_thermal_slope_intercept(&ts_info, ts_bank);
@@ -1161,7 +1174,6 @@ static void ptp_init_ctrl(struct ptp_ctrl *ctrl)
 }
 
 #define _BIT_(_bit_)                        (unsigned)(1 << (_bit_))
-#define _BITS_(_bits_, _val_)               ((((unsigned) -1 >> (31 - ((1) ? _bits_))) & ~((1U << ((0) ? _bits_)) - 1)) & ((_val_)<<((0) ? _bits_)))
 #define _BITMASK_(_bits_)                   (((unsigned) -1 >> (31 - ((1) ? _bits_))) & ~((1U << ((0) ? _bits_)) - 1))
 #define _GET_BITS_VAL_(_bits_, _val_)       (((_val_) & (_BITMASK_(_bits_))) >> ((0) ? _bits_))
 
@@ -1252,7 +1264,7 @@ static void ptp_set_ptp_volt(struct ptp_det *det)
 	struct ptp_ctrl *ctrl = id_to_ptp_ctrl(det->ctrl_id);
 
 	 cur_temp = det->ops->get_temp(det);
-	 ptp_debug("ptp_set_ptp_volt cur_temp = %d\n", cur_temp);
+	/* ptp_debug("ptp_set_ptp_volt cur_temp = %d\n", cur_temp); */
 	if (cur_temp <= 33000) {
 		low_temp_offset = 10;
 		ctrl->volt_update |= PTP_VOLT_UPDATE;
@@ -1578,7 +1590,7 @@ static inline void handle_mon_mode_isr(struct ptp_det *det)
 			     det->name, i, det->volt_tbl[i],
 			     PTP_PMIC_VAL_TO_VOLT(det->volt_tbl[i]));
 
-	ptp_isr_info("ptp_level = 0x%08X\n", ptp_level);
+	/* ptp_isr_info("ptp_level = 0x%08X\n", ptp_level); */
 
 	ptp_set_ptp_volt(det);
 

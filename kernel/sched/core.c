@@ -884,7 +884,7 @@ static void sched_tg_enqueue(struct rq *rq, struct task_struct *p)
 	tg->thread_group_info[id].nr_running++;
 	raw_spin_unlock_irqrestore(&tg->thread_group_info_lock, flags);
 
-#ifdef CONFIG_MT_SCHED_INFO
+#ifdef CONFIG_MT_SCHED_TRACE_DETAIL
 	tgs_log(rq, p);
 #endif
 }
@@ -906,37 +906,11 @@ static void sched_tg_dequeue(struct rq *rq, struct task_struct *p)
 	tg->thread_group_info[id].nr_running--;
 	raw_spin_unlock_irqrestore(&tg->thread_group_info_lock, flags);
 
-#ifdef CONFIG_MT_SCHED_INFO
+#ifdef CONFIG_MT_SCHED_TRACE_DETAIL
 	tgs_log(rq, p);
 #endif
 }
-
-#endif
-
-#ifdef CONFIG_MTK_SCHED_CMP_TGS
-#ifdef CONFIG_MT_SCHED_INFO
-static void tgs_log(struct rq *rq, struct task_struct *p)
-{
-	struct task_struct *tg = p->group_leader;
-	int i, num_cluster;
-
-	if (group_leader_is_empty(p))
-		return;
-
-	num_cluster = arch_get_nr_cluster();
-
-	mt_sched_printf("%d:%s %d:%s ", tg->pid, tg->comm, p->pid, p->comm);
-
-	for (i = 0; i < num_cluster; i++) {
-		mt_sched_printf("cluster %d: %lu %lu %lu ",
-			i,
-			tg->thread_group_info[0].nr_running,
-			tg->thread_group_info[0].cfs_nr_running,
-			tg->thread_group_info[0].load_avg_ratio);
-	}
-}
-#endif
-#endif
+#endif /* CONFIG_MTK_SCHED_CMP_TGS */
 
 static void enqueue_task(struct rq *rq, struct task_struct *p, int flags)
 {
@@ -2389,11 +2363,11 @@ static void finish_task_switch(struct rq *rq, struct task_struct *prev)
 	 * If a task dies, then it sets TASK_DEAD in tsk->state and calls
 	 * schedule one last time. The schedule call will never return, and
 	 * the scheduled task must drop that reference.
-	 * The test for TASK_DEAD must occur while the runqueue locks are
-	 * still held, otherwise prev could be scheduled on another cpu, die
-	 * there before we look at prev->state, and then the reference would
-	 * be dropped twice.
-	 *		Manfred Spraul <manfred@colorfullife.com>
+	 *
+	 * We must observe prev->state before clearing prev->on_cpu (in
+	 * finish_lock_switch), otherwise a concurrent wakeup can get prev
+	 * running on another CPU and we could rave with its RUNNING -> DEAD
+	 * transition, resulting in a double drop.
 	 */
 	prev_state = prev->state;
 	vtime_task_switch(prev);
@@ -2537,13 +2511,20 @@ unsigned long nr_running(void)
 
 /*
  * Check if only the current task is running on the cpu.
+ *
+ * Caution: this function does not check that the caller has disabled
+ * preemption, thus the result might have a time-of-check-to-time-of-use
+ * race.  The caller is responsible to use it correctly, for example:
+ *
+ * - from a non-preemptable section (of course)
+ *
+ * - from a thread that is bound to a single CPU
+ *
+ * - in a loop with very short iterations (e.g. a polling loop)
  */
 bool single_task_running(void)
 {
-	if (cpu_rq(smp_processor_id())->nr_running == 1)
-		return true;
-	else
-		return false;
+	return raw_rq()->nr_running == 1;
 }
 EXPORT_SYMBOL(single_task_running);
 
@@ -2826,6 +2807,14 @@ void preempt_count_add(int val)
 		MT_trace_preempt_off();
 #endif
 	}
+
+#ifdef CONFIG_DEBUG_PREEMPT
+	if (DEBUG_LOCKS_WARN_ON((preempt_count() < 0))) {
+		printk_deferred("%s, val=0x%x, preempt_count=0x%x\n",
+			__func__, val, preempt_count());
+	}
+#endif
+
 }
 EXPORT_SYMBOL(preempt_count_add);
 NOKPROBE_SYMBOL(preempt_count_add);
@@ -2860,6 +2849,14 @@ void preempt_count_sub(int val)
 #ifdef CONFIG_MTPROF
 	MT_trace_check_preempt_dur();
 #endif
+
+#ifdef CONFIG_DEBUG_PREEMPT
+	if (DEBUG_LOCKS_WARN_ON((preempt_count() < 0))) {
+		printk_deferred("%s, val=0x%x, preempt_count=0x%x\n",
+			__func__, val, preempt_count());
+	}
+#endif
+
 }
 EXPORT_SYMBOL(preempt_count_sub);
 NOKPROBE_SYMBOL(preempt_count_sub);
@@ -3900,9 +3897,6 @@ change:
 	task_rq_unlock(rq, p, &flags);
 
 	rt_mutex_adjust_pi(p);
-#ifdef CONFIG_MTPROF
-	check_mt_rt_mon_info(p);
-#endif
 
 	return 0;
 }
@@ -5568,6 +5562,14 @@ static int sched_cpu_active(struct notifier_block *nfb,
 	case CPU_STARTING:
 		set_cpu_rq_start_time();
 		return NOTIFY_OK;
+	case CPU_ONLINE:
+		/*
+		 * At this point a starting CPU has marked itself as online via
+		 * set_cpu_online(). But it might not yet have marked itself
+		 * as active, which is essential from here on.
+		 *
+		 * Thus, fall-through and help the starting CPU along.
+		 */
 	case CPU_DOWN_FAILED:
 		set_cpu_active((long)hcpu, true);
 		return NOTIFY_OK;
@@ -6705,7 +6707,7 @@ static void sched_init_numa(void)
 
 			sched_domains_numa_masks[i][j] = mask;
 
-			for (k = 0; k < nr_node_ids; k++) {
+			for_each_node(k) {
 				if (node_distance(j, k) > sched_domains_numa_distance[i])
 					continue;
 

@@ -1,11 +1,22 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #include "wake_gesture.h"
 
 static struct wag_context *wag_context_obj;
 
 static struct wag_init_info *wake_gesture_init = { 0 };	/* modified */
 
-static void wag_early_suspend(struct early_suspend *h);
-static void wag_late_resume(struct early_suspend *h);
 
 static int resume_enable_status;
 static struct wake_lock wag_lock;
@@ -39,14 +50,17 @@ int wag_notify(void)
 	struct wag_context *cxt = NULL;
 
 	cxt = wag_context_obj;
-	WAG_LOG("wag_notify++++\n");
 
-	value = 1;
-	input_report_rel(cxt->idev, EVENT_TYPE_WAG_VALUE, value);
-	input_sync(cxt->idev);
+	if (true == cxt->is_active_data) {
+		pr_err("wag_notify++++\n");
 
-	wake_lock(&wag_lock);
-	mod_timer(&cxt->notify_timer, jiffies + HZ / 5);
+		value = 1;
+		input_report_rel(cxt->idev, EVENT_TYPE_WAG_VALUE, value);
+		input_sync(cxt->idev);
+
+		wake_lock(&wag_lock);
+		mod_timer(&cxt->notify_timer, jiffies + HZ / 5);
+	}
 
 	return err;
 }
@@ -66,34 +80,31 @@ static int wag_real_enable(int enable)
 		if (atomic_read(&(wag_context_obj->early_suspend)))	/* not allow to enable under suspend */
 			return 0;
 
-		if (false == cxt->is_active_data) {
+
+		err = cxt->wag_ctl.open_report_data(1);
+		if (err) {
 			err = cxt->wag_ctl.open_report_data(1);
 			if (err) {
 				err = cxt->wag_ctl.open_report_data(1);
 				if (err) {
-					err = cxt->wag_ctl.open_report_data(1);
-					if (err) {
-						WAG_ERR
-						    ("enable_wake_gesture enable(%d) err 3 timers = %d\n",
-						     enable, err);
-						return err;
-					}
+					WAG_ERR
+					    ("enable_wake_gesture enable(%d) err 3 timers = %d\n",
+					     enable, err);
+					return err;
 				}
 			}
-			cxt->is_active_data = true;
-			WAG_LOG("enable_wake_gesture real enable\n");
 		}
+		cxt->is_active_data = true;
+		WAG_LOG("enable_wake_gesture real enable\n");
 	} else if ((0 == enable) || (WAG_SUSPEND == enable)) {
 		if (0 == enable)
 			resume_enable_status = 0;
-		if (true == cxt->is_active_data) {
-			err = cxt->wag_ctl.open_report_data(0);
-			if (err)
-				WAG_ERR("enable_wake_gestureenable(%d) err = %d\n", enable, err);
+		err = cxt->wag_ctl.open_report_data(0);
+		if (err)
+			WAG_ERR("enable_wake_gestureenable(%d) err = %d\n", enable, err);
 
-			cxt->is_active_data = false;
-			WAG_LOG("enable_wake_gesture real disable\n");
-		}
+		cxt->is_active_data = false;
+		WAG_LOG("enable_wake_gesture real disable\n");
 	}
 	return err;
 }
@@ -189,7 +200,7 @@ static ssize_t wag_show_active(struct device *dev, struct device_attribute *attr
 	return snprintf(buf, PAGE_SIZE, "%d\n", cxt->is_active_data);
 }
 
-static ssize_t wag_store_delay(struct device *dev, struct device_attribute *attr, char *buf)
+static ssize_t wag_store_delay(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
 {
 	int len = 0;
 
@@ -243,10 +254,16 @@ static ssize_t wag_show_flush(struct device *dev, struct device_attribute *attr,
 
 static ssize_t wag_show_devnum(struct device *dev, struct device_attribute *attr, char *buf)
 {
-	char *devname = NULL;
+	const char *devname = NULL;
+	struct input_handle *handle;
 
-	devname = dev_name(&wag_context_obj->idev->dev);
-	return snprintf(buf, PAGE_SIZE, "%s\n", devname + 5);	/* TODO: why +5? */
+	list_for_each_entry(handle, &wag_context_obj->idev->h_list, d_node)
+		if (strncmp(handle->name, "event", 5) == 0) {
+			devname = handle->name;
+			break;
+		}
+
+	return snprintf(buf, PAGE_SIZE, "%s\n", devname + 5);
 }
 
 static int wake_gesture_remove(struct platform_device *pdev)
@@ -326,7 +343,7 @@ static int wag_misc_init(struct wag_context *cxt)
 	int err = 0;
 	/* kernel-3.10\include\linux\Miscdevice.h */
 	/* use MISC_DYNAMIC_MINOR exceed 64 */
-	cxt->mdev.minor = M_WAG_MISC_MINOR;
+	cxt->mdev.minor = MISC_DYNAMIC_MINOR;
 	cxt->mdev.name = WAG_MISC_DEV_NAME;
 
 	err = misc_register(&cxt->mdev);
@@ -432,7 +449,7 @@ int wag_register_control_path(struct wag_control_path *ctl)
 	return 0;
 }
 
-static int wag_probe(struct platform_device *pdev)
+static int wag_probe(void)
 {
 	int err;
 
@@ -455,13 +472,6 @@ static int wag_probe(struct platform_device *pdev)
 		WAG_ERR("unable to register wag input device!\n");
 		goto exit_alloc_input_dev_failed;
 	}
-#if defined(CONFIG_HAS_EARLYSUSPEND) && defined(CONFIG_EARLYSUSPEND)
-	atomic_set(&(wag_context_obj->early_suspend), 0);
-	wag_context_obj->early_drv.level = EARLY_SUSPEND_LEVEL_STOP_DRAWING - 1,
-	    wag_context_obj->early_drv.suspend = wag_early_suspend,
-	    wag_context_obj->early_drv.resume = wag_late_resume,
-	    register_early_suspend(&wag_context_obj->early_drv);
-#endif				/* #if defined(CONFIG_HAS_EARLYSUSPEND) && defined(CONFIG_EARLYSUSPEND) */
 
 	WAG_LOG("----wag_probe OK !!\n");
 	return 0;
@@ -478,7 +488,7 @@ exit_alloc_data_failed:
 	return err;
 }
 
-static int wag_remove(struct platform_device *pdev)
+static int wag_remove(void)
 {
 	int err = 0;
 
@@ -493,80 +503,11 @@ static int wag_remove(struct platform_device *pdev)
 	kfree(wag_context_obj);
 	return 0;
 }
-
-static void wag_early_suspend(struct early_suspend *h)
-{
-	atomic_set(&(wag_context_obj->early_suspend), 1);
-	if (!atomic_read(&wag_context_obj->wake))	/* not wake up, disable in early suspend */
-		wag_real_enable(WAG_SUSPEND);
-
-	WAG_LOG(" wag_early_suspend ok------->hwm_obj->early_suspend=%d\n",
-		atomic_read(&(wag_context_obj->early_suspend)));
-}
-
-/*----------------------------------------------------------------------------*/
-static void wag_late_resume(struct early_suspend *h)
-{
-	atomic_set(&(wag_context_obj->early_suspend), 0);
-	if (!atomic_read(&wag_context_obj->wake) && resume_enable_status)
-		wag_real_enable(WAG_RESUME);
-
-	WAG_LOG(" wag_late_resume ok------->hwm_obj->early_suspend=%d\n",
-		atomic_read(&(wag_context_obj->early_suspend)));
-}
-
-#if !defined(CONFIG_HAS_EARLYSUSPEND) || !defined(USE_EARLY_SUSPEND)
-static int wag_suspend(struct platform_device *dev, pm_message_t state)
-{
-	atomic_set(&(wag_context_obj->suspend), 1);
-	if (!atomic_read(&wag_context_obj->wake))	/* not wake up, disable in early suspend */
-		wag_real_enable(WAG_SUSPEND);
-
-	WAG_LOG(" wag_suspend ok------->hwm_obj->suspend=%d\n",
-		atomic_read(&(wag_context_obj->suspend)));
-	return 0;
-}
-
-/*----------------------------------------------------------------------------*/
-static int wag_resume(struct platform_device *dev)
-{
-	atomic_set(&(wag_context_obj->suspend), 0);
-	if (!atomic_read(&wag_context_obj->wake) && resume_enable_status)
-		wag_real_enable(WAG_RESUME);
-
-	WAG_LOG(" wag_resume ok------->hwm_obj->suspend=%d\n",
-		atomic_read(&(wag_context_obj->suspend)));
-	return 0;
-}
-#endif				/* #if !defined(CONFIG_HAS_EARLYSUSPEND) || !defined(USE_EARLY_SUSPEND) */
-
-#ifdef CONFIG_OF
-static const struct of_device_id m_wag_pl_of_match[] = {
-	{.compatible = "mediatek,m_wag_pl",},
-	{},
-};
-#endif
-
-static struct platform_driver wag_driver = {
-	.probe = wag_probe,
-	.remove = wag_remove,
-#if !defined(CONFIG_HAS_EARLYSUSPEND) || !defined(USE_EARLY_SUSPEND)
-	.suspend = wag_suspend,
-	.resume = wag_resume,
-#endif
-	.driver = {
-		   .name = WAG_PL_DEV_NAME,
-#ifdef CONFIG_OF
-		   .of_match_table = m_wag_pl_of_match,
-#endif
-		   }
-};
-
 static int __init wag_init(void)
 {
 	WAG_FUN();
 
-	if (platform_driver_register(&wag_driver)) {
+	if (wag_probe()) {
 		WAG_ERR("failed to register wag driver\n");
 		return -ENODEV;
 	}
@@ -576,7 +517,7 @@ static int __init wag_init(void)
 
 static void __exit wag_exit(void)
 {
-	platform_driver_unregister(&wag_driver);
+	wag_remove();
 	platform_driver_unregister(&wake_gesture_driver);
 }
 

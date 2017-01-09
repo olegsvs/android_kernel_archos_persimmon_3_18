@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 
 #include <linux/module.h>
 
@@ -39,6 +52,20 @@ int kree_pm_cpu_dormant(int mode)
 
 	param[0].value.a = mode;
 	ret = KREE_TeeServiceCall(pm_session, TZCMD_PM_CPU_DORMANT,
+				  TZ_ParamTypes1(TZPT_VALUE_INPUT), param);
+	if (ret != TZ_RESULT_SUCCESS)
+		pr_warn("%s error: %s\n", __func__, TZ_GetErrorString(ret));
+
+	return 0;
+}
+
+int kree_pm_cpu_dormant_workaround_wake(int workaround_wake)
+{
+	MTEEC_PARAM param[4];
+	TZ_RESULT ret;
+
+	param[0].value.a = workaround_wake;
+	ret = KREE_TeeServiceCall(pm_session, TZCMD_PM_CPU_ERRATA_802022_WA,
 				  TZ_ParamTypes1(TZPT_VALUE_INPUT), param);
 	if (ret != TZ_RESULT_SUCCESS)
 		pr_warn("%s error: %s\n", __func__, TZ_GetErrorString(ret));

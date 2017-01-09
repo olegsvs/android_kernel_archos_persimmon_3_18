@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #ifndef _MTK_THERMAL_MONITOR_H
 #define _MTK_THERMAL_MONITOR_H
 
@@ -19,6 +32,10 @@
 
 #else
 
+struct thermal_cooling_device_ops_extra {
+	int (*set_cur_temp)(struct thermal_cooling_device *, unsigned long);
+};
+
 extern
 struct thermal_zone_device *mtk_thermal_zone_device_register_wrapper
 (char *type, int trips, void *devdata, const struct thermal_zone_device_ops *ops,
@@ -30,6 +47,15 @@ void mtk_thermal_zone_device_unregister_wrapper(struct thermal_zone_device *tz);
 extern
 struct thermal_cooling_device *mtk_thermal_cooling_device_register_wrapper
 (char *type, void *devdata, const struct thermal_cooling_device_ops *ops);
+
+extern
+struct thermal_cooling_device *mtk_thermal_cooling_device_register_wrapper_extra
+(char *type, void *devdata, const struct thermal_cooling_device_ops *ops,
+const struct thermal_cooling_device_ops_extra *ops_ext);
+
+extern
+int mtk_thermal_cooling_device_add_exit_point
+(struct thermal_cooling_device *cdev, int exit_point);
 
 extern
 void mtk_thermal_cooling_device_unregister_wrapper(struct thermal_cooling_device *cdev);
@@ -61,6 +87,7 @@ typedef enum {
 	MTK_THERMAL_SENSOR_PCB2,
 	MTK_THERMAL_SENSOR_SKIN,
 	MTK_THERMAL_SENSOR_XTAL,
+	MTK_THERMAL_SENSOR_MD_PA,
 
 	MTK_THERMAL_SENSOR_COUNT
 } MTK_THERMAL_SENSOR_ID;

@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #ifndef __ENV_H__
 #define __ENV_H__
 #ifdef CONFIG_MTK_EMMC_SUPPORT
@@ -17,6 +30,8 @@ struct env_struct {
 #define ENV_MAGIC		'e'
 #define ENV_READ		_IOW(ENV_MAGIC, 1, int)
 #define ENV_WRITE		_IOW(ENV_MAGIC, 2, int)
+#define ENV_SET_PID		_IOW(ENV_MAGIC, 3, int)
+#define ENV_USER_INIT	_IOW(ENV_MAGIC, 4, int)
 
 struct env_ioctl {
 	char *name;

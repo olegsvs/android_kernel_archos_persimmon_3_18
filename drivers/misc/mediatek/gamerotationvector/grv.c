@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 
 #include "grv.h"
 
@@ -5,11 +18,6 @@ static struct grv_context *grv_context_obj;
 
 
 static struct grv_init_info *grvsensor_init_list[MAX_CHOOSE_GRV_NUM] = { 0 };	/* modified */
-
-#if defined(CONFIG_HAS_EARLYSUSPEND) && defined(CONFIG_EARLYSUSPEND)
-static void grv_early_suspend(struct early_suspend *h);
-static void grv_late_resume(struct early_suspend *h);
-#endif
 
 static void grv_work_func(struct work_struct *work)
 {
@@ -70,7 +78,7 @@ static void grv_work_func(struct work_struct *work)
 	grv_data_report(cxt->drv_data.grv_data.values[0],
 			cxt->drv_data.grv_data.values[1],
 			cxt->drv_data.grv_data.values[2],
-			cxt->drv_data.grv_data.values[3], cxt->drv_data.grv_data.status);
+			cxt->drv_data.grv_data.values[3], cxt->drv_data.grv_data.status,  nt);
 
 grv_loop:
 	if (true == cxt->is_polling_run)
@@ -97,6 +105,7 @@ static struct grv_context *grv_context_alloc_object(void)
 	}
 	atomic_set(&obj->delay, 200);	/*5Hz set work queue delay time 200ms */
 	atomic_set(&obj->wake, 0);
+	atomic_set(&obj->enable, 0);
 	INIT_WORK(&obj->report, grv_work_func);
 	init_timer(&obj->timer);
 	obj->timer.expires = jiffies + atomic_read(&obj->delay) / (1000 / HZ);
@@ -342,10 +351,15 @@ static ssize_t grv_show_delay(struct device *dev, struct device_attribute *attr,
 static ssize_t grv_show_sensordevnum(struct device *dev, struct device_attribute *attr, char *buf)
 {
 	struct grv_context *cxt = NULL;
-	char *devname = NULL;
+	const char *devname = NULL;
+	struct input_handle *handle;
 
 	cxt = grv_context_obj;
-	devname = (char *)dev_name(&cxt->idev->dev);
+	list_for_each_entry(handle, &cxt->idev->h_list, d_node)
+		if (strncmp(handle->name, "event", 5) == 0) {
+			devname = handle->name;
+			break;
+		}
 	return snprintf(buf, PAGE_SIZE, "%s\n", devname + 5);
 }
 
@@ -423,7 +437,7 @@ static int grvsensor_probe(struct platform_device *pdev)
 
 #ifdef CONFIG_OF
 static const struct of_device_id grvsensor_of_match[] = {
-	{.compatible = "mediatek,grvsensor",},
+	{.compatible = "mediatek,grv",},
 	{},
 };
 #endif
@@ -432,7 +446,7 @@ static struct platform_driver grvsensor_driver = {
 	.probe = grvsensor_probe,
 	.remove = grvsensor_remove,
 	.driver = {
-		   .name = "grvsensor",
+		   .name = "grv",
 #ifdef CONFIG_OF
 		   .of_match_table = grvsensor_of_match,
 #endif
@@ -500,16 +514,17 @@ static int grv_input_init(struct grv_context *cxt)
 
 	dev->name = GRV_INPUTDEV_NAME;
 
-	input_set_capability(dev, EV_ABS, EVENT_TYPE_GRV_X);
-	input_set_capability(dev, EV_ABS, EVENT_TYPE_GRV_Y);
-	input_set_capability(dev, EV_ABS, EVENT_TYPE_GRV_Z);
-	input_set_capability(dev, EV_ABS, EVENT_TYPE_GRV_SCALAR);
+	input_set_capability(dev, EV_REL, EVENT_TYPE_GRV_X);
+	input_set_capability(dev, EV_REL, EVENT_TYPE_GRV_Y);
+	input_set_capability(dev, EV_REL, EVENT_TYPE_GRV_Z);
+	input_set_capability(dev, EV_REL, EVENT_TYPE_GRV_SCALAR);
 	input_set_capability(dev, EV_REL, EVENT_TYPE_GRV_STATUS);
-
-	input_set_abs_params(dev, EVENT_TYPE_GRV_X, GRV_VALUE_MIN, GRV_VALUE_MAX, 0, 0);
+	input_set_capability(dev, EV_REL, EVENT_TYPE_GRV_TIMESTAMP_HI);
+	input_set_capability(dev, EV_REL, EVENT_TYPE_GRV_TIMESTAMP_LO);
+	/*input_set_abs_params(dev, EVENT_TYPE_GRV_X, GRV_VALUE_MIN, GRV_VALUE_MAX, 0, 0);
 	input_set_abs_params(dev, EVENT_TYPE_GRV_Y, GRV_VALUE_MIN, GRV_VALUE_MAX, 0, 0);
 	input_set_abs_params(dev, EVENT_TYPE_GRV_Z, GRV_VALUE_MIN, GRV_VALUE_MAX, 0, 0);
-	input_set_abs_params(dev, EVENT_TYPE_GRV_SCALAR, GRV_VALUE_MIN, GRV_VALUE_MAX, 0, 0);
+	input_set_abs_params(dev, EVENT_TYPE_GRV_SCALAR, GRV_VALUE_MIN, GRV_VALUE_MAX, 0, 0);*/
 	input_set_drvdata(dev, cxt);
 
 	input_set_events_per_packet(dev, 32);	/* test */
@@ -595,22 +610,24 @@ int grv_register_control_path(struct grv_control_path *ctl)
 	return 0;
 }
 
-int grv_data_report(int x, int y, int z, int scalar, int status)
+int grv_data_report(int x, int y, int z, int scalar, int status, int64_t nt)
 {
 	/* GRV_LOG("+grv_data_report! %d, %d, %d, %d\n",x,y,z,status); */
 	struct grv_context *cxt = NULL;
 
 	cxt = grv_context_obj;
-	input_report_abs(cxt->idev, EVENT_TYPE_GRV_X, x);
-	input_report_abs(cxt->idev, EVENT_TYPE_GRV_Y, y);
-	input_report_abs(cxt->idev, EVENT_TYPE_GRV_Z, z);
-	input_report_abs(cxt->idev, EVENT_TYPE_GRV_SCALAR, scalar);
+	input_report_rel(cxt->idev, EVENT_TYPE_GRV_X, x);
+	input_report_rel(cxt->idev, EVENT_TYPE_GRV_Y, y);
+	input_report_rel(cxt->idev, EVENT_TYPE_GRV_Z, z);
+	input_report_rel(cxt->idev, EVENT_TYPE_GRV_SCALAR, scalar);
+	input_report_rel(cxt->idev, EVENT_TYPE_GRV_TIMESTAMP_HI, nt >> 32);
+	input_report_rel(cxt->idev, EVENT_TYPE_GRV_TIMESTAMP_LO, nt & 0xFFFFFFFFLL);
 	/* input_report_rel(cxt->idev, EVENT_TYPE_GRV_STATUS, status); */
 	input_sync(cxt->idev);
 	return 0;
 }
 
-static int grv_probe(struct platform_device *pdev)
+static int grv_probe(void)
 {
 
 	int err;
@@ -635,13 +652,6 @@ static int grv_probe(struct platform_device *pdev)
 		GRV_ERR("unable to register grv input device!\n");
 		goto exit_alloc_input_dev_failed;
 	}
-#if defined(CONFIG_HAS_EARLYSUSPEND) && defined(CONFIG_EARLYSUSPEND)
-	atomic_set(&(grv_context_obj->early_suspend), 0);
-	grv_context_obj->early_drv.level = 1;	/* EARLY_SUSPEND_LEVEL_STOP_DRAWING - 1, */
-	grv_context_obj->early_drv.suspend = grv_early_suspend,
-	    grv_context_obj->early_drv.resume = grv_late_resume,
-	    register_early_suspend(&grv_context_obj->early_drv);
-#endif
 
 	GRV_LOG("----grv_probe OK !!\n");
 	return 0;
@@ -669,7 +679,7 @@ exit_alloc_data_failed:
 
 
 
-static int grv_remove(struct platform_device *pdev)
+static int grv_remove(void)
 {
 	int err = 0;
 
@@ -684,56 +694,6 @@ static int grv_remove(struct platform_device *pdev)
 
 	return 0;
 }
-
-#if defined(CONFIG_HAS_EARLYSUSPEND) && defined(CONFIG_EARLYSUSPEND)
-static void grv_early_suspend(struct early_suspend *h)
-{
-	atomic_set(&(grv_context_obj->early_suspend), 1);
-	GRV_LOG(" grv_early_suspend ok------->hwm_obj->early_suspend=%d\n",
-		atomic_read(&(grv_context_obj->early_suspend)));
-}
-
-/*----------------------------------------------------------------------------*/
-
-static void grv_late_resume(struct early_suspend *h)
-{
-	atomic_set(&(grv_context_obj->early_suspend), 0);
-	GRV_LOG(" grv_late_resume ok------->hwm_obj->early_suspend=%d\n",
-		atomic_read(&(grv_context_obj->early_suspend)));
-}
-#endif
-
-static int grv_suspend(struct platform_device *dev, pm_message_t state)
-{
-	return 0;
-}
-
-/*----------------------------------------------------------------------------*/
-static int grv_resume(struct platform_device *dev)
-{
-	return 0;
-}
-
-#ifdef CONFIG_OF
-static const struct of_device_id m_grv_pl_of_match[] = {
-	{.compatible = "mediatek,m_grv_pl",},
-	{},
-};
-#endif
-
-static struct platform_driver grv_driver = {
-	.probe = grv_probe,
-	.remove = grv_remove,
-	.suspend = grv_suspend,
-	.resume = grv_resume,
-	.driver = {
-		   .name = GRV_PL_DEV_NAME,
-#ifdef CONFIG_OF
-		   .of_match_table = m_grv_pl_of_match,
-#endif
-		   }
-};
-
 int grv_driver_add(struct grv_init_info *obj)
 {
 	int err = 0;
@@ -763,13 +723,12 @@ int grv_driver_add(struct grv_init_info *obj)
 		err = -1;
 	}
 	return err;
-} EXPORT_SYMBOL_GPL(grv_driver_add);
-
+}
 static int __init grv_init(void)
 {
 	GRV_FUN();
 
-	if (platform_driver_register(&grv_driver)) {
+	if (grv_probe()) {
 		GRV_ERR("failed to register grv driver\n");
 		return -ENODEV;
 	}
@@ -779,7 +738,7 @@ static int __init grv_init(void)
 
 static void __exit grv_exit(void)
 {
-	platform_driver_unregister(&grv_driver);
+	grv_remove();
 	platform_driver_unregister(&grvsensor_driver);
 }
 

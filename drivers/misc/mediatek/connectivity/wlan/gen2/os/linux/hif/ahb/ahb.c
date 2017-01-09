@@ -1,134 +1,14 @@
-/******************************************************************************
-*[File]             ahb.c
-*[Version]          v1.0
-*[Revision Date]    2013-01-16
-*[Author]
-*[Description]
-*    The program provides AHB HIF driver
-*[Copyright]
-*    Copyright (C) 2013 MediaTek Incorporation. All Rights Reserved.
-******************************************************************************/
-
 /*
-** Log: ahb.c
- *
- * 01 16 2013 vend_samp.lin
- * Port sdio.c to ahb.c on MT6572/MT6582
- * 1) Initial version
- *
- * 04 12 2012 terry.wu
- * NULL
- * Add AEE message support
- * 1) Show AEE warning(red screen) if SDIO access error occurs
- *
- * 02 14 2012 cp.wu
- * [WCXRP00000851] [MT6628 Wi-Fi][Driver] Add HIFSYS related definition to driver source tree
- * include correct header file upon setting.
- *
- * 11 10 2011 cp.wu
- * [WCXRP00001098] [MT6620 Wi-Fi][Driver] Replace printk by DBG LOG macros in linux porting layer
- * 1. eliminaite direct calls to printk in porting layer.
- * 2. replaced by DBGLOG, which would be XLOG on ALPS platforms.
- *
- * 09 20 2011 cp.wu
- * [WCXRP00000994] [MT6620 Wi-Fi][Driver] dump message for bus error and reset bus error flag while re-initialized
- * 1. always show error message for SDIO bus errors.
- * 2. reset bus error flag when re-initialization
- *
- * 08 17 2011 cp.wu
- * [WCXRP00000851] [MT6628 Wi-Fi][Driver] Add HIFSYS related definition to driver source tree
- * add MT6628 related definitions for Linux/Android driver.
- *
- * 05 18 2011 cp.wu
- * [WCXRP00000702] [MT5931][Driver] Modify initialization sequence for E1 ASIC
- * add device ID for MT5931.
- *
- * 04 08 2011 pat.lu
- * [WCXRP00000623] [MT6620 Wi-Fi][Driver] use ARCH define to distinguish PC Linux driver
- * Use CONFIG_X86 instead of PC_LINUX_DRIVER_USE option to have proper compile setting for PC Linux driver
- *
- * 03 22 2011 pat.lu
- * [WCXRP00000592] [MT6620 Wi-Fi][Driver] Support PC Linux Environment Driver Build
- * Add a compiler option "PC_LINUX_DRIVER_USE" for building driver in PC Linux environment.
- *
- * 03 18 2011 cp.wu
- * [WCXRP00000559] [MT6620 Wi-Fi][Driver] Combine TX/RX DMA buffers into a single one to reduce physically continuous
- * memory consumption
- * deprecate CFG_HANDLE_IST_IN_SDIO_CALLBACK.
- *
- * 03 15 2011 cp.wu
- * [WCXRP00000559] [MT6620 Wi-Fi][Driver] Combine TX/RX DMA buffers into a single one to reduce physically continuous
- * memory consumption
- * 1. deprecate CFG_HANDLE_IST_IN_SDIO_CALLBACK
- * 2. Use common coalescing buffer for both TX/RX directions
- *
- *
- * 03 07 2011 terry.wu
- * [WCXRP00000521] [MT6620 Wi-Fi][Driver] Remove non-standard debug message
- * Toggle non-standard debug messages to comments.
- *
- * 11 15 2010 jeffrey.chang
- * [WCXRP00000181] [MT6620 Wi-Fi][Driver] fix the driver message "GLUE_FLAG_HALT skip INT" during unloading
- * Fix GLUE_FALG_HALT message which cause driver to hang
- *
- * 11 08 2010 cp.wu
- * [WCXRP00000166] [MT6620 Wi-Fi][Driver] use SDIO CMD52 for enabling/disabling interrupt to reduce transaction period
- * correct typo
- *
- * 11 08 2010 cp.wu
- * [WCXRP00000166] [MT6620 Wi-Fi][Driver] use SDIO CMD52 for enabling/disabling interrupt to reduce transaction period
- * change to use CMD52 for enabling/disabling interrupt to reduce SDIO transaction time
- *
- * 11 01 2010 yarco.yang
- * [WCXRP00000149] [MT6620 WI-Fi][Driver]Fine tune performance on MT6516 platform
- * Add code to run WlanIST in SDIO callback.
- *
- * 10 19 2010 cp.wu
- * [WCXRP00000122] [MT6620 Wi-Fi][Driver] Preparation for YuSu source tree integration
- * remove HIF_SDIO_ONE flags because the settings could be merged for runtime detection instead of compile-time.
- *
- * 10 19 2010 jeffrey.chang
- * [WCXRP00000120] [MT6620 Wi-Fi][Driver] Refine linux kernel module to the license of MTK propietary and enable MTK
- * HIF by default
- * Refine linux kernel module to the license of MTK and enable MTK HIF
- *
- * 08 21 2010 jeffrey.chang
- * NULL
- * 1) add sdio two setting
- * 2) bug fix of sdio glue
- *
- * 08 18 2010 jeffrey.chang
- * NULL
- * support multi-function sdio
- *
- * 08 18 2010 cp.wu
- * NULL
- * #if defined(__X86__) is not working, change to use #ifdef CONFIG_X86.
- *
- * 08 17 2010 cp.wu
- * NULL
- * add ENE SDIO host workaround for x86 linux platform.
- *
- * 07 08 2010 cp.wu
- *
- * [WPD00003833] [MT6620 and MT5931] Driver migration - move to new repository.
- *
- * 06 06 2010 kevin.huang
- * [WPD00003832][MT6620 5931] Create driver base
- * [MT6620 5931] Create driver base
- *
- * 05 07 2010 jeffrey.chang
- * [WPD00003826]Initial import for Linux port
- * Fix hotplug bug
- *
- * 03 28 2010 jeffrey.chang
- * [WPD00003826]Initial import for Linux port
- * clear sdio interrupt
- *
- * 03 24 2010 jeffrey.chang
- * [WPD00003826]Initial import for Linux port
- * initial import for Linux port
-**
+* Copyright (C) 2016 MediaTek Inc.
+*
+* This program is free software; you can redistribute it and/or modify
+* it under the terms of the GNU General Public License version 2 as
+* published by the Free Software Foundation.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+* See http://www.gnu.org/licenses/gpl-2.0.html for more details.
 */
 
 /*******************************************************************************
@@ -302,7 +182,8 @@ static struct miscdevice MtkAhbDriver = {
 
 #ifdef CONFIG_OF
 static const struct of_device_id apwifi_of_ids[] = {
-	{.compatible = "mediatek,WIFI",},
+	{.compatible = "mediatek,wifi", .data = (void *)0},
+	{.compatible = "mediatek,mt7623-wifi", .data = (void *)0x7623},
 	{}
 };
 #endif
@@ -429,6 +310,7 @@ VOID glResetHif(GLUE_INFO_T *GlueInfo)
 VOID glSetHifInfo(GLUE_INFO_T *GlueInfo, ULONG ulCookie)
 {
 	GL_HIF_INFO_T *HifInfo;
+	const struct of_device_id *of_id;
 
 	/* Init HIF */
 	ASSERT(GlueInfo);
@@ -442,6 +324,7 @@ VOID glSetHifInfo(GLUE_INFO_T *GlueInfo, ULONG ulCookie)
 
 	HifInfo->HifRegBaseAddr = ioremap(HIF_DRV_BASE, HIF_DRV_LENGTH);
 	HifInfo->McuRegBaseAddr = ioremap(CONN_MCU_DRV_BASE, CONN_MCU_REG_LENGTH);
+	HifInfo->APMcuRegBaseAddr = ioremap(AP_MCU_DRV_BASE, AP_MCU_TX_RX_LENGTH);
 	DBGLOG(INIT, INFO, "[WiFi/HIF]HifInfo->HifRegBaseAddr=0x%p, HifInfo->McuRegBaseAddr=0x%p\n",
 	       HifInfo->HifRegBaseAddr, HifInfo->McuRegBaseAddr);
 
@@ -449,15 +332,18 @@ VOID glSetHifInfo(GLUE_INFO_T *GlueInfo, ULONG ulCookie)
 	HifInfo->fgDmaEnable = FALSE;
 	HifInfo->DmaRegBaseAddr = 0;
 	HifInfo->DmaOps = NULL;
-
-	/* read chip ID */
-	HifInfo->ChipID = HIF_REG_READL(HifInfo, MCR_WCIR) & 0xFFFF;
-	if (HifInfo->ChipID == 0x0321 || HifInfo->ChipID == 0x0335 || HifInfo->ChipID == 0x0337)
-		HifInfo->ChipID = 0x6735;	/* Denali ChipID transition */
-	if (HifInfo->ChipID == 0x0326)
-		HifInfo->ChipID = 0x6755;
+	of_id = of_match_node(apwifi_of_ids, HifAhbPDev->dev.of_node);
+	if (of_id && of_id->data) {
+		HifInfo->ChipID = (UINT_32)(unsigned long)of_id->data;
+	} else {
+		/* read chip ID */
+		HifInfo->ChipID = HIF_REG_READL(HifInfo, MCR_WCIR) & 0xFFFF;
+		if (HifInfo->ChipID == 0x0321 || HifInfo->ChipID == 0x0335 || HifInfo->ChipID == 0x0337)
+			HifInfo->ChipID = 0x6735;	/* Denali ChipID transition */
+		if (HifInfo->ChipID == 0x0326)
+			HifInfo->ChipID = 0x6755;
+	}
 	DBGLOG(INIT, INFO, "[WiFi/HIF] ChipID = 0x%x\n", HifInfo->ChipID);
-
 #ifdef CONFIG_OF
 #if !defined(CONFIG_MTK_CLKMGR)
 	HifInfo->clk_wifi_dma = devm_clk_get(&HifAhbPDev->dev, "wifi-dma");
@@ -540,9 +426,11 @@ VOID glGetChipInfo(GLUE_INFO_T *GlueInfo, UINT_8 *pucChipBuf)
 	case MTK_CHIP_ID_8127:
 	case MTK_CHIP_ID_6752:
 	case MTK_CHIP_ID_8163:
+	case MTK_CHIP_ID_8160:
 	case MTK_CHIP_ID_6735:
 	case MTK_CHIP_ID_6580:
 	case MTK_CHIP_ID_6755:
+	case MTK_CHIP_ID_7623:
 		kalSprintf(pucChipBuf, "%04x", HifInfo->ChipID);
 		break;
 	default:
@@ -629,7 +517,7 @@ INT_32 glBusSetIrq(PVOID pvData, PVOID pfnIsr, PVOID pvCookie)
 		return -1;
 	prNetDevice = (struct net_device *)pvData;
 
-	node = of_find_compatible_node(NULL, NULL, "mediatek,WIFI");
+	node = of_find_compatible_node(NULL, NULL, "mediatek,wifi");
 	if (node) {
 		irq_id = irq_of_parse_and_map(node, 0);
 		DBGLOG(INIT, INFO, "WIFI-OF: get wifi irq(%d)\n", irq_id);
@@ -670,7 +558,7 @@ VOID glBusFreeIrq(PVOID pvData, PVOID pvCookie)
 		return;
 	prNetDevice = (struct net_device *)pvData;
 
-	node = of_find_compatible_node(NULL, NULL, "mediatek,WIFI");
+	node = of_find_compatible_node(NULL, NULL, "mediatek,wifi");
 	if (node) {
 		irq_id = irq_of_parse_and_map(node, 0);
 		DBGLOG(INIT, INFO, "WIFI-OF: get wifi irq(%d)\n", irq_id);
@@ -857,6 +745,7 @@ kalDevPortRead(IN P_GLUE_INFO_T GlueInfo, IN UINT_16 Port, IN UINT_32 Size, OUT 
 {
 	GL_HIF_INFO_T *HifInfo;
 	UINT_32 u4HSTCRValue = 0;
+	UINT_32 RegWHLPCR = 0;
 
 	/* sanity check */
 	if ((WlanDmaFatalErr == 1) || (fgIsResetting == TRUE) || (HifIsFwOwn(GlueInfo->prAdapter) == TRUE)) {
@@ -878,6 +767,10 @@ kalDevPortRead(IN P_GLUE_INFO_T GlueInfo, IN UINT_16 Port, IN UINT_32 Size, OUT 
 		u4HSTCRValue = HifAhbDmaEnhanceModeConf(GlueInfo, HIF_BURST_4DW, HIF_TARGET_RXD1, Size);
 	else if (Port == MCR_WHISR)
 		u4HSTCRValue = HifAhbDmaEnhanceModeConf(GlueInfo, HIF_BURST_4DW, HIF_TARGET_WHISR, Size);
+
+	RegWHLPCR = HIF_REG_READL(HifInfo, MCR_WHLPCR);
+	if ((RegWHLPCR & WHLPCR_INT_EN_SET) == 1)
+		HIF_REG_WRITEL(HifInfo, MCR_WHLPCR, WHLPCR_INT_EN_CLR);
 
 	/* Read */
 #if (CONF_MTK_AHB_DMA == 1)
@@ -981,6 +874,10 @@ kalDevPortRead(IN P_GLUE_INFO_T GlueInfo, IN UINT_16 Port, IN UINT_32 Size, OUT 
 #else
 		dma_unmap_single(HifInfo->Dev, DmaConf.Dst, Size, DMA_FROM_DEVICE);
 #endif /* MTK_DMA_BUF_MEMCPY_SUP */
+
+		if ((RegWHLPCR & WHLPCR_INT_EN_SET) == 1)
+			HIF_REG_WRITEL(HifInfo, MCR_WHLPCR, WHLPCR_INT_EN_SET);
+
 		if (WlanDmaFatalErr) {
 			if (!fgIsResetting)
 				glDoChipReset();
@@ -1004,6 +901,9 @@ kalDevPortRead(IN P_GLUE_INFO_T GlueInfo, IN UINT_16 Port, IN UINT_32 Size, OUT 
 			*LoopBuf = HIF_REG_READL(HifInfo, Port);
 			LoopBuf++;
 		}
+
+		if ((RegWHLPCR & WHLPCR_INT_EN_SET) == 1)
+			HIF_REG_WRITEL(HifInfo, MCR_WHLPCR, WHLPCR_INT_EN_SET);
 	}
 
 	return TRUE;
@@ -1029,6 +929,7 @@ kalDevPortWrite(IN P_GLUE_INFO_T GlueInfo, IN UINT_16 Port, IN UINT_32 Size, IN 
 {
 	GL_HIF_INFO_T *HifInfo;
 	UINT_32 u4HSTCRValue = 0;
+	UINT_32 RegWHLPCR = 0;
 
 	/* sanity check */
 	if ((WlanDmaFatalErr == 1) || (fgIsResetting == TRUE) || (HifIsFwOwn(GlueInfo->prAdapter) == TRUE)) {
@@ -1052,6 +953,10 @@ kalDevPortWrite(IN P_GLUE_INFO_T GlueInfo, IN UINT_16 Port, IN UINT_32 Size, IN 
 	else if (Port == MCR_WTDR1)
 		u4HSTCRValue = HifAhbDmaEnhanceModeConf(GlueInfo, HIF_BURST_4DW, HIF_TARGET_TXD1, Size);
 	/* else other non-data port */
+
+	RegWHLPCR = HIF_REG_READL(HifInfo, MCR_WHLPCR);
+	if ((RegWHLPCR & WHLPCR_INT_EN_SET) == 1)
+		HIF_REG_WRITEL(HifInfo, MCR_WHLPCR, WHLPCR_INT_EN_CLR);
 
 	/* Write */
 #if (CONF_MTK_AHB_DMA == 1)
@@ -1142,6 +1047,10 @@ kalDevPortWrite(IN P_GLUE_INFO_T GlueInfo, IN UINT_16 Port, IN UINT_32 Size, IN 
 #ifndef MTK_DMA_BUF_MEMCPY_SUP
 		dma_unmap_single(HifInfo->Dev, DmaConf.Src, Size, DMA_TO_DEVICE);
 #endif /* MTK_DMA_BUF_MEMCPY_SUP */
+
+		if ((RegWHLPCR & WHLPCR_INT_EN_SET) == 1)
+			HIF_REG_WRITEL(HifInfo, MCR_WHLPCR, WHLPCR_INT_EN_SET);
+
 		if (WlanDmaFatalErr) {
 			if (!fgIsResetting)
 				glDoChipReset();
@@ -1168,6 +1077,9 @@ kalDevPortWrite(IN P_GLUE_INFO_T GlueInfo, IN UINT_16 Port, IN UINT_32 Size, IN 
 			HIF_REG_WRITEL(HifInfo, Port, *LoopBuf);
 			LoopBuf++;
 		}
+
+		if ((RegWHLPCR & WHLPCR_INT_EN_SET) == 1)
+			HIF_REG_WRITEL(HifInfo, MCR_WHLPCR, WHLPCR_INT_EN_SET);
 
 		HIF_DBG_TX(("\n\n"));
 	}
@@ -1207,6 +1119,8 @@ static irqreturn_t HifAhbISR(IN int Irq, IN void *Arg)
 
 	HifInfo = &GlueInfo->rHifInfo;
 
+	GlueInfo->IsrCnt++;
+
 	if (GlueInfo->ulFlag & GLUE_FLAG_HALT) {
 		HIF_REG_WRITEL(HifInfo, MCR_WHLPCR, WHLPCR_INT_EN_CLR);
 		return IRQ_HANDLED;
@@ -1224,6 +1138,7 @@ static irqreturn_t HifAhbISR(IN int Irq, IN void *Arg)
 	wake_up_interruptible(&GlueInfo->waitq);
 
 	IsrPassCnt++;
+	GlueInfo->IsrPassCnt++;
 	return IRQ_HANDLED;
 
 }

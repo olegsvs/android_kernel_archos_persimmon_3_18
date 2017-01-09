@@ -1,17 +1,19 @@
 /*
- * Copyright (C) 2007 The Android Open Source Project
+ * Copyright (C) 2015 MediaTek Inc.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ * You should have received a copy of the GNU General Public License
+ * along with this program
+ * If not, see <http://www.gnu.org/licenses/>.
  */
 /*******************************************************************************
  *
@@ -93,17 +95,17 @@ static struct snd_pcm_hw_constraint_list constraints_sample_rates = {
 static int mtk_uldlloopback_open(struct snd_pcm_substream *substream)
 {
 	struct snd_pcm_runtime *runtime = substream->runtime;
-	int err = 0;
 	int ret = 0;
 
 	pr_warn("%s\n", __func__);
-	AudDrv_Clk_On();
-	AudDrv_ADC_Clk_On();
 	if (substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
 		pr_err("%s  with mtk_uldlloopback_open\n", __func__);
 		runtime->rate = 48000;
 		return 0;
 	}
+
+	AudDrv_Clk_On();
+	AudDrv_ADC_Clk_On();
 
 	runtime->hw = mtk_uldlloopback_hardware;
 	memcpy((void *)(&(runtime->hw)), (void *)&mtk_uldlloopback_hardware ,
@@ -111,6 +113,9 @@ static int mtk_uldlloopback_open(struct snd_pcm_substream *substream)
 
 	ret = snd_pcm_hw_constraint_list(runtime, 0, SNDRV_PCM_HW_PARAM_RATE,
 					 &constraints_sample_rates);
+	if (ret < 0)
+		pr_warn("snd_pcm_hw_constraint_list failed\n");
+
 	ret = snd_pcm_hw_constraint_integer(runtime, SNDRV_PCM_HW_PARAM_PERIODS);
 
 	if (ret < 0)
@@ -125,10 +130,10 @@ static int mtk_uldlloopback_open(struct snd_pcm_substream *substream)
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
 		pr_warn("SNDRV_PCM_STREAM_PLAYBACK mtkalsa_voice_constraints\n");
 
-	if (err < 0) {
+	if (ret < 0) {
 		pr_err("mtk_uldlloopbackpcm_close\n");
 		mtk_uldlloopbackpcm_close(substream);
-		return err;
+		return ret;
 	}
 	pr_warn("mtk_uldlloopback_open return\n");
 	return 0;
@@ -139,6 +144,8 @@ static int mtk_uldlloopbackpcm_close(struct snd_pcm_substream *substream)
 	pr_warn("%s\n", __func__);
 	if (substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
 		pr_err("%s  with SNDRV_PCM_STREAM_CAPTURE\n", __func__);
+		AudDrv_ADC_Clk_Off();
+		AudDrv_Clk_Off();
 		return 0;
 	}
 
@@ -159,8 +166,10 @@ static int mtk_uldlloopbackpcm_close(struct snd_pcm_substream *substream)
 
 	/* stop DAC output */
 	SetMemoryPathEnable(Soc_Aud_Digital_Block_I2S_OUT_DAC, false);
-	if (GetI2SDacEnable() == false)
+	if (GetI2SDacEnable() == false) {
+		SetI2SADDAEnable(false);
 		SetI2SDacEnable(false);
+	}
 
 	/* stop I2S */
 	Afe_Set_Reg(AFE_I2S_CON3, 0x0, 0x1);
@@ -251,15 +260,12 @@ static int mtk_uldlloopback_pcm_prepare(struct snd_pcm_substream *substream)
 	    runtime->format == SNDRV_PCM_FORMAT_U32_LE) {
 		SetMemIfFetchFormatPerSample(Soc_Aud_Digital_Block_MEM_DL1,
 					     AFE_WLEN_32_BIT_ALIGN_8BIT_0_24BIT_DATA);
-		SetMemIfFetchFormatPerSample(Soc_Aud_Digital_Block_MEM_DL2,
-					     AFE_WLEN_32_BIT_ALIGN_8BIT_0_24BIT_DATA);
 		SetoutputConnectionFormat(OUTPUT_DATA_FORMAT_24BIT,
 					  Soc_Aud_InterConnectionOutput_O03);
 		SetoutputConnectionFormat(OUTPUT_DATA_FORMAT_24BIT,
 					  Soc_Aud_InterConnectionOutput_O04);
 	} else {
 		SetMemIfFetchFormatPerSample(Soc_Aud_Digital_Block_MEM_DL1, AFE_WLEN_16_BIT);
-		SetMemIfFetchFormatPerSample(Soc_Aud_Digital_Block_MEM_DL2, AFE_WLEN_16_BIT);
 		SetoutputConnectionFormat(OUTPUT_DATA_FORMAT_16BIT,
 					  Soc_Aud_InterConnectionOutput_O03);
 		SetoutputConnectionFormat(OUTPUT_DATA_FORMAT_16BIT,
@@ -302,6 +308,8 @@ static int mtk_uldlloopback_pcm_prepare(struct snd_pcm_substream *substream)
 		SetMemoryPathEnable(Soc_Aud_Digital_Block_I2S_IN_ADC, true);
 
 	EnableAfe(true);
+	if (GetMemoryPathEnable(Soc_Aud_Digital_Block_I2S_OUT_DAC) == true)
+		SetI2SADDAEnable(true);
 
 	return 0;
 }

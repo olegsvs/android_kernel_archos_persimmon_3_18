@@ -1,15 +1,23 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 
 #include "gravity.h"
 
 static struct grav_context *grav_context_obj;
 
 
-static struct grav_init_info *gravitysensor_init_list[MAX_CHOOSE_GRAV_NUM] = { 0 };	/* modified */
-
-#if defined(CONFIG_HAS_EARLYSUSPEND) && defined(CONFIG_EARLYSUSPEND)
-static void grav_early_suspend(struct early_suspend *h);
-static void grav_late_resume(struct early_suspend *h);
-#endif
+static struct grav_init_info *gravitysensor_init_list[MAX_CHOOSE_GRAV_NUM] = { 0 };
 
 static void grav_work_func(struct work_struct *work)
 {
@@ -62,7 +70,7 @@ static void grav_work_func(struct work_struct *work)
 
 	grav_data_report(cxt->drv_data.grav_data.values[0],
 			 cxt->drv_data.grav_data.values[1], cxt->drv_data.grav_data.values[2],
-			 cxt->drv_data.grav_data.status);
+			 cxt->drv_data.grav_data.status, nt);
 
 grav_loop:
 	if (true == cxt->is_polling_run)
@@ -87,8 +95,9 @@ static struct grav_context *grav_context_alloc_object(void)
 		GRAV_ERR("Alloc gravity object error!\n");
 		return NULL;
 	}
-	atomic_set(&obj->delay, 200);	/*5Hz set work queue delay time 200ms */
+	atomic_set(&obj->delay, 200);
 	atomic_set(&obj->wake, 0);
+	atomic_set(&obj->enable, 0);
 	INIT_WORK(&obj->report, grav_work_func);
 	init_timer(&obj->timer);
 	obj->timer.expires = jiffies + atomic_read(&obj->delay) / (1000 / HZ);
@@ -97,7 +106,7 @@ static struct grav_context *grav_context_alloc_object(void)
 	obj->is_first_data_after_enable = false;
 	obj->is_polling_run = false;
 	mutex_init(&obj->grav_op_mutex);
-	obj->is_batch_enable = false;	/* for batch mode init */
+	obj->is_batch_enable = false;
 	obj->cali_sw[GRAV_AXIS_X] = 0;
 	obj->cali_sw[GRAV_AXIS_Y] = 0;
 	obj->cali_sw[GRAV_AXIS_Z] = 0;
@@ -135,7 +144,6 @@ static int grav_real_enable(int enable)
 			err = cxt->grav_ctl.enable_nodata(0);
 			if (err)
 				GRAV_ERR("grav enable(%d) err = %d\n", enable, err);
-
 			GRAV_LOG("grav real disable\n");
 		}
 
@@ -150,7 +158,6 @@ static int grav_enable_data(int enable)
 
 	GRAV_FUN();
 
-	/* int err =0; */
 	cxt = grav_context_obj;
 	if (NULL == cxt->grav_ctl.open_report_data) {
 		GRAV_ERR("no grav control path\n");
@@ -197,7 +204,6 @@ int grav_enable_nodata(int enable)
 {
 	struct grav_context *cxt = NULL;
 
-	/* int err =0; */
 	cxt = grav_context_obj;
 	if (NULL == cxt->grav_ctl.enable_nodata) {
 		GRAV_ERR("grav_enable_nodata:grav ctl path is NULL\n");
@@ -209,7 +215,6 @@ int grav_enable_nodata(int enable)
 
 	if (0 == enable)
 		cxt->is_active_nodata = false;
-
 	grav_real_enable(enable);
 	return 0;
 }
@@ -227,7 +232,6 @@ static ssize_t grav_store_enable_nodata(struct device *dev, struct device_attrib
 					const char *buf, size_t count)
 {
 	struct grav_context *cxt = NULL;
-	/* int err =0; */
 
 	GRAV_LOG("grav_store_enable nodata buf=%s\n", buf);
 	mutex_lock(&grav_context_obj->grav_op_mutex);
@@ -238,15 +242,12 @@ static ssize_t grav_store_enable_nodata(struct device *dev, struct device_attrib
 		mutex_unlock(&grav_context_obj->grav_op_mutex);
 		return count;
 	}
-	if (!strncmp(buf, "1", 1)) {
-		/* cxt->grav_ctl.enable_nodata(1); */
+	if (!strncmp(buf, "1", 1))
 		grav_enable_nodata(1);
-	} else if (!strncmp(buf, "0", 1)) {
-		/* cxt->grav_ctl.enable_nodata(0); */
+	else if (!strncmp(buf, "0", 1))
 		grav_enable_nodata(0);
-	} else {
+	else
 		GRAV_ERR(" grav_store enable nodata cmd error !!\n");
-	}
 	mutex_unlock(&grav_context_obj->grav_op_mutex);
 	return count;
 }
@@ -264,17 +265,13 @@ static ssize_t grav_store_active(struct device *dev, struct device_attribute *at
 		mutex_unlock(&grav_context_obj->grav_op_mutex);
 		return count;
 	}
-	if (!strncmp(buf, "1", 1)) {
-		/* cxt->grav_ctl.enable(1); */
+	if (!strncmp(buf, "1", 1))
 		grav_enable_data(1);
 
-	} else if (!strncmp(buf, "0", 1)) {
-
-		/* cxt->grav_ctl.enable(0); */
+	else if (!strncmp(buf, "0", 1))
 		grav_enable_data(0);
-	} else {
+	else
 		GRAV_ERR(" grav_store_active error !!\n");
-	}
 	mutex_unlock(&grav_context_obj->grav_op_mutex);
 	GRAV_LOG(" grav_store_active done\n");
 	return count;
@@ -296,14 +293,11 @@ static ssize_t grav_show_active(struct device *dev, struct device_attribute *att
 static ssize_t grav_store_delay(struct device *dev, struct device_attribute *attr,
 				const char *buf, size_t count)
 {
-	/* struct grav_context *devobj = (struct grav_context*)dev_get_drvdata(dev); */
 	int delay = 0;
 	int mdelay = 0;
 	struct grav_context *cxt = NULL;
-	int err;
 
 	mutex_lock(&grav_context_obj->grav_op_mutex);
-	/* int err =0; */
 	cxt = grav_context_obj;
 	if (NULL == cxt->grav_ctl.set_delay) {
 		GRAV_LOG("grav_ctl set_delay NULL\n");
@@ -311,8 +305,7 @@ static ssize_t grav_store_delay(struct device *dev, struct device_attribute *att
 		return count;
 	}
 
-	err = kstrtoint(buf, 10, &delay);
-	if (err != 0) {
+	if (0 != kstrtoint(buf, 10, &delay)) {
 		GRAV_ERR("invalid format!!\n");
 		mutex_unlock(&grav_context_obj->grav_op_mutex);
 		return count;
@@ -340,9 +333,15 @@ static ssize_t grav_show_sensordevnum(struct device *dev, struct device_attribut
 {
 	struct grav_context *cxt = NULL;
 	const char *devname = NULL;
+	struct input_handle *handle;
 
 	cxt = grav_context_obj;
-	devname = dev_name(&cxt->idev->dev);
+	list_for_each_entry(handle, &cxt->idev->h_list, d_node)
+		if (strncmp(handle->name, "event", 5) == 0) {
+			devname = handle->name;
+			break;
+		}
+
 	return snprintf(buf, PAGE_SIZE, "%s\n", devname + 5);
 }
 
@@ -353,26 +352,21 @@ static ssize_t grav_store_batch(struct device *dev, struct device_attribute *att
 
 	struct grav_context *cxt = NULL;
 
-	/* int err =0; */
 	GRAV_LOG("grav_store_batch buf=%s\n", buf);
 	mutex_lock(&grav_context_obj->grav_op_mutex);
 	cxt = grav_context_obj;
 	if (cxt->grav_ctl.is_support_batch) {
 		if (!strncmp(buf, "1", 1)) {
 			cxt->is_batch_enable = true;
-			/* MTK problem fix - start */
 			if (cxt->is_active_data && cxt->is_polling_run) {
 				cxt->is_polling_run = false;
 				del_timer_sync(&cxt->timer);
 				cancel_work_sync(&cxt->report);
 			}
-			/* MTK problem fix - end */
 		} else if (!strncmp(buf, "0", 1)) {
 			cxt->is_batch_enable = false;
-			/* MTK problem fix - start */
 			if (cxt->is_active_data)
 				grav_enable_data(true);
-			/* MTK problem fix - end */
 		} else {
 			GRAV_ERR(" grav_store_batch error !!\n");
 		}
@@ -393,10 +387,6 @@ static ssize_t grav_show_batch(struct device *dev, struct device_attribute *attr
 static ssize_t grav_store_flush(struct device *dev, struct device_attribute *attr,
 				const char *buf, size_t count)
 {
-	/* mutex_lock(&grav_context_obj->grav_op_mutex); */
-	/* struct grav_context *devobj = (struct grav_context*)dev_get_drvdata(dev); */
-	/* do read FIFO data function and report data immediately */
-	/* mutex_unlock(&grav_context_obj->grav_op_mutex); */
 	return count;
 }
 
@@ -419,7 +409,7 @@ static int gravitysensor_probe(struct platform_device *pdev)
 
 #ifdef CONFIG_OF
 static const struct of_device_id gravitysensor_of_match[] = {
-	{.compatible = "mediatek,gravitysensor",},
+	{.compatible = "mediatek,gravity",},
 	{},
 };
 #endif
@@ -428,7 +418,8 @@ static struct platform_driver gravitysensor_driver = {
 	.probe = gravitysensor_probe,
 	.remove = gravitysensor_remove,
 	.driver = {
-		   .name = "gravitysensor",
+
+		   .name = "gravity",
 #ifdef CONFIG_OF
 		   .of_match_table = gravitysensor_of_match,
 #endif
@@ -463,16 +454,14 @@ static int grav_real_driver_init(void)
 
 static int grav_misc_init(struct grav_context *cxt)
 {
+
 	int err = 0;
 
 	cxt->mdev.minor = MISC_DYNAMIC_MINOR;
 	cxt->mdev.name = GRAV_MISC_DEV_NAME;
-
 	err = misc_register(&cxt->mdev);
 	if (err)
 		GRAV_ERR("unable to register grav misc device!!\n");
-
-	/* dev_set_drvdata(cxt->mdev.this_device, cxt); */
 	return err;
 }
 
@@ -495,17 +484,18 @@ static int grav_input_init(struct grav_context *cxt)
 
 	dev->name = GRAV_INPUTDEV_NAME;
 
-	input_set_capability(dev, EV_ABS, EVENT_TYPE_GRAV_X);
-	input_set_capability(dev, EV_ABS, EVENT_TYPE_GRAV_Y);
-	input_set_capability(dev, EV_ABS, EVENT_TYPE_GRAV_Z);
+	input_set_capability(dev, EV_REL, EVENT_TYPE_GRAV_X);
+	input_set_capability(dev, EV_REL, EVENT_TYPE_GRAV_Y);
+	input_set_capability(dev, EV_REL, EVENT_TYPE_GRAV_Z);
 	input_set_capability(dev, EV_REL, EVENT_TYPE_GRAV_STATUS);
-
-	input_set_abs_params(dev, EVENT_TYPE_GRAV_X, GRAV_VALUE_MIN, GRAV_VALUE_MAX, 0, 0);
+	input_set_capability(dev, EV_REL, EVENT_TYPE_GRAV_TIMESTAMP_HI);
+	input_set_capability(dev, EV_REL, EVENT_TYPE_GRAV_TIMESTAMP_LO);
+	/*input_set_abs_params(dev, EVENT_TYPE_GRAV_X, GRAV_VALUE_MIN, GRAV_VALUE_MAX, 0, 0);
 	input_set_abs_params(dev, EVENT_TYPE_GRAV_Y, GRAV_VALUE_MIN, GRAV_VALUE_MAX, 0, 0);
-	input_set_abs_params(dev, EVENT_TYPE_GRAV_Z, GRAV_VALUE_MIN, GRAV_VALUE_MAX, 0, 0);
+	input_set_abs_params(dev, EVENT_TYPE_GRAV_Z, GRAV_VALUE_MIN, GRAV_VALUE_MAX, 0, 0);*/
 	input_set_drvdata(dev, cxt);
 
-	input_set_events_per_packet(dev, 32);	/* test */
+	input_set_events_per_packet(dev, 32);
 
 	err = input_register_device(dev);
 	if (err < 0) {
@@ -541,7 +531,7 @@ static struct attribute_group grav_attribute_group = {
 int grav_register_data_path(struct grav_data_path *data)
 {
 	struct grav_context *cxt = NULL;
-	/* int err =0; */
+
 	cxt = grav_context_obj;
 	cxt->grav_data.get_data = data->get_data;
 	cxt->grav_data.get_raw_data = data->get_raw_data;
@@ -572,7 +562,7 @@ int grav_register_control_path(struct grav_control_path *ctl)
 		GRAV_LOG("grav register control path fail\n");
 		return -1;
 	}
-	/* add misc dev for sensor hal control cmd */
+
 	err = grav_misc_init(grav_context_obj);
 	if (err) {
 		GRAV_ERR("unable to register grav misc device!!\n");
@@ -589,24 +579,26 @@ int grav_register_control_path(struct grav_control_path *ctl)
 	return 0;
 }
 
-int grav_data_report(int x, int y, int z, int status)
+int grav_data_report(int x, int y, int z, int status, int64_t nt)
 {
 	struct grav_context *cxt = NULL;
 	int err = 0;
 
 	cxt = grav_context_obj;
 
-	GRAV_LOG("grav_data_report! %d, %d, %d, %d\n", x, y, z, status);
+	/* GRAV_LOG("grav_data_report! %d, %d, %d, %d\n", x, y, z, status); */
 
-	input_report_abs(cxt->idev, EVENT_TYPE_GRAV_X, x);
-	input_report_abs(cxt->idev, EVENT_TYPE_GRAV_Y, y);
-	input_report_abs(cxt->idev, EVENT_TYPE_GRAV_Z, z);
+	input_report_rel(cxt->idev, EVENT_TYPE_GRAV_X, x);
+	input_report_rel(cxt->idev, EVENT_TYPE_GRAV_Y, y);
+	input_report_rel(cxt->idev, EVENT_TYPE_GRAV_Z, z);
 	input_report_rel(cxt->idev, EVENT_TYPE_GRAV_STATUS, status);
+	input_report_rel(cxt->idev, EVENT_TYPE_GRAV_TIMESTAMP_HI, nt >> 32);
+	input_report_rel(cxt->idev, EVENT_TYPE_GRAV_TIMESTAMP_LO, nt & 0xFFFFFFFFLL);
 	input_sync(cxt->idev);
 	return err;
 }
 
-static int grav_probe(struct platform_device *pdev)
+static int grav_probe(void)
 {
 
 	int err;
@@ -619,33 +611,23 @@ static int grav_probe(struct platform_device *pdev)
 		GRAV_ERR("unable to allocate devobj!\n");
 		goto exit_alloc_data_failed;
 	}
-	/* init real gravityeration driver */
+
 	err = grav_real_driver_init();
 	if (err) {
 		GRAV_ERR("grav real driver init fail\n");
 		goto real_driver_init_fail;
 	}
-	/* init input dev */
+
 	err = grav_input_init(grav_context_obj);
 	if (err) {
 		GRAV_ERR("unable to register grav input device!\n");
 		goto exit_alloc_input_dev_failed;
 	}
-#if defined(CONFIG_HAS_EARLYSUSPEND) && defined(CONFIG_EARLYSUSPEND)
-	atomic_set(&(grav_context_obj->early_suspend), 0);
-	grav_context_obj->early_drv.level = 1;	/* EARLY_SUSPEND_LEVEL_STOP_DRAWING - 1, */
-	grav_context_obj->early_drv.suspend = grav_early_suspend,
-	    grav_context_obj->early_drv.resume = grav_late_resume,
-	    register_early_suspend(&grav_context_obj->early_drv);
-#endif
+
 
 	GRAV_LOG("----gravity_probe OK !!\n");
 	return 0;
 
-	/* exit_hwmsen_create_attr_failed: */
-	/* exit_misc_register_failed: */
-
-	/* exit_err_sysfs: */
 
 	if (err) {
 		GRAV_ERR("sysfs node creation error\n");
@@ -665,7 +647,7 @@ exit_alloc_data_failed:
 
 
 
-static int grav_remove(struct platform_device *pdev)
+static int grav_remove(void)
 {
 	int err = 0;
 
@@ -676,61 +658,10 @@ static int grav_remove(struct platform_device *pdev)
 	err = misc_deregister(&grav_context_obj->mdev);
 	if (err)
 		GRAV_ERR("misc_deregister fail: %d\n", err);
-
 	kfree(grav_context_obj);
 
 	return 0;
 }
-
-#if defined(CONFIG_HAS_EARLYSUSPEND) && defined(CONFIG_EARLYSUSPEND)
-static void grav_early_suspend(struct early_suspend *h)
-{
-	atomic_set(&(grav_context_obj->early_suspend), 1);
-	GRAV_LOG(" grav_early_suspend ok------->hwm_obj->early_suspend=%d\n",
-		 atomic_read(&(grav_context_obj->early_suspend)));
-}
-
-/*----------------------------------------------------------------------------*/
-
-static void grav_late_resume(struct early_suspend *h)
-{
-	atomic_set(&(grav_context_obj->early_suspend), 0);
-	GRAV_LOG(" grav_late_resume ok------->hwm_obj->early_suspend=%d\n",
-		 atomic_read(&(grav_context_obj->early_suspend)));
-}
-#endif
-
-static int grav_suspend(struct platform_device *dev, pm_message_t state)
-{
-	return 0;
-}
-
-/*----------------------------------------------------------------------------*/
-static int grav_resume(struct platform_device *dev)
-{
-	return 0;
-}
-
-#ifdef CONFIG_OF
-static const struct of_device_id m_grav_pl_of_match[] = {
-	{.compatible = "mediatek,m_grav_pl",},
-	{},
-};
-#endif
-
-static struct platform_driver grav_driver = {
-	.probe = grav_probe,
-	.remove = grav_remove,
-	.suspend = grav_suspend,
-	.resume = grav_resume,
-	.driver = {
-		   .name = GRAV_PL_DEV_NAME,
-#ifdef CONFIG_OF
-		   .of_match_table = m_grav_pl_of_match,
-#endif
-		   }
-};
-
 int grav_driver_add(struct grav_init_info *obj)
 {
 	int err = 0;
@@ -756,13 +687,13 @@ int grav_driver_add(struct grav_init_info *obj)
 		err = -1;
 	}
 	return err;
-} EXPORT_SYMBOL_GPL(grav_driver_add);
+}
 
 static int __init grav_init(void)
 {
 	GRAV_FUN();
 
-	if (platform_driver_register(&grav_driver)) {
+	if (grav_probe()) {
 		GRAV_ERR("failed to register grav driver\n");
 		return -ENODEV;
 	}
@@ -772,13 +703,11 @@ static int __init grav_init(void)
 
 static void __exit grav_exit(void)
 {
-	platform_driver_unregister(&grav_driver);
+	grav_remove();
 	platform_driver_unregister(&gravitysensor_driver);
 }
 
 late_initcall(grav_init);
-/* module_init(grav_init); */
-/* module_exit(grav_exit); */
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("GRAVITYSENSOR device driver");
 MODULE_AUTHOR("Mediatek");

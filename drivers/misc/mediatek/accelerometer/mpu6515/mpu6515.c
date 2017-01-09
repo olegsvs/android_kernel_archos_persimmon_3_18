@@ -49,6 +49,7 @@
 #define MPU6515_AXIS_Z          2
 #define MPU6515_AXES_NUM        3
 #define MPU6515_DATA_LEN        6
+#define MPU6515_DUMP_LEN        128
 #define MPU6515_DEV_NAME        "MPU6515G"	/* name must different with gyro mpu6515 */
 /*----------------------------------------------------------------------------*/
 static const struct i2c_device_id mpu6515_i2c_id[] = { {MPU6515_DEV_NAME, 0}, {} };
@@ -93,6 +94,8 @@ typedef enum {
 	MPU6515_TRC_IOCTL = 0x04,
 	MPU6515_TRC_CALI = 0X08,
 	MPU6515_TRC_INFO = 0X10,
+	MPU6515_TRC_I2C = 0X20,
+	MPU6515_TRC_DUMP = 0X1000,
 } MPU6515_TRC;
 /*----------------------------------------------------------------------------*/
 struct scale_factor {
@@ -186,7 +189,7 @@ static DEFINE_MUTEX(gsensor_mutex);
 static DEFINE_MUTEX(gsensor_scp_en_mutex);
 static bool enable_status;
 
-static int gsensor_init_flag = -1;	/* 0<==>OK -1 <==> fail */
+int gsensor_init_flag = -1;	/* 0<==>OK -1 <==> fail */
 
 static struct acc_init_info mpu6515_init_info = {
 	.name = "mpu6515",
@@ -315,13 +318,27 @@ EXPORT_SYMBOL(MPU6515_SCP_SetPowerMode);
 static int mpu_i2c_read_block(struct i2c_client *client, u8 addr, u8 *data, u8 len)
 {
 	int err;
+	struct i2c_adapter *adap = client->adapter;
+	struct i2c_msg msg;
+	struct mpu6515_i2c_data *obj = i2c_get_clientdata(client);
 
 	data[0] = addr;
-	client->addr &= I2C_MASK_FLAG;
-	client->addr |= I2C_WR_FLAG;
-	client->addr |= I2C_RS_FLAG;
-	err = i2c_master_send(client, data, (len << 8) | 0x1);
-	client->addr &= I2C_MASK_FLAG;
+
+	msg.addr = client->addr;
+	msg.addr &= I2C_MASK_FLAG;
+	msg.addr |= (I2C_WR_FLAG | I2C_RS_FLAG);
+	msg.flags = client->flags & I2C_M_TEN;
+	msg.len = ((len << 8) | 0x1);
+	msg.buf = (char *)data;
+#ifdef CONFIG_MTK_I2C_EXTENSION
+	/* msg.ext_flag = I2C_WR_FLAG | I2C_RS_FLAG; */
+	msg.timing = client->timing;
+	msg.ext_flag = client->ext_flag;
+#endif
+	if (atomic_read(&obj->trace) & MPU6515_TRC_I2C)
+		GSE_LOG("i2c msg: (%x %x %x %x %x)\n", msg.addr, msg.flags, msg.len, msg.timing, msg.ext_flag);
+
+	err = i2c_transfer(adap, &msg, 1);
 
 	if (err < 0)
 		GSE_ERR("i2c_transfer error: (%d %p %d) %d\n", addr, data, len, err);
@@ -472,9 +489,12 @@ static int MPU6515_SetDataResolution(struct mpu6515_i2c_data *obj)
 /*----------------------------------------------------------------------------*/
 static int MPU6515_ReadData(struct i2c_client *client, s16 data[MPU6515_AXES_NUM])
 {
-	struct mpu6515_i2c_data *priv = i2c_get_clientdata(client);
+	struct mpu6515_i2c_data *priv;
 	int err = 0;
 	u8 buf[MPU6515_DATA_LEN] = { 0 };
+	u8 buf_dump[MPU6515_DUMP_LEN] = { 0 };
+	int i;
+	static int num = 0;
 
 #ifdef GSENSOR_UT
 	GSE_FUN();
@@ -483,10 +503,26 @@ static int MPU6515_ReadData(struct i2c_client *client, s16 data[MPU6515_AXES_NUM
 	if (NULL == client)
 		return -EINVAL;
 
+	num %= 100;
+
+	priv = i2c_get_clientdata(client);
+
 
 	{
 		/* write then burst read */
 		mpu_i2c_read_block(client, MPU6515_REG_DATAX0, buf, MPU6515_DATA_LEN);
+		if ((atomic_read(&priv->trace) & MPU6515_TRC_DUMP) && (num == 0)) {
+			GSE_LOG("\n== Dump Info ==\n");
+			for(i=0;i<MPU6515_DUMP_LEN;i+=8) {
+				mpu_i2c_read_block(client, (0x00+i), (buf_dump+i), 8);
+				GSE_LOG("[%02X %02X %02X %02X %02X %02X %02X %02X] => [%02X %02X %02X %02X %02X %02X %02X %02X]\n",
+					i, i+1, i+2, i+3, i+4, i+5, i+6, i+7,
+					buf_dump[i], buf_dump[i+1], buf_dump[i+2], buf_dump[i+3],
+					buf_dump[i+4], buf_dump[i+5], buf_dump[i+6], buf_dump[i+7]);
+			}
+			GSE_LOG("== End Dump Info ==\n\n");
+		}
+		num++;
 
 		data[MPU6515_AXIS_X] = (s16) ((buf[MPU6515_AXIS_X * 2] << 8) |
 					      (buf[MPU6515_AXIS_X * 2 + 1]));
@@ -764,6 +800,7 @@ static int MPU6515_WriteCalibration(struct i2c_client *client, int dat[MPU6515_A
 /*----------------------------------------------------------------------------*/
 static int MPU6515_CheckDeviceID(struct i2c_client *client)
 {
+	struct mpu6515_i2c_data *obj = i2c_get_clientdata(client);
 	u8 databuf[10];
 	int res = 0;
 
@@ -772,6 +809,7 @@ static int MPU6515_CheckDeviceID(struct i2c_client *client)
 #endif
 
 	memset(databuf, 0, sizeof(u8) * 10);
+#if 0
 	databuf[0] = MPU6515_REG_DEVID;
 
 	res = i2c_master_send(client, databuf, 0x1);
@@ -788,11 +826,19 @@ static int MPU6515_CheckDeviceID(struct i2c_client *client)
 		GSE_ERR("i2c_master_recv failed : %d\n", res);
 		goto exit_MPU6515_CheckDeviceID;
 	}
+#else
+	res = hwmsen_read_byte(client, MPU6515_REG_DEVID, databuf);
+	if (res) {
+		GSE_ERR("read devid register err! %d\n", res);
+		goto exit_MPU6515_CheckDeviceID;
+	}
+#endif
 
-	GSE_LOG("MPU6515_CheckDeviceID 0x%x\n", databuf[0]);
+	if (atomic_read(&obj->trace) & MPU6515_TRC_INFO)
+		GSE_LOG("MPU6515_CheckDeviceID 0x%x\n", databuf[0]);
 
 exit_MPU6515_CheckDeviceID:
-	if (res <= 0)
+	if (res)
 		return MPU6515_ERR_I2C;
 
 	return MPU6515_SUCCESS;
@@ -807,6 +853,8 @@ static int MPU6515_SetDataFormat(struct i2c_client *client, u8 dataformat)
 
 #ifndef GSENSOR_UT
 	memset(databuf, 0, sizeof(u8) * 2);
+
+#if 0
 	databuf[0] = MPU6515_REG_DATA_FORMAT;
 	res = i2c_master_send(client, databuf, 0x1);
 	if (res <= 0)
@@ -818,8 +866,9 @@ static int MPU6515_SetDataFormat(struct i2c_client *client, u8 dataformat)
 	res = i2c_master_recv(client, databuf, 0x01);
 	if (res <= 0)
 		return MPU6515_ERR_I2C;
+#endif
 
-
+	GSE_LOG("MPU6515_REG_DATA_FORMAT, reg[%x] read=0x%x, dataformat=0x%x\n", MPU6515_REG_DATA_FORMAT, databuf[0], dataformat);
 	/* write */
 	databuf[1] = databuf[0] | dataformat;
 	databuf[0] = MPU6515_REG_DATA_FORMAT;
@@ -849,6 +898,7 @@ static int MPU6515_SetBWRate(struct i2c_client *client, u8 bwrate)
 	if ((obj->bandwidth != bwrate) || (atomic_read(&obj->suspend))) {
 		memset(databuf, 0, sizeof(u8) * 10);
 
+#if 0
 		/* read */
 		databuf[0] = MPU6515_REG_BW_RATE;
 		res = i2c_master_send(client, databuf, 0x1);
@@ -862,8 +912,9 @@ static int MPU6515_SetBWRate(struct i2c_client *client, u8 bwrate)
 		res = i2c_master_recv(client, databuf, 0x01);
 		if (res <= 0)
 			return MPU6515_ERR_I2C;
+#endif
 
-
+    	GSE_LOG("MPU6515_REG_BW_RATE, reg[%x] read=0x%x, bwrate=0x%x\n", MPU6515_REG_BW_RATE, databuf[0], bwrate);
 		/* write */
 		databuf[1] = databuf[0] | bwrate;
 		databuf[0] = MPU6515_REG_BW_RATE;
@@ -893,6 +944,7 @@ static int MPU6515_Dev_Reset(struct i2c_client *client)
 
 	memset(databuf, 0, sizeof(u8) * 10);
 
+#if 0
 	/* read */
 	databuf[0] = MPU6515_REG_POWER_CTL;
 	res = i2c_master_send(client, databuf, 0x1);
@@ -906,6 +958,12 @@ static int MPU6515_Dev_Reset(struct i2c_client *client)
 	res = i2c_master_recv(client, databuf, 0x01);
 	if (res <= 0)
 		return MPU6515_ERR_I2C;
+#else
+	if (hwmsen_read_byte(client, MPU6515_REG_POWER_CTL, databuf)) {
+		GSE_ERR("read power ctl register err!\n");
+		return MPU6515_ERR_I2C;
+	}
+#endif
 
 
 	if ((databuf[0] & 0x1f) != 0x1)
@@ -922,6 +980,7 @@ static int MPU6515_Dev_Reset(struct i2c_client *client)
 
 
 	do {
+#if 0
 		databuf[0] = MPU6515_REG_POWER_CTL;
 		res = i2c_master_send(client, databuf, 0x1);
 
@@ -929,6 +988,9 @@ static int MPU6515_Dev_Reset(struct i2c_client *client)
 
 		databuf[0] = 0x0;
 		res = i2c_master_recv(client, databuf, 0x01);
+#else
+		res = hwmsen_read_byte(client, MPU6515_REG_POWER_CTL, databuf);
+#endif
 
 		GSE_LOG("[Gsensor] check reset bit");
 
@@ -1193,7 +1255,7 @@ static int MPU6515_ReadSensorData(struct i2c_client *client, char *buf, int bufs
 /*----------------------------------------------------------------------------*/
 static int MPU6515_ReadRawData(struct i2c_client *client, char *buf)
 {
-	struct mpu6515_i2c_data *obj = (struct mpu6515_i2c_data *)i2c_get_clientdata(client);
+	struct mpu6515_i2c_data *obj;
 	int res = 0;
 
 #ifdef GSENSOR_UT
@@ -1202,6 +1264,8 @@ static int MPU6515_ReadRawData(struct i2c_client *client, char *buf)
 
 	if (!buf || !client)
 		return -EINVAL;
+
+	obj = (struct mpu6515_i2c_data *)i2c_get_clientdata(client);
 
 
 	if (atomic_read(&obj->suspend))
@@ -1323,7 +1387,9 @@ static int MPU6515_JudgeTestResult(struct i2c_client *client, s32 prv[MPU6515_AX
 static ssize_t show_chipinfo_value(struct device_driver *ddri, char *buf)
 {
 	struct i2c_client *client = mpu6515_i2c_client;
-	char strbuf[MPU6515_BUFSIZE];
+	/* char strbuf[MPU6515_BUFSIZE]; */
+	char *strbuf;
+	int ret;
 
 	if (NULL == client) {
 		GSE_ERR("i2c client is null!!\n");
@@ -1335,10 +1401,20 @@ static ssize_t show_chipinfo_value(struct device_driver *ddri, char *buf)
 		msleep(50);
 	}
 
+	strbuf = kmalloc(MPU6515_BUFSIZE, GFP_KERNEL);
+	if (!strbuf) {
+		GSE_ERR("strbuf is null!!\n");
+		return 0;
+	}
+
 	MPU6515_ReadAllReg(client, strbuf, MPU6515_BUFSIZE);
 
 	MPU6515_ReadChipInfo(client, strbuf, MPU6515_BUFSIZE);
-	return snprintf(buf, PAGE_SIZE, "%s\n", strbuf);
+
+	ret = snprintf(buf, PAGE_SIZE, "%s\n", strbuf);
+	kfree(strbuf);
+
+	return ret;
 }
 
 /*----------------------------------------------------------------------------*/
@@ -1518,10 +1594,10 @@ static ssize_t store_self_value(struct device_driver *ddri, const char *buf, siz
 
 	if (!MPU6515_JudgeTestResult(client, avg_prv, avg_nxt)) {
 		GSE_LOG("SELFTEST : PASS\n");
-		strcpy(selftestRes, "y");
+		strncpy(selftestRes, "y", sizeof(selftestRes));
 	} else {
 		GSE_LOG("SELFTEST : FAIL\n");
-		strcpy(selftestRes, "n");
+		strncpy(selftestRes, "n", sizeof(selftestRes));
 	}
 
 exit:
@@ -2101,13 +2177,15 @@ static int mpu6515_suspend(struct i2c_client *client, pm_message_t msg)
 	struct mpu6515_i2c_data *obj = i2c_get_clientdata(client);
 	int err = 0;
 
-	GSE_FUN();
+	if (obj == NULL) {
+		GSE_ERR("null pointer!!\n");
+		return -EINVAL;
+	}
+
+	if (atomic_read(&obj->trace) & MPU6515_TRC_INFO)
+		GSE_FUN();
 
 	if (msg.event == PM_EVENT_SUSPEND) {
-		if (obj == NULL) {
-			GSE_ERR("null pointer!!\n");
-			return -EINVAL;
-		}
 		/* mutex_lock(&gsensor_mutex); */
 		atomic_set(&obj->suspend, 1);
 #ifndef CUSTOM_KERNEL_SENSORHUB
@@ -2136,12 +2214,14 @@ static int mpu6515_resume(struct i2c_client *client)
 	struct mpu6515_i2c_data *obj = i2c_get_clientdata(client);
 	int err;
 
-	GSE_FUN();
-
 	if (obj == NULL) {
 		GSE_ERR("null pointer!!\n");
 		return -EINVAL;
 	}
+
+	if (atomic_read(&obj->trace) & MPU6515_TRC_INFO)
+		GSE_FUN();
+
 #ifndef CUSTOM_KERNEL_SENSORHUB
 	MPU6515_power(obj->hw, 1);
 #endif				/* #ifndef CUSTOM_KERNEL_SENSORHUB */
@@ -2446,7 +2526,7 @@ static int gsensor_get_data(int *x, int *y, int *z, int *status)
 /*----------------------------------------------------------------------------*/
 static int mpu6515_i2c_detect(struct i2c_client *client, struct i2c_board_info *info)
 {
-	strcpy(info->type, MPU6515_DEV_NAME);
+	strncpy(info->type, MPU6515_DEV_NAME, sizeof(info->type));
 	return 0;
 }
 
@@ -2475,7 +2555,7 @@ static int mpu6515_i2c_probe(struct i2c_client *client, const struct i2c_device_
 	err = hwmsen_get_convert(obj->hw->direction, &obj->cvt);
 	if (err) {
 		GSE_ERR("invalid direction: %d\n", obj->hw->direction);
-		goto exit;
+		goto exit_kfree;
 	}
 #ifdef CUSTOM_KERNEL_SENSORHUB
 	INIT_WORK(&obj->irq_work, gsensor_irq_work);
@@ -2580,11 +2660,12 @@ exit_create_attr_failed:
 exit_misc_device_register_failed:
 exit_init_failed:
 	/* i2c_detach_client(new_client); */
-/*    exit_kfree: */
+exit_kfree:
 	kfree(obj);
 exit:
 	GSE_ERR("%s: err = %d\n", __func__, err);
 	gsensor_init_flag = -1;
+	mpu6515_i2c_client = NULL;
 	return err;
 }
 

@@ -1,17 +1,19 @@
 /*
- * Copyright (C) 2007 The Android Open Source Project
+ * Copyright (C) 2015 MediaTek Inc.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ * You should have received a copy of the GNU General Public License
+ * along with this program
+ * If not, see <http://www.gnu.org/licenses/>.
  */
 /*******************************************************************************
  *
@@ -39,6 +41,7 @@
 #ifndef _AUDIO_DIGITAL_TYPE_H
 #define _AUDIO_DIGITAL_TYPE_H
 
+#include <linux/list.h>
 
 /*****************************************************************************
  *                ENUM DEFINITION
@@ -54,16 +57,16 @@ typedef enum {
 	Soc_Aud_Digital_Block_MEM_DL3,
 	Soc_Aud_Digital_Block_MEM_AWB,
 	Soc_Aud_Digital_Block_MEM_MOD_DAI,
-	Soc_Aud_Digital_Block_MEM_VUL_DATA2,
-	Soc_Aud_Digital_Block_MEM_HDMI,
-	Soc_Aud_Digital_Block_MEM_BTCVSD_RX,
-	Soc_Aud_Digital_Block_MEM_BTCVSD_TX,
 	/* currently no use */
 	Soc_Aud_Digital_Block_MEM_DL1_DATA2,
+	Soc_Aud_Digital_Block_MEM_VUL_DATA2,
+	Soc_Aud_Digital_Block_MEM_HDMI,
 	Soc_Aud_Digital_Block_MEM_I2S,		/* this is not actually a mem if... */
 	/* ADDA */
 	Soc_Aud_Digital_Block_ADDA_DL,
 	Soc_Aud_Digital_Block_ADDA_UL,
+	Soc_Aud_Digital_Block_ADDA_VOW,
+	Soc_Aud_Digital_Block_ADDA_ANC,
 	/* connection to int main modem */
 	Soc_Aud_Digital_Block_MODEM_PCM_1_O,
 	/* connection to extrt/int modem */
@@ -73,6 +76,8 @@ typedef enum {
 	Soc_Aud_Digital_Block_I2S_OUT_DAC_2,	/* 4 channel */
 	Soc_Aud_Digital_Block_I2S_IN_ADC,
 	Soc_Aud_Digital_Block_I2S_IN_ADC_2,	/* 4 channel */
+	/*  I2S2 input    */
+	Soc_Aud_Digital_Block_I2S_IN,
 	/* 2nd I2S */
 	Soc_Aud_Digital_Block_I2S_OUT_2,
 	Soc_Aud_Digital_Block_I2S_IN_2,
@@ -84,7 +89,7 @@ typedef enum {
 	Soc_Aud_Digital_Block_MRG_I2S_IN,
 	Soc_Aud_Digital_Block_DAI_BT,
 	Soc_Aud_Digital_Block_NUM_OF_DIGITAL_BLOCK,
-	Soc_Aud_Digital_Block_NUM_OF_MEM_INTERFACE = Soc_Aud_Digital_Block_MEM_BTCVSD_TX + 1
+	Soc_Aud_Digital_Block_NUM_OF_MEM_INTERFACE = Soc_Aud_Digital_Block_MEM_HDMI + 1
 } Soc_Aud_Digital_Block;
 
 typedef enum {
@@ -486,14 +491,6 @@ enum Soc_Aud_ADDA_UL_SAMPLERATE {
 	Soc_Aud_ADDA_UL_SAMPLERATE_192K = 5,
 	Soc_Aud_ADDA_UL_SAMPLERATE_48K_HD = 6
 };
-
-/* class for irq mode and counter. */
-typedef struct {
-	unsigned int mStatus;	/* on,off */
-	unsigned int mIrqMcuCounter;
-	unsigned int mIrqMcuCounterSave;
-	unsigned int mSampleRate;
-} AudioIrqMcuMode;
 
 typedef struct {
 	int mFormat;
@@ -905,5 +902,81 @@ typedef struct {
 	uint32 REG_AFE_ADDA4_ULCF_CFG_28_27;
 	uint32 REG_AFE_ADDA4_ULCF_CFG_30_29;*/
 } AudioAfeRegCache;
+
+/*
+  *  mUser is record for User
+      using substream pointer as reach user
+  */
+typedef struct {
+	bool mValid;
+	void *mUser;
+	unsigned int mLength;
+	dma_addr_t msram_phys_addr;
+	void *msram_virt_addr;
+} Aud_Sram_Block;
+
+/*
+  * use memory interface number as block number
+  * todo ?
+  */
+
+typedef struct {
+	dma_addr_t msram_phys_addr;
+	void *msram_virt_addr;
+	unsigned int mSramLength;
+	unsigned int mBlockSize;
+	unsigned int mBlocknum;
+	Aud_Sram_Block *mAud_Sram_Block;
+} Aud_Sram_Manager;
+
+/*
+ * IRQ Manager
+ */
+#define IRQ_MIN_RATE 48000
+#define IRQ_MAX_RATE 260000
+#define IRQ_TOLERANCE_US 10 /* irq period difference that can be tolerated */
+
+struct irq_user {
+	const void *user;
+	unsigned int request_rate;
+	unsigned int request_count;
+	struct list_head list;
+};
+
+struct irq_manager {
+	bool is_on;
+	unsigned int rate;
+	unsigned int count;
+	struct list_head users;
+	const struct irq_user *selected_user;
+};
+
+/*
+ * Ultrasound
+ */
+
+struct voice_ultra_info {
+	/* voice dl with ultra --> playback */
+	unsigned int dl_size;
+	unsigned int dl_rate;
+	unsigned char *dl_dma_area;
+	dma_addr_t dl_dma_addr;
+	/* voice dl --> memif ul to dsp */
+	unsigned int voice_dl_size;
+	unsigned int voice_dl_rate;
+	unsigned char *voice_dl_dma_area;
+	dma_addr_t voice_dl_dma_addr;
+	/* ultra record --> memif ul to dsp */
+	unsigned int ultra_ul_size;
+	unsigned int ultra_ul_rate;
+	unsigned char *ultra_ul_dma_area;
+	dma_addr_t ultra_ul_dma_addr;
+
+	unsigned int memif_period_count;
+	unsigned int memif_byte;
+
+	bool playback_info_ready;
+	bool capture_info_ready;
+};
 
 #endif

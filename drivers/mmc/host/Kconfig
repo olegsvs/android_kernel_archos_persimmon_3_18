@@ -44,6 +44,16 @@ config MTK_EMMC_SUPPORT_OTP
 
 	  If unsure, say N.
 
+config MTK_EMMC_CQ_SUPPORT
+	tristate "MediaTek eMMC Command Queuing support"
+	depends on MTK_EMMC_SUPPORT
+	default n
+	help
+	  This enables eMMC Command Queuing support by MTK.
+	  Say Y if you turns on MTK_EMMC_SUPPORT and want to
+	  use MTK eMMC Command Queuing scheme.
+	  If unsure, say N.
+
 config SDIOAUTOK_SUPPORT
         tristate "MediaTek SDIO UHS auto calibration support"
         depends on MMC_MTK
@@ -65,6 +75,16 @@ config MMC_MT81XX
 	  Note that this driver only support EMMC/SD, do not support SDIO.
 
 	  If unsure, say N.
+
+config K42_MMC_RETUNE
+	tristate "Kernel-4.2 mmc retune support"
+	depends on MMC_MT81XX || MMC_MTK
+	help
+	  This selects the mmc retune method from kernel-4.2,
+	  Note that this for Tablet/Box which use retune from kernel-4.2.
+	  if your driver do not use it, say N.
+
+	  if unsure, say N.
 
 config MMC_ARMMMCI
 	tristate "ARM AMBA Multimedia Card Interface support"

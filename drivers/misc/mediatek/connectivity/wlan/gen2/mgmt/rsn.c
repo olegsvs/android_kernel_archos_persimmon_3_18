@@ -1,181 +1,14 @@
 /*
-** Id: //Department/DaVinci/BRANCHES/MT6620_WIFI_DRIVER_V2_3/mgmt/rsn.c#2
-*/
-
-/*! \file   "rsn.c"
-    \brief  This file including the 802.11i, wpa and wpa2(rsn) related function.
-
-    This file provided the macros and functions library support the wpa/rsn ie parsing,
-    cipher and AKM check to help the AP seleced deciding, tkip mic error handler and rsn PMKID support.
-*/
-
-/*
-** Log: rsn.c
- *
- * 07 17 2012 yuche.tsai
- * NULL
- * Compile no error before trial run.
- *
- * 03 09 2012 chinglan.wang
- * NULL
- * Fix the condition error.
- *
- * 03 02 2012 terry.wu
- * NULL
- * Snc CFG80211 modification for ICS migration from branch 2.2.
- *
- * 03 02 2012 terry.wu
- * NULL
- * Sync CFG80211 modification from branch 2,2.
- *
- * 11 11 2011 wh.su
- * [WCXRP00001078] [MT6620 Wi-Fi][Driver] Adding the mediatek log improment support : XLOG
- * modify the xlog related code.
- *
- * 11 10 2011 wh.su
- * [WCXRP00001078] [MT6620 Wi-Fi][Driver] Adding the mediatek log improment support : XLOG
- * change the debug module level.
- *
- * 10 12 2011 wh.su
- * [WCXRP00001036] [MT6620 Wi-Fi][Driver][FW] Adding the 802.11w code for MFP
- * adding the 802.11w related function and define .
- *
- * 03 17 2011 chinglan.wang
- * [WCXRP00000570] [MT6620 Wi-Fi][Driver] Add Wi-Fi Protected Setup v2.0 feature
- * .
- *
- * 02 09 2011 wh.su
- * [WCXRP00000432] [MT6620 Wi-Fi][Driver] Add STA privacy check at hotspot mode
- * adding the code for check STA privacy bit at AP mode, .
- *
- * 12 24 2010 chinglan.wang
- * NULL
- * [MT6620][Wi-Fi] Modify the key management in the driver for WPS function.
- *
- * 12 13 2010 cp.wu
- * [WCXRP00000260] [MT6620 Wi-Fi][Driver][Firmware] Create V1.1 branch for both firmware and driver
- * create branch for Wi-Fi driver v1.1
- *
- * 11 05 2010 wh.su
- * [WCXRP00000165] [MT6620 Wi-Fi] [Pre-authentication] Assoc req rsn ie use wrong pmkid value
- * fixed the.pmkid value mismatch issue
- *
- * 11 03 2010 wh.su
- * [WCXRP00000124] [MT6620 Wi-Fi] [Driver] Support the dissolve P2P Group
- * Refine the HT rate disallow TKIP pairwise cipher .
- *
- * 10 04 2010 cp.wu
- * [WCXRP00000077] [MT6620 Wi-Fi][Driver][FW] Eliminate use of ENUM_NETWORK_TYPE_T
- * and replaced by ENUM_NETWORK_TYPE_INDEX_T only
- * remove ENUM_NETWORK_TYPE_T definitions
- *
- * 09 29 2010 yuche.tsai
- * NULL
- * Fix compile error, remove unused pointer in rsnGenerateRSNIE().
- *
- * 09 28 2010 wh.su
- * NULL
- * [WCXRP00000069][MT6620 Wi-Fi][Driver] Fix some code for phase 1 P2P Demo.
- *
- * 09 24 2010 wh.su
- * NULL
- * [WCXRP00005002][MT6620 Wi-Fi][Driver] Eliminate Linux Compile Warning.
- *
- * 09 06 2010 wh.su
- * NULL
- * let the p2p can set the privacy bit at beacon and rsn ie at assoc req at key handshake state.
- *
- * 08 30 2010 wh.su
- * NULL
- * remove non-used code.
- *
- * 08 19 2010 wh.su
- * NULL
- * adding the tx pkt call back handle for countermeasure.
- *
- * 07 24 2010 wh.su
- *
- * .support the Wi-Fi RSN
- *
- * 07 08 2010 cp.wu
- *
- * [WPD00003833] [MT6620 and MT5931] Driver migration - move to new repository.
- *
- * 06 21 2010 wh.su
- * [WPD00003840][MT6620 5931] Security migration
- * modify some code for concurrent network.
- *
- * 06 21 2010 cp.wu
- * [WPD00003833][MT6620 and MT5931] Driver migration
- * [WPD00003833][MT6620 and MT5931] Driver migration
- * enable RX management frame handling.
- *
- * 06 19 2010 wh.su
- * [WPD00003840][MT6620 5931] Security migration
- * consdier the concurrent network setting.
- *
- * 06 18 2010 wh.su
- * [WPD00003840][MT6620 5931] Security migration
- * [WPD00003840] [MT6620 5931] Security migration
- * migration from firmware.
- *
- * 05 27 2010 wh.su
- * [BORA00000637][MT6620 Wi-Fi] [Bug] WPA2 pre-authentication timer not correctly initialize
- * not indicate pmkid candidate while no new one scanned.
- *
- * 04 29 2010 wh.su
- * [BORA00000637][MT6620 Wi-Fi] [Bug] WPA2 pre-authentication timer not correctly initialize
- * adjsut the pre-authentication code.
- *
- * 03 03 2010 wh.su
- * [BORA00000637][MT6620 Wi-Fi] [Bug] WPA2 pre-authentication timer not correctly initialize
- * move the AIS specific variable for security to AIS specific structure.
- *
- * 03 03 2010 wh.su
- * [BORA00000637][MT6620 Wi-Fi] [Bug] WPA2 pre-authentication timer not correctly initialize
- * Fixed the pre-authentication timer not correctly init issue,
- * and modify the security related callback function prototype.
- *
- * 01 27 2010 wh.su
- * [BORA00000476][Wi-Fi][firmware] Add the security module initialize code
- * add and fixed some security function.
- *
- * 12 18 2009 cm.chang
- * [BORA00000018]Integrate WIFI part into BORA for the 1st time
- * .
- *
- * Dec 8 2009 mtk01088
- * [BORA00000476] [Wi-Fi][firmware] Add the security module initialize code
- * change the name
- *
- * Dec 7 2009 mtk01088
- * [BORA00000476] [Wi-Fi][firmware] Add the security module initialize code
- * using the Rx0 port to indicate event
- *
- * Dec 4 2009 mtk01088
- * [BORA00000476] [Wi-Fi][firmware] Add the security module initialize code
- * refine the code for generate the WPA/RSN IE for assoc req
- *
- * Dec 3 2009 mtk01088
- * [BORA00000476] [Wi-Fi][firmware] Add the security module initialize code
- * adjust code for pmkid event
- *
- * Dec 1 2009 mtk01088
- * [BORA00000476] [Wi-Fi][firmware] Add the security module initialize code
- * adding the code for event (mic error and pmkid indicate) and do some function rename
- *
- * Nov 23 2009 mtk01088
- * [BORA00000476] [Wi-Fi][firmware] Add the security module initialize code
- * adding some security function
- *
- * Nov 19 2009 mtk01088
- * [BORA00000476] [Wi-Fi][firmware] Add the security module initialize code
- * adding some security feature, including pmkid
- *
- * Nov 18 2009 mtk01088
- * [BORA00000476] [Wi-Fi][firmware] Add the security module initialize code
- *
-**
+* Copyright (C) 2016 MediaTek Inc.
+*
+* This program is free software; you can redistribute it and/or modify
+* it under the terms of the GNU General Public License version 2 as
+* published by the Free Software Foundation.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+* See http://www.gnu.org/licenses/gpl-2.0.html for more details.
 */
 
 /*******************************************************************************
@@ -1353,6 +1186,9 @@ VOID rsnGenerateRSNIE(IN P_ADAPTER_T prAdapter, IN P_MSDU_INFO_T prMsduInfo)
 	PUINT_8 pucBuffer;
 	ENUM_NETWORK_TYPE_INDEX_T eNetworkId;
 	P_STA_RECORD_T prStaRec;
+#if CFG_SUPPORT_OKC
+	P_CONNECTION_SETTINGS_T prConnSettings = &prAdapter->rWifiVar.rConnSettings;
+#endif
 
 	DEBUGFUNC("rsnGenerateRSNIE");
 
@@ -1421,13 +1257,21 @@ VOID rsnGenerateRSNIE(IN P_ADAPTER_T prAdapter, IN P_MSDU_INFO_T prMsduInfo)
 				cp += 2;
 				DBGLOG(RSN, TRACE,
 				       "BSSID %pM ind=%d\n", prStaRec->aucMacAddr, (UINT_32) u4Entry);
-				DBGLOG(RSN, TRACE, "use PMKID %pM\n",
+				DBGLOG(RSN, INFO, "use PMKID %pM\n",
 					(prAdapter->rWifiVar.rAisSpecificBssInfo.
 						arPmkidCache[u4Entry].rBssidInfo.arPMKID));
 				kalMemCopy(cp,
 					   (PVOID) prAdapter->rWifiVar.rAisSpecificBssInfo.
 					   arPmkidCache[u4Entry].rBssidInfo.arPMKID, sizeof(PARAM_PMKID_VALUE));
 				/* ucExpendedLen = 40; */
+#if CFG_SUPPORT_OKC
+			} else if (prConnSettings->fgUseOkc && prConnSettings->fgOkcPmkIdValid) {
+				RSN_IE(pucBuffer)->ucLength = 38;
+				WLAN_SET_FIELD_16(cp, 1);	/* PMKID count */
+				cp += 2;
+				DBGLOG(RSN, INFO, "use OKC PMKID %pM\n", prConnSettings->aucOkcPmkId);
+				kalMemCopy(cp, prConnSettings->aucOkcPmkId, 16);
+#endif
 			} else {
 				WLAN_SET_FIELD_16(cp, 0);	/* PMKID count */
 				/* ucExpendedLen = ELEM_ID_RSN_LEN_FIXED + 2; */
@@ -1436,6 +1280,15 @@ VOID rsnGenerateRSNIE(IN P_ADAPTER_T prAdapter, IN P_MSDU_INFO_T prMsduInfo)
 				RSN_IE(pucBuffer)->ucLength += 2;
 #endif
 			}
+#if CFG_SUPPORT_OKC
+		} else if (eNetworkId == NETWORK_TYPE_AIS_INDEX &&
+			prConnSettings->fgUseOkc && prConnSettings->fgOkcPmkIdValid) {
+			RSN_IE(pucBuffer)->ucLength = 38;
+			WLAN_SET_FIELD_16(cp, 1);	/* PMKID count */
+			cp += 2;
+			DBGLOG(RSN, INFO, "use OKC PMKID %pM\n", prConnSettings->aucOkcPmkId);
+			kalMemCopy(cp, prConnSettings->aucOkcPmkId, 16);
+#endif
 		} else {
 			WLAN_SET_FIELD_16(cp, 0);	/* PMKID count */
 			/* ucExpendedLen = ELEM_ID_RSN_LEN_FIXED + 2; */
@@ -2272,6 +2125,8 @@ void rsnSaQueryRequest(IN P_ADAPTER_T prAdapter, IN P_SW_RFB_T prSwRfb)
 		return;
 
 	prStaRec = cnmGetStaRecByIndex(prAdapter, prSwRfb->ucStaRecIdx);
+	if (!prStaRec)
+		return;
 
 	DBGLOG(RSN, TRACE, "IEEE 802.11: Received SA Query Request from %pM\n", prStaRec->aucMacAddr);
 
@@ -2345,7 +2200,11 @@ void rsnSaQueryAction(IN P_ADAPTER_T prAdapter, IN P_SW_RFB_T prSwRfb)
 	ASSERT(prBssSpecInfo);
 
 	prRxFrame = (P_ACTION_SA_QUERY_FRAME) prSwRfb->pvHeader;
+	if (!prRxFrame)
+		return;
 	prStaRec = cnmGetStaRecByIndex(prAdapter, prSwRfb->ucStaRecIdx);
+	if (!prStaRec)
+		return;
 
 	if (prSwRfb->u2PacketLen < ACTION_SA_QUERY_TR_ID_LEN) {
 		DBGLOG(RSN, TRACE, "IEEE 802.11: Too short SA Query Action frame (len=%u)\n",

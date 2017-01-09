@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 
 #define DFT_TAG "[CONN_MD_DMP]"
 
@@ -34,7 +47,7 @@ int conn_md_dmp_deinit(P_CONN_MD_DMP_MSG_LOG p_log)
 		CONN_MD_WARN_FUNC("invalid log buffer pointer\n");
 		i_ret = CONN_MD_ERR_INVALID_PARAM;
 	}
-	return 0;
+	return i_ret;
 }
 
 int __conn_md_dmp_in(ipc_ilm_t *p_ilm, CONN_MD_MSG_TYPE msg_type, P_CONN_MD_DMP_MSG_LOG p_msg_log)

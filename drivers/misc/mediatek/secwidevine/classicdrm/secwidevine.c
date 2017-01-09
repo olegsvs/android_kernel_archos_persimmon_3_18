@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 
 #include <linux/kernel.h>
 #include <linux/module.h>
@@ -283,7 +296,7 @@ static int secwidevine_release(struct inode *inode, struct file *file)
 	ret = secwidevine_session_close();
 	return ret;
 }
-
+/*
 static long secwidevine_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
 	int err = 0;
@@ -318,14 +331,14 @@ static long secwidevine_ioctl(struct file *file, unsigned int cmd, unsigned long
 	}
 
 	switch (cmd) {
-	/*case SECWIDEVINE_GET_SESSION:
+	case SECWIDEVINE_GET_SESSION:
 	if (!(file->f_mode & FMODE_WRITE))
 	{
 	    MSG(ERR, "verify FMODE_WRITE fail\n");
 	    return -EROFS;
 	}
 	err = secwidevine_execute(CMD_SEC_WIDEVINE_GET_SESSION, &param);
-	break;*/
+	break;
 	default:
 	return -ENOTTY;
 	}
@@ -337,13 +350,13 @@ static long secwidevine_ioctl(struct file *file, unsigned int cmd, unsigned long
 	MSG(INFO, "sessionId = %d, deviceId = %d\n",
 		param.session_handle.session_id, param.session_handle.device_id);
 	return err;
-}
+}*/
 
 static const struct file_operations secwidevine_fops = {
 	.owner   = THIS_MODULE,
 	.open    = secwidevine_open,
 	.release = secwidevine_release,
-	.unlocked_ioctl = secwidevine_ioctl,
+	.unlocked_ioctl = NULL,
 	.write   = NULL,
 	.read    = NULL,
 };

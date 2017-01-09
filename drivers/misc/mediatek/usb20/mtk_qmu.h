@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #ifndef _MTK_QMU_H_
 #define _MTK_QMU_H_
 
@@ -14,7 +27,7 @@
 #define GPD_LEN_ALIGNED (64)	/* > gpd len (16) and cache line size aligned */
 #define GPD_EXT_LEN (48)	/* GPD_LEN_ALIGNED - 16(should be sizeof(TGPD) */
 #define GPD_SZ (16)
-#define MAX_GPD_NUM 36
+#define DFT_MAX_GPD_NUM 36
 #define RXQ_NUM 8
 #define TXQ_NUM 8
 #define MAX_QMU_EP RXQ_NUM
@@ -56,7 +69,20 @@ typedef struct _GPD_RANGE {
 	PGPD pEnd;
 } GPD_R, *RGPD;
 
+#ifdef MUSB_QMU_SUPPORT_HOST
+extern int mtk_host_qmu_concurrent;
+extern int mtk_host_qmu_pipe_msk;
+extern int mtk_host_active_dev_cnt;
+extern unsigned int low_power_timer_total_trigger_cnt;
+extern unsigned int low_power_timer_total_wake_cnt;
+extern int low_power_timer_mode2_option;
+extern int low_power_timer_mode;
+#endif
 extern int mtk_qmu_dbg_level;	/* refer to musb_core.c */
+extern int mtk_qmu_max_gpd_num;
+extern struct musb_hw_ep *qmu_isoc_ep;
+extern int isoc_ep_start_idx;
+extern int isoc_ep_gpd_count;
 static inline int mtk_dbg_level(unsigned level)
 {
 	return mtk_qmu_dbg_level >= level;
@@ -311,13 +337,14 @@ u8 PDU_calcCksum(u8 *data, int len);
 
 #define TGPD_FLAG_IOC				0x80
 #define TGPD_SET_IOC(_pd)			(((TGPD *)_pd)->flag |= TGPD_FLAG_IOC)
+#define TGPD_CLR_IOC(_pd)			(((TGPD *)_pd)->flag &= (~TGPD_FLAG_IOC))
 
 extern void qmu_destroy_gpd_pool(struct device *dev);
 extern int qmu_init_gpd_pool(struct device *dev);
 extern void qmu_reset_gpd_pool(u32 ep_num, u8 isRx);
 extern bool mtk_is_qmu_enabled(u8 EP_Num, u8 isRx);
 extern void mtk_qmu_enable(struct musb *musb, u8 EP_Num, u8 isRx);
-extern void mtk_qmu_insert_task(u8 EP_Num, u8 isRx, u8 *buf, u32 length, u8 zlp);
+extern void mtk_qmu_insert_task(u8 EP_Num, u8 isRx, u8 *buf, u32 length, u8 zlp, u8 isioc);
 extern void mtk_qmu_resume(u8 EP_Num, u8 isRx);
 extern void qmu_done_rx(struct musb *musb, u8 ep_num);
 extern void qmu_done_tx(struct musb *musb, u8 ep_num);
@@ -326,5 +353,13 @@ extern void mtk_qmu_irq_err(struct musb *musb, u32 qisar);
 extern void flush_ep_csr(struct musb *musb, u8 ep_num, u8 isRx);
 extern void mtk_qmu_stop(u8 ep_num, u8 isRx);
 
+#ifdef MUSB_QMU_SUPPORT_HOST
+#define QMU_RX_SPLIT_BLOCK_SIZE (32*1024)
+#define QMU_RX_SPLIT_THRE	(64*1024)
+extern u32 qmu_used_gpd_count(u8 isRx, u32 num);
+extern u32 qmu_free_gpd_count(u8 isRx, u32 num);
+extern void h_qmu_done_rx(struct musb *musb, u8 ep_num);
+extern void h_qmu_done_tx(struct musb *musb, u8 ep_num);
+#endif
 #endif
 #endif

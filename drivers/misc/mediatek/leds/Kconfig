@@ -13,12 +13,11 @@ config LIGHTNESS_MAPPING_VALUE
  	---help---
 	  Backlight brightness mapping value, from 0 to 255.
 
-config LED_AW2013
-	bool "bf168 led aw2013"
+config BACKLIGHT_SUPPORT_LP8557
+	bool "Support backlight lp8557 board"
+
+config BACKLIGHT_SUPPORT_LM3697
+	bool "LM3697(DW8832) Support"
 	default n
  	---help---
-	  bf168 use extenal led notification driver.
-
-
-config TB8173_EVB
-	bool "Support TB8173 EVB board"
+	  charge pump driver for external backlight

@@ -239,7 +239,7 @@ struct mtd_info {
 	int (*_is_locked) (struct mtd_info *mtd, loff_t ofs, uint64_t len);
 	int (*_block_isreserved) (struct mtd_info *mtd, loff_t ofs);
 	int (*_block_isbad) (struct mtd_info *mtd, loff_t ofs);
-	int (*_block_markbad) (struct mtd_info *mtd, loff_t ofs);
+	int (*_block_markbad)(struct mtd_info *mtd, loff_t ofs, const uint8_t *buffer);
 	int (*_suspend) (struct mtd_info *mtd);
 	void (*_resume) (struct mtd_info *mtd);
 	/*
@@ -267,6 +267,18 @@ struct mtd_info {
 	struct device dev;
 	int usecount;
 };
+
+
+static inline void mtd_set_of_node(struct mtd_info *mtd,
+				   struct device_node *np)
+{
+	mtd->dev.of_node = np;
+}
+
+static inline struct device_node *mtd_get_of_node(struct mtd_info *mtd)
+{
+	return mtd->dev.of_node;
+}
 
 int mtd_erase(struct mtd_info *mtd, struct erase_info *instr);
 int mtd_point(struct mtd_info *mtd, loff_t from, size_t len, size_t *retlen,
@@ -321,6 +333,7 @@ int mtd_is_locked(struct mtd_info *mtd, loff_t ofs, uint64_t len);
 int mtd_block_isreserved(struct mtd_info *mtd, loff_t ofs);
 int mtd_block_isbad(struct mtd_info *mtd, loff_t ofs);
 int mtd_block_markbad(struct mtd_info *mtd, loff_t ofs);
+int mtd_block_markbad_hw(struct mtd_info *mtd, loff_t ofs, const uint8_t *buf);
 
 static inline int mtd_suspend(struct mtd_info *mtd)
 {

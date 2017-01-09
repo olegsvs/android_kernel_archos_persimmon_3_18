@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 
 /** Commands and value for REE service call */
 /* This is used by TEE internal. Other TA please don't include this */
@@ -37,6 +50,8 @@ enum ReeServiceCommand {
 	REE_SERV_THREAD_CREATE,
 
 	REE_SERV_SEMAPHORE_DOWNINT,     /* interruptible down */
+	REE_SERV_GET_CHUNK_MEMPOOL,
+	REE_SERV_REL_CHUNK_MEMPOOL,
 };
 
 /* //////// Param structure for commands */
@@ -76,4 +91,8 @@ struct ree_service_clock {
 	char clk_name[112];
 };
 
+struct ree_service_chunk_mem {
+	uint64_t chunkmem_pa;
+	unsigned int size;
+};
 #endif				/* __REE_SERVICE__ */

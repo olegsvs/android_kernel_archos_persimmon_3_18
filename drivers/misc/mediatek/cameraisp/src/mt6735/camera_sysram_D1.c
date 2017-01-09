@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #include <linux/uaccess.h>
 #include <linux/module.h>
 #include <linux/types.h>
@@ -909,6 +922,11 @@ static long SYSRAM_Ioctl(
 	case SYSRAM_FREE:
 	{
 		if (copy_from_user(&User, (void *)Param, sizeof(SYSRAM_USER_ENUM)) == 0) {
+			if (User >= SYSRAM_USER_AMOUNT) {
+				LOG_ERR("invalid User(%d)", User);
+				Ret = -EFAULT;
+				break;
+			}
 			SYSRAM_SpinLock();
 			if ((pProc->Table) & (1 << User)) {
 				SYSRAM_SpinUnlock();

@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #include <linux/slab.h>
 #include <linux/interrupt.h>
 
@@ -42,6 +55,8 @@ int m4u_invalid_tlb(int m4u_id, int L2_en, int isInvAll, unsigned int mva_start,
 
 	reg |= F_MMU_INV_EN_L1;
 
+	spin_lock(&gM4u_reg_lock);
+
 	M4U_WriteReg32(m4u_base, REG_INVLID_SEL, reg);
 
 	if (isInvAll)
@@ -72,6 +87,8 @@ int m4u_invalid_tlb(int m4u_id, int L2_en, int isInvAll, unsigned int mva_start,
 		M4U_WriteReg32(m4u_base, REG_MMU_CPE_DONE, 0);
 	}
 
+	spin_unlock(&gM4u_reg_lock);
+
 	return 0;
 }
 
@@ -88,60 +105,6 @@ void m4u_invalid_tlb_by_range(m4u_domain_t *m4u_domain, unsigned int mva_start, 
 		m4u_invalid_tlb(i, gM4U_L2_enable, 0, mva_start, mva_end);
    /* m4u_invalid_tlb_all(0); */
    /* m4u_invalid_tlb_all(1); */
-}
-
-void m4u_invalid_tlb_sec(int m4u_id, int L2_en, int isInvAll, unsigned int mva_start, unsigned int mva_end)
-{
-	unsigned int reg = 0;
-	unsigned long m4u_base = gM4UBaseAddr[m4u_id];
-
-	if (mva_start >= mva_end)
-		isInvAll = 1;
-
-	if (!isInvAll) {
-		mva_start = round_down(mva_start, SZ_4K);
-		mva_end = round_up(mva_end, SZ_4K);
-	}
-
-	reg = F_MMU_INV_SEC_EN_L2;
-	reg |= F_MMU_INV_SEC_EN_L1;
-
-	M4U_WriteReg32(m4u_base, REG_INVLID_SEL_SEC, reg);
-
-	if (isInvAll)
-		M4U_WriteReg32(m4u_base, REG_MMU_INVLD_SEC, F_MMU_INV_SEC_ALL);
-	else {
-		/*
-		unsigned int type_start = m4u_get_pt_type(gPgd_nonsec, mva_start);
-		unsigned int type_end = m4u_get_pt_type(gPgd_nonsec, mva_end);
-		unsigned int type = max(type_start, type_end);
-		unsigned int alignment;
-		if(type > MMU_PT_TYPE_SUPERSECTION)
-			type = MMU_PT_TYPE_SUPERSECTION;
-		alignment = m4u_get_pt_type_size(type) - 1;
-
-		M4U_WriteReg32(m4u_base, REG_MMU_INVLD_SA ,mva_start & (~alignment));
-		M4U_WriteReg32(m4u_base, REG_MMU_INVLD_EA, mva_end | alignment);
-		M4U_WriteReg32(m4u_base, REG_MMU_INVLD, F_MMU_INV_RANGE);
-		 */
-
-		M4U_WriteReg32(m4u_base, REG_MMU_INVLD_SA_SEC , mva_start);
-		M4U_WriteReg32(m4u_base, REG_MMU_INVLD_EA_SEC, mva_end);
-		M4U_WriteReg32(m4u_base, REG_MMU_INVLD_SEC, F_MMU_INV_SEC_RANGE);
-	}
-
-	if (!isInvAll) {
-		while (!M4U_ReadReg32(m4u_base, REG_MMU_CPE_DONE_SEC))
-			;
-		M4U_WriteReg32(m4u_base, REG_MMU_CPE_DONE_SEC, 0);
-	}
-}
-
-void m4u_invalid_tlb_sec_by_range(int m4u_id,
-				    unsigned int mva_start,
-				    unsigned int mva_end)
-{
-	m4u_invalid_tlb_sec(m4u_id, gM4U_L2_enable, 0, mva_start, mva_end);
 }
 
 static int __m4u_dump_rs_info(unsigned int va[], unsigned int pa[], unsigned int st[], unsigned int pte[])
@@ -1345,7 +1308,7 @@ int m4u_config_port_array(struct m4u_port_array *port_array)
 					change = 1;
 			}
 		}
-		M4ULOG_MID("m4u_config_port_array 1: larb: %d, [0x%x], %d\n", larb, config_larb[larb], change);
+		M4ULOG_LOW("m4u_config_port_array 1: larb: %d, [0x%x], %d\n", larb, config_larb[larb], change);
 	}
 
 #ifdef M4U_TEE_SERVICE_ENABLE
@@ -1572,7 +1535,7 @@ void m4u_larb_backup(int larb_idx)
 	}
 
 	larb_base = gLarbBaseAddr[larb_idx];
-	M4ULOG_MID("larb(%d) backup\n", larb_idx);
+	M4ULOG_LOW("larb(%d) backup\n", larb_idx);
 
 #ifdef M4U_TEE_SERVICE_ENABLE
 	if (m4u_tee_en)
@@ -1598,7 +1561,7 @@ void m4u_larb_restore(int larb_idx)
 	}
 
 	larb_base = gLarbBaseAddr[larb_idx];
-	M4ULOG_MID("larb(%d) restore\n", larb_idx);
+	M4ULOG_LOW("larb(%d) restore\n", larb_idx);
 
 #ifdef M4U_TEE_SERVICE_ENABLE
 	if (m4u_tee_en) {
@@ -1897,8 +1860,7 @@ irqreturn_t MTK_M4U_isr(int irq, void *dev_id)
 				if (0 != valid_mva && 0 != valid_size)
 					valid_mva_end = valid_mva+valid_size;
 
-				if ((0 != valid_mva_end && fault_mva < valid_mva_end+SZ_4K)
-				        || m4u_pte_invalid(m4u_get_domain_by_port(m4u_port), fault_mva)) {
+				if (0 != valid_mva_end && fault_mva < valid_mva_end+SZ_4K) {
 					M4UMSG("bypass disp TF, valid mva=0x%x, size=0x%x, mva_end=0x%x\n",
 						valid_mva, valid_size, valid_mva_end);
 					bypass_DISP_TF = 1;
@@ -1915,10 +1877,17 @@ irqreturn_t MTK_M4U_isr(int irq, void *dev_id)
 					gM4uPort[m4u_port].fault_fn(m4u_port, fault_mva, gM4uPort[m4u_port].fault_data);
 
 				m4u_dump_buf_info(NULL);
-				m4u_aee_print(
-					"\nCRDISPATCH_KEY:M4U_%s\ntranslation fault: port=%s, mva=0x%x, pa=0x%x\n",
-					m4u_get_port_name(m4u_port), m4u_get_port_name(m4u_port),
-					fault_mva, fault_pa);
+				if (m4u_port < M4U_PORT_UNKNOWN && NULL == gM4uPort[m4u_port].fault_data) {
+					m4u_aee_print(
+						"\nCRDISPATCH_KEY:M4U_%s\n, translation fault: port=%s, mva=0x%x, pa=0x%x\n",
+						m4u_get_port_name(m4u_port), m4u_get_port_name(m4u_port),
+						fault_mva, fault_pa);
+				} else {
+					m4u_aee_print(
+						 "\nCRDISPATCH_KEY:M4U_%s\n, translation fault: port=%s, mva=0x%x, pa=0x%x\n",
+						(char *)gM4uPort[m4u_port].fault_data,
+						m4u_get_port_name(m4u_port), fault_mva, fault_pa);
+				}
 			}
 
 			MMProfileLogEx(M4U_MMP_Events[M4U_MMP_M4U_ERROR], MMProfileFlagPulse, m4u_port, fault_mva);

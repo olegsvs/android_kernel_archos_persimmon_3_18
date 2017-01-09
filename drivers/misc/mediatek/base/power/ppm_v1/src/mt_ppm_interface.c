@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
@@ -10,6 +23,7 @@
 
 /* procfs dir for policies */
 struct proc_dir_entry *policy_dir = NULL;
+struct proc_dir_entry *profile_dir = NULL;
 unsigned int ppm_debug = 0;
 #if 0
 unsigned int ppm_func_lv_mask = (FUNC_LV_MODULE  | FUNC_LV_API | FUNC_LV_MAIN | FUNC_LV_POLICY);
@@ -144,19 +158,87 @@ static ssize_t ppm_enabled_proc_write(struct file *file, const char __user *buff
 
 static int ppm_dump_power_table_proc_show(struct seq_file *m, void *v)
 {
-	unsigned int i;
+	unsigned int i, j;
 	struct ppm_power_tbl_data power_table = ppm_get_power_table();
+	struct ppm_power_state_data *state_info = ppm_get_power_state_info();
+#ifdef PPM_POWER_TABLE_CALIBRATION
+	struct ppm_state_sorted_pwr_tbl_data *perf_tbl, *pwr_tbl;
+#else
+	const struct ppm_state_sorted_pwr_tbl_data *perf_tbl, *pwr_tbl;
+#endif
 
 	for_each_pwr_tbl_entry(i, power_table) {
-		seq_printf(m, "[%d]\t= %d,\t%d,\t%d,\t%d,\t%d,\t%d\n",
-			power_table.power_tbl[i].index,
-			power_table.power_tbl[i].cluster_cfg[0].opp_lv,
-			power_table.power_tbl[i].cluster_cfg[0].core_num,
-			power_table.power_tbl[i].cluster_cfg[1].opp_lv,
-			power_table.power_tbl[i].cluster_cfg[1].core_num,
+		seq_printf(m, "[%d]\t= ", power_table.power_tbl[i].index);
+
+		for_each_ppm_clusters(j) {
+			seq_printf(m, "%d,\t%d,\t",
+				power_table.power_tbl[i].cluster_cfg[j].opp_lv,
+				power_table.power_tbl[i].cluster_cfg[j].core_num
+				);
+		}
+
+		seq_printf(m, "%d,\t%d\n",
 			power_table.power_tbl[i].perf_idx,
 			power_table.power_tbl[i].power_idx
 		);
+	}
+
+#ifdef PPM_THERMAL_ENHANCEMENT
+	{
+		struct ppm_power_tbl_data tlp3_power_table = ppm_get_tlp3_power_table();
+
+		seq_puts(m, "\n==========================================\n");
+		seq_puts(m, "TLP3 power table ");
+		seq_puts(m, "\n==========================================\n");
+
+		for_each_pwr_tbl_entry(i, tlp3_power_table) {
+			seq_printf(m, "[%d]\t= ", tlp3_power_table.power_tbl[i].index);
+
+			for_each_ppm_clusters(j) {
+				seq_printf(m, "%d,\t%d,\t",
+					tlp3_power_table.power_tbl[i].cluster_cfg[j].opp_lv,
+					tlp3_power_table.power_tbl[i].cluster_cfg[j].core_num
+					);
+			}
+
+			seq_printf(m, "%d,\t%d\n",
+				tlp3_power_table.power_tbl[i].perf_idx,
+				tlp3_power_table.power_tbl[i].power_idx
+			);
+		}
+	}
+#endif
+
+	/* dump sorted tables */
+	if (ppm_debug > 0) {
+		for_each_ppm_power_state(i) {
+			perf_tbl = state_info[i].perf_sorted_tbl;
+			pwr_tbl = state_info[i].pwr_sorted_tbl;
+
+			seq_puts(m, "\n==========================================\n");
+			seq_printf(m, "perf sorted table for %s", state_info[i].name);
+			seq_puts(m, "\n==========================================\n");
+			for (j = 0; j < perf_tbl->size; j++) {
+				seq_printf(m, "[%d,\t%d,\t%d]\n",
+					perf_tbl->sorted_tbl[j].index,
+					perf_tbl->sorted_tbl[j].value,
+					perf_tbl->sorted_tbl[j].advise_index
+					);
+			}
+			seq_puts(m, "\n==========================================\n");
+			seq_printf(m, "pwr sorted table for %s", state_info[i].name);
+			seq_puts(m, "\n==========================================\n");
+			for (j = 0; j < pwr_tbl->size; j++) {
+				seq_printf(m, "[%d,\t%d,\t%d]\n",
+					pwr_tbl->sorted_tbl[j].index,
+					pwr_tbl->sorted_tbl[j].value,
+					pwr_tbl->sorted_tbl[j].advise_index
+					);
+			}
+		}
+#ifdef PPM_POWER_TABLE_CALIBRATION
+		seq_printf(m, "\nbig efuse = %d\n", mt_spower_get_efuse_lkg(MT_SPOWER_CPUBIG));
+#endif
 	}
 
 	return 0;
@@ -260,9 +342,10 @@ static int ppm_mode_proc_show(struct seq_file *m, void *v)
 		BUG();
 	}
 
-	seq_printf(m, "Current PPM mode = %s\n", mode);
+	seq_printf(m, "%s\n", mode);
 
-	seq_puts(m, "\nUsage: echo <mode_name> > /proc/ppm/mode\n\n");
+	seq_puts(m, "\nUsage: echo <mode_name> > /proc/ppm/mode\n");
+	seq_puts(m, "Support mode: Low_Power / Just_Make / Performance\n\n");
 
 	return 0;
 }
@@ -292,6 +375,7 @@ static ssize_t ppm_mode_proc_write(struct file *file, const char __user *buffer,
 
 		if (mode != ppm_main_info.cur_mode) {
 			ppm_lock(&ppm_main_info.lock);
+			ppm_info("Switch PPM mode to %s\n", str_mode);
 			ppm_main_info.cur_mode = mode;
 			ppm_unlock(&ppm_main_info.lock);
 
@@ -330,14 +414,18 @@ static ssize_t ppm_root_cluster_proc_write(struct file *file, const char __user 
 		return -EINVAL;
 
 	if (!kstrtoint(buf, 10, &cluster)) {
+#ifdef PPM_DISABLE_CLUSTER_MIGRATION
+		ppm_warn("Cannot set root cluster since cluster migration is disabled!\n");
+#else
 		ppm_lock(&ppm_main_info.lock);
 		ppm_main_info.fixed_root_cluster = (cluster >= (int)ppm_main_info.cluster_num) ? -1 : cluster;
 		ppm_unlock(&ppm_main_info.lock);
 
 		if (ppm_main_info.fixed_root_cluster != -1)
 			ppm_hica_fix_root_cluster_changed(ppm_main_info.fixed_root_cluster);
+#endif
 	} else
-		ppm_err("echo (cluster_id) > /proc/ppm/policy/hica_root_cluster\n");
+		ppm_err("echo (cluster_id) > /proc/ppm/root_cluster\n");
 
 	free_page((unsigned long)buf);
 	return count;
@@ -362,6 +450,68 @@ end:
 	return 0;
 }
 
+#ifdef PPM_VPROC_5A_LIMIT_CHECK
+static int ppm_5A_limit_enable_proc_show(struct seq_file *m, void *v)
+{
+	seq_printf(m, "%d\n", ppm_main_info.is_5A_limit_enable);
+
+	return 0;
+}
+
+static ssize_t ppm_5A_limit_enable_proc_write(struct file *file, const char __user *buffer,
+					size_t count, loff_t *pos)
+{
+	int enable;
+
+	char *buf = ppm_copy_from_user_for_proc(buffer, count);
+
+	if (!buf)
+		return -EINVAL;
+
+	if (!kstrtoint(buf, 10, &enable)) {
+		ppm_lock(&ppm_main_info.lock);
+		ppm_main_info.is_5A_limit_enable = (enable == 0) ? false : true;
+		ppm_info("is_5A_limit_enable = %d\n", ppm_main_info.is_5A_limit_enable);
+		ppm_unlock(&ppm_main_info.lock);
+
+		ppm_task_wakeup();
+	} else
+		ppm_err("echo 1(enable)/0(disable) > /proc/ppm/5A_limit_enable\n");
+
+	free_page((unsigned long)buf);
+	return count;
+}
+
+static int ppm_5A_limit_onoff_proc_show(struct seq_file *m, void *v)
+{
+	seq_printf(m, "%d\n", ppm_main_info.is_5A_limit_on);
+
+	return 0;
+}
+
+static ssize_t ppm_5A_limit_onoff_proc_write(struct file *file, const char __user *buffer,
+					size_t count, loff_t *pos)
+{
+	int onoff;
+
+	char *buf = ppm_copy_from_user_for_proc(buffer, count);
+
+	if (!buf)
+		return -EINVAL;
+
+	if (!kstrtoint(buf, 10, &onoff)) {
+		if (!onoff)
+			mt_ppm_set_5A_limit_throttle(false);
+		else
+			mt_ppm_set_5A_limit_throttle(true);
+	} else
+		ppm_err("echo 1(on)/0(off) > /proc/ppm/5A_limit_onoff\n");
+
+	free_page((unsigned long)buf);
+	return count;
+}
+#endif
+
 PROC_FOPS_RW(func_debug);
 PROC_FOPS_RW(debug);
 PROC_FOPS_RW(enabled);
@@ -371,6 +521,10 @@ PROC_FOPS_RW(policy_status);
 PROC_FOPS_RW(mode);
 PROC_FOPS_RW(root_cluster);
 PROC_FOPS_RO(dump_dvfs_table);
+#ifdef PPM_VPROC_5A_LIMIT_CHECK
+PROC_FOPS_RW(5A_limit_enable);
+PROC_FOPS_RW(5A_limit_onoff);
+#endif
 
 int ppm_procfs_init(void)
 {
@@ -392,6 +546,10 @@ int ppm_procfs_init(void)
 		PROC_ENTRY(policy_status),
 		PROC_ENTRY(mode),
 		PROC_ENTRY(root_cluster),
+#ifdef PPM_VPROC_5A_LIMIT_CHECK
+		PROC_ENTRY(5A_limit_enable),
+		PROC_ENTRY(5A_limit_onoff),
+#endif
 	};
 
 	dir = proc_mkdir("ppm", NULL);
@@ -404,6 +562,12 @@ int ppm_procfs_init(void)
 	policy_dir = proc_mkdir("policy", dir);
 	if (!policy_dir) {
 		ppm_err("@%s: fail to create /proc/ppm/policy dir\n", __func__);
+		return -ENOMEM;
+	}
+
+	profile_dir = proc_mkdir("profile", dir);
+	if (!profile_dir) {
+		ppm_err("@%s: fail to create /proc/ppm/profile dir\n", __func__);
 		return -ENOMEM;
 	}
 

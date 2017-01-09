@@ -1,17 +1,19 @@
 /*
- * Copyright (C) 2007 The Android Open Source Project
+ * Copyright (C) 2015 MediaTek Inc.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ * You should have received a copy of the GNU General Public License
+ * along with this program
+ * If not, see <http://www.gnu.org/licenses/>.
  */
 /*******************************************************************************
  *
@@ -286,16 +288,6 @@ typedef enum {
 	OUT_MAX
 } ITRCON_OUT_T;
 
-/* IRQ related */
-typedef enum {
-	IRQ1 = 1,
-	IRQ2 = 2,
-	IRQ5 = 3,		/* HDMI */
-	IRQ6 = 4,		/* SPDIF */
-	IRQMAX
-} IRQTYPE_T;
-
-
 /* Side tone filter related */
 typedef enum {
 	I3I4 = 0,
@@ -383,7 +375,7 @@ typedef struct {
 
 /* Internal sram */
 #define AFE_INTERNAL_SRAM_PHY_BASE  (0x11221000L)
-#define AFE_INTERNAL_SRAM_VIR_BASE  (AUDIO_HW_VIRTUAL_BASE - 0x70000+0x8000)	/* TODO: KC: check this */
+#define AFE_INTERNAL_SRAM_VIR_BASE  (AUDIO_HW_VIRTUAL_BASE - 0x70000+0x8000)
 #define AFE_INTERNAL_SRAM_SIZE  (0xC000) /* 48k, for normal mode */
 
 /* Dram */
@@ -401,7 +393,7 @@ typedef struct {
 #define AUD_DRV_SEL4 (0xB40)
 
 #define APLL_PHYSICAL_BASE (0x10209000L)
-/* #define AP_PLL_CON5 (0x0014) */
+#define AP_PLL_CON5 (0x0014)
 
 #define AUDIO_CLK_CFG_4 (0x0080)
 #define AUDIO_CLK_CFG_6 (0x00A0)
@@ -426,13 +418,6 @@ typedef struct {
 /*#define AUDIO_CLK_AUDDIV_0 (0x00120)*/
 /*#define AUDIO_CLK_AUDDIV_1 (0x00124)*/
 
-/* TODO: KC: fixed this, check if the following is necessary */
-/*#ifdef AUDIO_TOP_CON0
-#undef AUDIO_TOP_CON0
-#define AUDIO_TOP_CON0  (AFE_BASE + 0x0000)
-#endif
-#define AUDIO_TOP_CON0  (AFE_BASE + 0x0000)
-*/
 #define AUDIO_TOP_CON0            (AFE_BASE + 0x0000)
 #define AUDIO_TOP_CON1            (AFE_BASE + 0x0004)
 #define AUDIO_TOP_CON3            (AFE_BASE + 0x000c)
@@ -712,6 +697,7 @@ void SetApmixedCfg(uint32 offset, uint32 value, uint32 mask);
 void Afe_Log_Print(void);
 
 /* function to get pointer */
+unsigned int Get_Afe_Sram_Length(void);
 dma_addr_t Get_Afe_Sram_Phys_Addr(void);
 dma_addr_t Get_Afe_Sram_Capture_Phys_Addr(void);
 void *Get_Afe_SramBase_Pointer(void);

@@ -1,4 +1,17 @@
 /*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
+/*
  * Header files for KREE memory related functions.
  */
 
@@ -8,6 +21,7 @@
 #if defined(CONFIG_MTK_IN_HOUSE_TEE_SUPPORT) || defined(CONFIG_TRUSTY)
 
 #include "tz_cross/trustzone.h"
+#include "tz_cross/ree_service.h"
 
 
 /* / KREE session handle type. */
@@ -56,7 +70,7 @@ typedef struct {
 /* map_p: 0 = no remap, 1 = remap */
 TZ_RESULT kree_register_sharedmem(KREE_SESSION_HANDLE session,
 		KREE_SHAREDMEM_HANDLE *mem_handle, void *start,
-		uint32_t size, void *map_p);
+		uint32_t size, void *map_p, const char *tag);
 
 TZ_RESULT kree_unregister_sharedmem(KREE_SESSION_HANDLE session,
 					KREE_SHAREDMEM_HANDLE mem_handle);
@@ -153,6 +167,38 @@ TZ_RESULT KREE_AllocSecuremem(KREE_SESSION_HANDLE session,
 	KREE_SECUREMEM_HANDLE *mem_handle, uint32_t alignment, uint32_t size);
 
 /**
+ * Secure memory allocation With Tag
+ *
+ * Same as KREE_AllocSecuremem() but with one additional tag for debugging.
+ *
+ * @param session    The session handle.
+ * @param mem_handle    [out] A pointer to secure memory handle.
+ * @param alignment    Memory alignment in bytes.
+ * @param size    The size of the buffer to be allocated in bytes.
+ & @param tag     The string for marking the allocation
+ * @return    return code.
+ */
+TZ_RESULT KREE_AllocSecurememWithTag(KREE_SESSION_HANDLE session,
+	KREE_SECUREMEM_HANDLE *mem_handle, uint32_t alignment, uint32_t size,
+	const char *tag);
+
+/**
+ * Zeroed secure memory allocation With Tag
+ *
+ * Same as KREE_AllocSecurememWithTag() but the content is initialized as zero.
+ *
+ * @param session    The session handle.
+ * @param mem_handle    [out] A pointer to secure memory handle.
+ * @param alignment    Memory alignment in bytes.
+ * @param size    The size of the buffer to be allocated in bytes.
+ & @param tag     The string for marking the allocation
+ * @return    return code.
+ */
+TZ_RESULT KREE_ZallocSecurememWithTag(KREE_SESSION_HANDLE session,
+	KREE_SECUREMEM_HANDLE *mem_handle, uint32_t alignment, uint32_t size,
+	const char *tag);
+
+/**
  * Secure memory reference
  *
  * Reference memory.
@@ -225,6 +271,41 @@ TZ_RESULT KREE_UnreferenceSecuremem(KREE_SESSION_HANDLE session,
  */
 TZ_RESULT KREE_AllocSecurechunkmem(KREE_SESSION_HANDLE session,
 	KREE_SECURECM_HANDLE *cm_handle, uint32_t alignment, uint32_t size);
+
+/**
+ * Secure chunk memory allocation with tag
+ *
+ * Same as KREE_AllocSecuremem() but with one additional tag for debugging.
+ *
+ * @param session    The session handle.
+ * @param cm_handle    [out] A pointer to secure chunk memory handle.
+ * @param alignment    Memory alignment in bytes.
+ * @param size    The size of the buffer to be allocated in bytes.
+ * @param tag     The string for marking the allocation
+
+ * @return    return code.
+ */
+TZ_RESULT KREE_AllocSecurechunkmemWithTag(KREE_SESSION_HANDLE session,
+	KREE_SECURECM_HANDLE *cm_handle, uint32_t alignment, uint32_t size,
+	const char *tag);
+
+
+/**
+ * Zeroed secure chunk memory allocation with tag
+ *
+ * Same as KREE_AllocSecurememWithTag() but the context is initilaized as zero.
+ *
+ * @param session    The session handle.
+ * @param cm_handle    [out] A pointer to secure chunk memory handle.
+ * @param alignment    Memory alignment in bytes.
+ * @param size    The size of the buffer to be allocated in bytes.
+ * @param tag     The string for marking the allocation
+
+ * @return    return code.
+ */
+TZ_RESULT KREE_ZallocSecurechunkmemWithTag(KREE_SESSION_HANDLE session,
+	KREE_SECURECM_HANDLE *cm_handle, uint32_t alignment, uint32_t size,
+	const char *tag);
 
 /**
  * Secure chunk memory reference
@@ -337,6 +418,32 @@ TZ_RESULT KREE_StopSecurechunkmemSvc(KREE_SESSION_HANDLE session,
  */
 TZ_RESULT KREE_QuerySecurechunkmem(KREE_SESSION_HANDLE session,
 				unsigned long *cm_pa, uint32_t *size);
+
+#ifdef CONFIG_MTEE_CMA_SECURE_MEMORY
+/**
+ * REE service call to allocate chunk memory
+ *
+ * Allocate the continuouse memory for TEE secure chunk memory
+ *
+ * @param op         will be KREE_SERV_GET_CHUNK_MEMPOOL.
+ * @param uparam     the exchange buffer for parameters.
+ * @param return     return code.
+ */
+TZ_RESULT KREE_ServGetChunkmemPool(u32 op,
+				   u8 uparam[REE_SERVICE_BUFFER_SIZE]);
+
+/**
+ * REE service call to release cma memory
+ *
+ * Release the continuouse memory from TEE secure chunk memory
+ *
+ * @param op         will be KREE_SERV_GET_CHUNK_MEMPOOL.
+ * @param uparam     the exchange buffer for parameters.
+ * @param return     return code.
+ */
+TZ_RESULT KREE_ServReleaseChunkmemPool(u32 op,
+				       u8 uparam[REE_SERVICE_BUFFER_SIZE]);
+#endif  /* CONFIG_MTEE_CMA_SECURE_MEMORY */
 
 #endif				/* CONFIG_MTK_IN_HOUSE_TEE_SUPPORT || CONFIG_TRUSTY*/
 #endif				/* __KREE_MEM_H__ */

@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #ifndef _MT_PMIC_COMMON_H_
 #define _MT_PMIC_COMMON_H_
 
@@ -114,7 +127,6 @@ typedef enum MT65XX_POWER_VOL_TAG {
 	VOL_3600 = 3600
 } MT65XX_POWER_VOLTAGE;
 
-
 typedef struct {
 	unsigned long dwPowerCount;
 	bool bDefault_on;
@@ -146,6 +158,7 @@ extern unsigned int pmic_config_interface_nolock(unsigned int RegNum,
 	unsigned int SHIFT);
 extern unsigned short pmic_set_register_value(PMU_FLAGS_LIST_ENUM flagname, unsigned int val);
 extern unsigned short pmic_get_register_value(PMU_FLAGS_LIST_ENUM flagname);
+extern unsigned short pmic_set_register_value_nolock(PMU_FLAGS_LIST_ENUM flagname, unsigned int val);
 extern unsigned short pmic_get_register_value_nolock(PMU_FLAGS_LIST_ENUM flagname);
 extern unsigned short bc11_set_register_value(PMU_FLAGS_LIST_ENUM flagname, unsigned int val);
 extern unsigned short bc11_get_register_value(PMU_FLAGS_LIST_ENUM flagname);
@@ -154,14 +167,25 @@ extern unsigned int upmu_get_reg_value(unsigned int reg);
 extern void pmic_lock(void);
 extern void pmic_unlock(void);
 
+#ifdef CONFIG_MTK_PMIC_CHIP_MT6335
+extern void pmic_enable_interrupt(PMIC_IRQ_ENUM intNo, unsigned int en, char *str);
+extern void pmic_mask_interrupt(PMIC_IRQ_ENUM intNo, char *str);
+extern void pmic_unmask_interrupt(PMIC_IRQ_ENUM intNo, char *str);
+extern void pmic_register_interrupt_callback(PMIC_IRQ_ENUM intNo, void (EINT_FUNC_PTR) (void));
+#else
 extern void pmic_enable_interrupt(unsigned int intNo, unsigned int en, char *str);
+extern void pmic_mask_interrupt(unsigned int intNo, char *str);
+extern void pmic_unmask_interrupt(unsigned int intNo, char *str);
 extern void pmic_register_interrupt_callback(unsigned int intNo, void (EINT_FUNC_PTR) (void));
+#endif
 extern unsigned short is_battery_remove_pmic(void);
 
 extern signed int PMIC_IMM_GetCurrent(void);
 extern unsigned int PMIC_IMM_GetOneChannelValue(pmic_adc_ch_list_enum dwChannel, int deCount,
-					      int trimd);
+		int trimd);
 extern void pmic_auxadc_init(void);
+extern void lockadcch3(void);
+extern void unlockadcch3(void);
 
 extern unsigned int pmic_Read_Efuse_HPOffset(int i);
 extern void Charger_Detect_Init(void);
@@ -179,5 +203,16 @@ extern bool hwPowerDown(MT65XX_POWER powerId, char *mode_name);
 extern int get_battery_plug_out_status(void);
 
 extern void pmic_turn_on_clock(unsigned int enable);
+extern int do_ptim_ex(bool isSuspend, unsigned int *bat, signed int *cur);
+extern void get_ptim_value(bool isSuspend, unsigned int *bat, signed int *cur);
+extern int pmic_pre_wdt_reset(void);
+extern int pmic_pre_condition1(void);
+extern int pmic_pre_condition2(void);
+extern int pmic_pre_condition3(void);
+extern int pmic_post_condition1(void);
+extern int pmic_post_condition2(void);
+extern int pmic_post_condition3(void);
+extern int pmic_dump_all_reg(void);
+extern int pmic_force_vcore_pwm(bool enable);
 
 #endif				/* _MT_PMIC_COMMON_H_ */

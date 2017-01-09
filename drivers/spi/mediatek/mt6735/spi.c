@@ -1,3 +1,15 @@
+/*
+* Copyright (C) 2016 MediaTek Inc.
+*
+* This program is free software; you can redistribute it and/or modify
+* it under the terms of the GNU General Public License version 2 as
+* published by the Free Software Foundation.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+* See http://www.gnu.org/licenses/gpl-2.0.html for more details.
+*/
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/device.h>
@@ -70,24 +82,7 @@ enum spi_fifo {
 
 #define INVALID_DMA_ADDRESS 0xffffffff
 
-struct mt_spi_t {
-	struct platform_device *pdev;
-	void __iomem *regs;
-	int irq;
-	int running;
-	struct wake_lock wk_lock;
-	struct mt_chip_conf *config;
-	struct spi_master *master;
 
-	struct spi_transfer *cur_transfer;
-	struct spi_transfer *next_transfer;
-
-	spinlock_t lock;
-	struct list_head queue;
-#if !defined(CONFIG_MTK_CLKMGR)
-	struct clk *clk_main;	/* main clock for spi bus */
-#endif				/* !defined(CONFIG_MTK_CLKMGR) */
-};
 /*open time record debug, log can't affect transfer*/
 /*	#define SPI_REC_DEBUG */
 
@@ -110,6 +105,11 @@ void mt_spi_enable_clk(struct mt_spi_t *ms)
 	enable_clk(ms);
 }
 
+void mt_spi_enable_master_clk(struct spi_device *ms)
+{
+	enable_clk(spi_master_get_devdata(ms->master));
+}
+
 static void disable_clk(struct mt_spi_t *ms)
 {
 
@@ -128,6 +128,12 @@ void mt_spi_disable_clk(struct mt_spi_t *ms)
 {
 	disable_clk(ms);
 }
+
+void mt_spi_disable_master_clk(struct spi_device *ms)
+{
+	disable_clk(spi_master_get_devdata(ms->master));
+}
+
 #ifdef SPI_DEBUG
 	/*#define SPI_DBG(fmt, args...)  printk(KERN_ALERT "mt-spi.c:%5d: <%s>" fmt, __LINE__, __func__, ##args )*/
 	#define SPI_DBG(fmt, args...)  pr_debug("mt-spi.c:%5d: <%s>" fmt,  __LINE__, __func__, ##args)
@@ -777,9 +783,13 @@ static int mt_spi_next_xfer(struct mt_spi_t *ms, struct spi_message *msg)
 	if ((mode == FIFO_TRANSFER) || (mode == OTHER2)) {
 		cnt = (xfer->len % 4) ? (xfer->len / 4 + 1) : (xfer->len / 4);
 		for (i = 0; i < cnt; i++) {
-			spi_writel(ms, SPI_TX_DATA_REG, *((u32 *) xfer->tx_buf + i));
-			SPI_INFO(&msg->spi->dev, "tx_buf data is:%x\n", *((u32 *) xfer->tx_buf + i));
-			SPI_INFO(&msg->spi->dev, "tx_buf addr is:%p\n", (u32 *) xfer->tx_buf + i);
+			if (xfer->tx_buf == NULL)
+				spi_writel(ms, SPI_TX_DATA_REG, 0);
+			else {
+				spi_writel(ms, SPI_TX_DATA_REG, *((u32 *) xfer->tx_buf + i));
+				SPI_INFO(&msg->spi->dev, "tx_buf data is:%x\n", *((u32 *) xfer->tx_buf + i));
+				SPI_INFO(&msg->spi->dev, "tx_buf addr is:%p\n", (u32 *) xfer->tx_buf + i);
+			}
 		}
 	}
 	/*Using DMA to send data */
@@ -1193,11 +1203,15 @@ static int mt_spi_setup(struct spi_device *spidev)
 	struct mt_spi_t *ms;
 	struct mt_chip_conf *chip_config = NULL;
 
+	if (!spidev) {
+		pr_err("spidev is null. error\n");
+		/* dev_err(&spidev->dev, "spi device %s: error.\n", dev_name(&spidev->dev)); */
+		return -EINVAL;
+	}
+
 	master = spidev->master;
 	ms = spi_master_get_devdata(master);
 
-	if (!spidev)
-		dev_err(&spidev->dev, "spi device %s: error.\n", dev_name(&spidev->dev));
 	if (spidev->chip_select >= master->num_chipselect) {
 		dev_err(&spidev->dev, "spi device chip select excesses the number of master's chipselect number.\n");
 		return -EINVAL;
@@ -1286,6 +1300,10 @@ static int __init mt_spi_probe(struct platform_device *pdev)
 #endif
 
 	master = spi_alloc_master(&pdev->dev, sizeof(struct mt_spi_t));
+	if (!master) {
+		dev_err(&pdev->dev, " device %s: alloc spi master fail.\n", dev_name(&pdev->dev));
+		goto out;
+	}
 	ms = spi_master_get_devdata(master);
 
 	regs = platform_get_resource(pdev, IORESOURCE_MEM, 0);
@@ -1372,11 +1390,6 @@ static int __init mt_spi_probe(struct platform_device *pdev)
 #endif
 
 #endif
-	/*master = spi_alloc_master(&pdev->dev, sizeof(struct mt_spi_t)); */
-	if (!master) {
-		dev_err(&pdev->dev, " device %s: alloc spi master fail.\n", dev_name(&pdev->dev));
-		goto out;
-	}
 	/*hardware can only connect 1 slave.if you want to multiple, using gpio CS */
 	master->num_chipselect = 2;
 

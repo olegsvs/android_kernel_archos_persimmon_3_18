@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #include <linux/uaccess.h>
 #include <linux/module.h>
 #include <linux/fs.h>
@@ -395,7 +408,7 @@ static int m4u_fill_sgtable_user(struct vm_area_struct *vma, unsigned long va, i
 					(vma->vm_flags & VM_WRITE), 0, &pages, NULL);
 
 				if (ret == 1)
-					pa = (page_to_pfn(pages) << PAGE_SHIFT) | (va_tmp & ~PAGE_MASK);
+					pa = page_to_phys(pages) | (va_tmp & ~PAGE_MASK);
 			} else {
 				pa = m4u_user_v2p(va_tmp);
 				if (!pa) {
@@ -607,6 +620,13 @@ int m4u_alloc_mva(m4u_client_t *client, M4U_PORT_ID port,
 		M4UMSG("%s, va or sg_table are both valid: va=0x%lx, sg=0x%p\n", __func__,
 		       va, sg_table);
 	}
+
+	if (!va && !sg_table)	{
+		M4UMSG("%s, va or sg_table are both invalid: va=0x%lx, sg=0x%p\n", __func__, va, sg_table);
+		ret = -EFAULT;
+		goto err;
+	}
+
 	if (va) {
 		sg_table = m4u_create_sgtable(va, size);
 		if (IS_ERR_OR_NULL(sg_table)) {
@@ -862,6 +882,15 @@ int m4u_dma_cache_flush_all(void)
 	return 0;
 }
 
+void m4u_dma_cache_flush_range(void *start, size_t size)
+{
+#ifndef CONFIG_MTK_CACHE_FLUSH_RANGE_PARALLEL
+	dmac_flush_range((void *)start, (void *)(start + size));
+#else
+	mt_smp_cache_flush_m4u(start, size);
+#endif
+}
+
 static struct vm_struct *cache_map_vm_struct;
 static int m4u_cache_sync_init(void)
 {
@@ -898,7 +927,11 @@ static int __m4u_cache_sync_kernel(const void *start, size_t size, M4U_CACHE_SYN
 	else if (sync_type == M4U_CACHE_INVALID_BY_RANGE)
 		dmac_unmap_area((void *)start, size, DMA_FROM_DEVICE);
 	else if (sync_type == M4U_CACHE_FLUSH_BY_RANGE)
+#ifndef CONFIG_MTK_CACHE_FLUSH_RANGE_PARALLEL
 		dmac_flush_range((void *)start, (void *)(start + size));
+#else
+		mt_smp_cache_flush_m4u(start, size);
+#endif
 
 	return 0;
 }
@@ -1185,6 +1218,8 @@ long m4u_dma_op(m4u_client_t *client, M4U_PORT_ID port,
 				m4u_dma_map_area((void *)start, PAGE_SIZE, dma_dir);
 			else if (dma_type == M4U_DMA_UNMAP_AREA)
 				m4u_dma_unmap_area((void *)start, PAGE_SIZE, dma_dir);
+			else if (dma_type == M4U_DMA_FLUSH_BY_RANGE)
+				m4u_dma_cache_flush_range((void *)start, PAGE_SIZE);
 
 			m4u_cache_unmap_page_va(start);
 		}
@@ -1231,7 +1266,7 @@ int m4u_query_mva_info(unsigned int mva, unsigned int size, unsigned int *real_m
 	if ((!real_mva) || (!real_size))
 		return -1;
 
-	pMvaInfo = mva_get_priv(mva);
+	pMvaInfo = mva_get_priv_ext(mva);
 	if (!pMvaInfo) {
 		M4UMSG("%s cannot find mva: mva=0x%x, size=0x%x\n", __func__, mva, size);
 		*real_mva = 0;
@@ -2444,7 +2479,7 @@ static int m4u_probe(struct platform_device *pdev)
 #ifdef M4U_TEE_SERVICE_ENABLE
 		{
 			m4u_buf_info_t *pMvaInfo;
-			unsigned int mva;
+			unsigned int mva = 0;
 
 			pMvaInfo = m4u_alloc_buf_info();
 			if (!pMvaInfo) {
@@ -2453,7 +2488,7 @@ static int m4u_probe(struct platform_device *pdev)
 			}
 
 			mva = m4u_do_mva_alloc(0, M4U_NONSEC_MVA_START - 0x100000, pMvaInfo);
-			M4UINFO("reserve sec mva: 0x%x\n", mva);
+			M4UINFO("reserve sec mva: 0x%x, pMvaInfo: %p\n", mva, pMvaInfo);
 		}
 #endif
 

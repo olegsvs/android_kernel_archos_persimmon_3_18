@@ -1,4 +1,17 @@
 /*
+ * Copyright (C) 2016 MediaTek Inc.
+
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
+ */
+
+/*
  * This is used to for host and peripheral modes of the tyoec driver.
  */
 
@@ -72,6 +85,27 @@ struct usbc_pin_ctrl {
 	struct pinctrl_state *fusb340_sel_low;
 	struct pinctrl_state *fusb340_sel_high;
 };
+#elif defined(CONFIG_USB_C_SWITCH_SII70XX)
+struct usbc_pin_ctrl {
+	struct pinctrl_state *re_c1_init;
+	struct pinctrl_state *re_c2_init;
+	struct pinctrl_state *sii7033_rst_init;
+	struct pinctrl_state *sii7033_rst_low;
+	struct pinctrl_state *sii7033_rst_high;
+};
+#elif defined(CONFIG_USB_C_SWITCH_ANX7418)
+struct usbc_pin_ctrl {
+	struct pinctrl_state *rst_n_init;
+	struct pinctrl_state *rst_n_low;
+	struct pinctrl_state *rst_n_high;
+
+	struct pinctrl_state *pwr_en_init;
+	struct pinctrl_state *pwr_en_low;
+	struct pinctrl_state *pwr_en_high;
+
+	struct pinctrl_state *cbl_det_init;
+	struct pinctrl_state *intp_init;
+};
 #endif
 
 /*
@@ -81,6 +115,9 @@ struct usbc_pin_ctrl {
 struct usbtypc {
 	int irqnum;
 	int en_irq;
+#ifdef CONFIG_MTK_SIB_USB_SWITCH
+	bool sib_enable;
+#endif
 	struct pinctrl *pinctrl;
 	struct usbc_pin_ctrl *pin_cfg;
 	spinlock_t	fsm_lock;
@@ -95,13 +132,27 @@ struct usbtypc {
 };
 #elif defined(CONFIG_USB_C_SWITCH_SII70XX)
 struct usbtypc {
+	int irqnum;
+	int en_irq;
+	struct pinctrl *pinctrl;
+	struct usbc_pin_ctrl *pin_cfg;
+	struct delayed_work eint_work;
+	struct i2c_client *i2c_hd;
+	struct typec_switch_data *host_driver;
+	struct typec_switch_data *device_driver;
+	struct usb_redriver *u_rd;
+};
+#elif defined(CONFIG_USB_C_SWITCH_ANX7418)
+struct usbtypc {
+	struct pinctrl *pinctrl;
+	struct usbc_pin_ctrl *pin_cfg;
+	struct device *pinctrl_dev;
 	struct i2c_client *i2c_hd;
 	struct typec_switch_data *host_driver;
 	struct typec_switch_data *device_driver;
 };
-#elif defined(CONFIG_USB_C_SWITCH_ANX7418)
+#elif defined(CONFIG_USB_C_SWITCH_MT6353)
 struct usbtypc {
-	struct i2c_client *i2c_hd;
 	struct typec_switch_data *host_driver;
 	struct typec_switch_data *device_driver;
 };
@@ -113,5 +164,8 @@ extern int unregister_typec_switch_callback(struct typec_switch_data *new_driver
 extern int usb_redriver_config(struct usbtypc *typec, int ctrl_pin, int stat);
 extern int usb_redriver_enter_dps(struct usbtypc *typec);
 extern int usb_redriver_exit_dps(struct usbtypc *typec);
+#if defined(CONFIG_USB_C_SWITCH_MT6353)
+extern void typec_hanlder(void);
+#endif
 
 #endif	/* USB_TYPEC_H */

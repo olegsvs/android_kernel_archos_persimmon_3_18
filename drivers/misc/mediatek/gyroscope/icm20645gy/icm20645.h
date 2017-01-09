@@ -1,3 +1,16 @@
+/*
+* Copyright (C) 2015 MediaTek Inc.
+*
+* This program is free software; you can redistribute it and/or modify
+* it under the terms of the GNU General Public License version 2 as
+* published by the Free Software Foundation.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+* See http://www.gnu.org/licenses/gpl-2.0.html for more details.
+*/
+
 #ifndef ICM20645_H
 #define ICM20645_H
 
@@ -51,14 +64,16 @@
 
 
 
-#define GYRO_FS_SEL			         (0x02<<SHIFT_GYRO_FS_SEL)
+#define GYRO_FS_SEL			         (ICM20645_FS_2000<<SHIFT_GYRO_FS_SEL)
 
 
-#define ICM20645_FS_1000			 0x02
+#define ICM20645_FS_2000			 0x03
 
-
-#define ICM20645_FS_1000_LSB		   33
-#define ICM20645_FS_MAX_LSB			  131
+/* give more accurancy gyroscope rawdata, 2000 lsb is 32768 / 2000 = 16.4,
+ * we magnify 10 times 16.4 and 131, then follows 164 and 1310
+ */
+#define ICM20645_FS_2000_LSB		   164
+#define ICM20645_FS_MAX_LSB			  1310
 
 #define GYRO_DLPFCFG	(7<<3)
 #define GYRO_FCHOICE	0x01

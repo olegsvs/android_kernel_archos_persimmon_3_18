@@ -1,17 +1,19 @@
 /*
- * Copyright (C) 2007 The Android Open Source Project
+ * Copyright (C) 2015 MediaTek Inc.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ * You should have received a copy of the GNU General Public License
+ * along with this program
+ * If not, see <http://www.gnu.org/licenses/>.
  */
 /*******************************************************************************
  *
@@ -84,7 +86,7 @@ static void StopAudioBtDaiHardware(struct snd_pcm_substream *substream)
 	pr_warn("StopAudioBtDaiHardware\n");
 
 	/* here to set interrupt */
-	SetIrqEnable(Soc_Aud_IRQ_MCU_MODE_IRQ2_MCU_MODE, false);
+	irq_remove_user(substream, Soc_Aud_IRQ_MCU_MODE_IRQ2_MCU_MODE);
 
 	/* here to turn off digital part */
 	SetConnection(Soc_Aud_InterCon_DisConnect, Soc_Aud_InterConnectionInput_I02, Soc_Aud_InterConnectionOutput_O11);
@@ -120,9 +122,10 @@ static void StartAudioBtDaiHardware(struct snd_pcm_substream *substream)
 	pr_warn("StartAudioBtDaiHardware period_size = %d\n", (unsigned int)(substream->runtime->period_size));
 
 	/* here to set interrupt */
-	SetIrqMcuCounter(Soc_Aud_IRQ_MCU_MODE_IRQ2_MCU_MODE, substream->runtime->period_size >> 1);
-	SetIrqMcuSampleRate(Soc_Aud_IRQ_MCU_MODE_IRQ2_MCU_MODE, substream->runtime->rate);
-	SetIrqEnable(Soc_Aud_IRQ_MCU_MODE_IRQ2_MCU_MODE, true);
+	irq_add_user(substream,
+		     Soc_Aud_IRQ_MCU_MODE_IRQ2_MCU_MODE,
+		     substream->runtime->rate,
+		     substream->runtime->period_size);
 
 	SetSampleRate(Soc_Aud_Digital_Block_MEM_DAI, substream->runtime->rate);
 	SetMemoryPathEnable(Soc_Aud_Digital_Block_MEM_DAI, true);
@@ -164,40 +167,15 @@ static int mtk_bt_dai_alsa_stop(struct snd_pcm_substream *substream)
 	return 0;
 }
 
-static kal_int32 Previous_Hw_cur;
 static snd_pcm_uframes_t mtk_bt_dai_pcm_pointer(struct snd_pcm_substream *substream)
 {
-	kal_int32 HW_memory_index = 0;
-	kal_int32 HW_Cur_ReadIdx = 0;
 	AFE_BLOCK_T *Dai_Block = &(Bt_Dai_Control_context->rBlock);
 	kal_uint32 Frameidx = 0;
-	snd_pcm_uframes_t returnframe = 0;
 
 	PRINTK_AUD_DAI("mtk_bt_dai_pcm_pointer Dai_Block->u4DMAReadIdx;= 0x%x\n", Dai_Block->u4WriteIdx);
 	/* get total bytes to copy */
 	Frameidx = audio_bytes_to_frame(substream , Dai_Block->u4WriteIdx);
 	return Frameidx;
-
-	if (Bt_Dai_Control_context->interruptTrigger == 1) {
-		/* get total bytes to copy */
-		Frameidx = audio_bytes_to_frame(substream , Dai_Block->u4DMAReadIdx);
-		return Frameidx;
-
-		HW_Cur_ReadIdx = Align64ByteSize(Afe_Get_Reg(AFE_DAI_CUR));
-		if (HW_Cur_ReadIdx == 0) {
-			pr_warn("[Auddrv] mtk_bt_dai_pcm_pointer  HW_Cur_ReadIdx ==0\n");
-			HW_Cur_ReadIdx = Dai_Block->pucPhysBufAddr;
-		}
-		HW_memory_index = (HW_Cur_ReadIdx - Dai_Block->pucPhysBufAddr);
-		Previous_Hw_cur = HW_memory_index;
-		pr_warn("[Auddrv] mtk_bt_dai_pcm_pointer =0x%x HW_memory_index = 0x%x\n",
-			HW_Cur_ReadIdx, HW_memory_index);
-		Bt_Dai_Control_context->interruptTrigger = 0;
-		returnframe = (HW_memory_index / substream->runtime->channels);
-		return returnframe;
-	}
-	returnframe = (Previous_Hw_cur / substream->runtime->channels);
-	return returnframe;
 }
 
 
@@ -243,6 +221,7 @@ static int mtk_bt_dai_pcm_hw_params(struct snd_pcm_substream *substream,
 		runtime->dma_bytes = params_buffer_bytes(hw_params);
 		runtime->dma_area = Bt_Dai_Capture_dma_buf->area;
 		runtime->dma_addr = Bt_Dai_Capture_dma_buf->addr;
+		SetHighAddr(Soc_Aud_Digital_Block_MEM_DAI, true);
 	} else {
 		pr_warn("mtk_bt_dai_pcm_hw_params snd_pcm_lib_malloc_pages\n");
 		ret =  snd_pcm_lib_malloc_pages(substream, params_buffer_bytes(hw_params));

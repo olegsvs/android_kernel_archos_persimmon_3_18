@@ -28,6 +28,7 @@
 #include <linux/slab.h>
 #include <linux/dmi.h>
 #include <linux/dma-mapping.h>
+#include <linux/kernel.h>
 
 #include "xhci.h"
 #include "xhci-trace.h"
@@ -157,7 +158,9 @@ static int xhci_start(struct xhci_hcd *xhci)
 				"waited %u microseconds.\n",
 				XHCI_MAX_HALT_USEC);
 	if (!ret)
-		xhci->xhc_state &= ~XHCI_STATE_HALTED;
+		/* clear state flags. Including dying, halted or removing */
+		xhci->xhc_state = 0;
+
 	return ret;
 }
 
@@ -676,8 +679,9 @@ static void xhci_only_stop_hcd(struct usb_hcd *hcd)
 	struct xhci_hcd *xhci = hcd_to_xhci(hcd);
 
 	spin_lock_irq(&xhci->lock);
+#ifndef CONFIG_USB_XHCI_MTK
 	xhci_halt(xhci);
-
+#endif
 	/* The shared_hcd is going to be deallocated shortly (the USB core only
 	 * calls this function when allocation fails in usb_add_hcd(), or
 	 * usb_remove_hcd() is called).  So we need to unset xHCI's pointer.
@@ -704,7 +708,6 @@ void xhci_stop(struct usb_hcd *hcd)
 		xhci_only_stop_hcd(xhci->shared_hcd);
 		return;
 	}
-
 	spin_lock_irq(&xhci->lock);
 	/* Make sure the xHC is halted for a USB3 roothub
 	 * (xhci_stop() could be called as part of failed init).
@@ -1115,8 +1118,8 @@ int xhci_resume(struct xhci_hcd *xhci, bool hibernated)
 		/* Resume root hubs only when have pending events. */
 		status = readl(&xhci->op_regs->status);
 		if (status & STS_EINT) {
-			usb_hcd_resume_root_hub(hcd);
 			usb_hcd_resume_root_hub(xhci->shared_hcd);
+			usb_hcd_resume_root_hub(hcd);
 		}
 	}
 
@@ -1131,10 +1134,10 @@ int xhci_resume(struct xhci_hcd *xhci, bool hibernated)
 
 	/* Re-enable port polling. */
 	xhci_dbg(xhci, "%s: starting port polling.\n", __func__);
-	set_bit(HCD_FLAG_POLL_RH, &hcd->flags);
-	usb_hcd_poll_rh_status(hcd);
 	set_bit(HCD_FLAG_POLL_RH, &xhci->shared_hcd->flags);
 	usb_hcd_poll_rh_status(xhci->shared_hcd);
+	set_bit(HCD_FLAG_POLL_RH, &hcd->flags);
+	usb_hcd_poll_rh_status(hcd);
 
 	return retval;
 }
@@ -1357,6 +1360,11 @@ int xhci_urb_enqueue(struct usb_hcd *hcd, struct urb *urb, gfp_t mem_flags)
 
 	if (usb_endpoint_xfer_isoc(&urb->ep->desc))
 		size = urb->number_of_packets;
+	else if (usb_endpoint_is_bulk_out(&urb->ep->desc) &&
+	    urb->transfer_buffer_length > 0 &&
+	    urb->transfer_flags & URB_ZERO_PACKET &&
+	    !(urb->transfer_buffer_length % usb_endpoint_maxp(&urb->ep->desc)))
+		size = 2;
 	else
 		size = 1;
 
@@ -1556,7 +1564,9 @@ int xhci_urb_dequeue(struct usb_hcd *hcd, struct urb *urb, int status)
 		xhci_dbg_trace(xhci, trace_xhci_dbg_cancel_urb,
 				"HW died, freeing TD.");
 		urb_priv = urb->hcpriv;
-		for (i = urb_priv->td_cnt; i < urb_priv->length; i++) {
+		for (i = urb_priv->td_cnt;
+		     i < urb_priv->length && xhci->devs[urb->dev->slot_id];
+		     i++) {
 			td = urb_priv->td[i];
 			if (!list_empty(&td->td_list))
 				list_del_init(&td->td_list);
@@ -1656,12 +1666,6 @@ int xhci_drop_endpoint(struct usb_hcd *hcd, struct usb_device *udev,
 	u32 drop_flag;
 	u32 new_add_flags, new_drop_flags;
 	int ret;
-#ifdef CONFIG_USB_XHCI_MTK
-	struct xhci_slot_ctx *slot_ctx;
-	struct sch_ep *sch_ep = NULL;
-	int isTT;
-	int ep_type = 0;
-#endif
 
 	ret = xhci_check_args(hcd, udev, ep, 1, true, __func__);
 	if (ret <= 0)
@@ -1710,24 +1714,7 @@ int xhci_drop_endpoint(struct usb_hcd *hcd, struct usb_device *udev,
 	xhci_endpoint_zero(xhci, xhci->devs[udev->slot_id], ep);
 
 #ifdef CONFIG_USB_XHCI_MTK
-	slot_ctx = xhci_get_slot_ctx(xhci, xhci->devs[udev->slot_id]->out_ctx);
-	if ((slot_ctx->tt_info & 0xff) > 0)
-		isTT = 1;
-	else
-		isTT = 0;
-
-	if (usb_endpoint_xfer_int(&ep->desc))
-		ep_type = USB_EP_INT;
-	else if (usb_endpoint_xfer_isoc(&ep->desc))
-		ep_type = USB_EP_ISOC;
-	else if (usb_endpoint_xfer_bulk(&ep->desc))
-		ep_type = USB_EP_BULK;
-	sch_ep = mtk_xhci_scheduler_remove_ep(udev->speed, usb_endpoint_dir_in(&ep->desc)
-		, isTT, ep_type, (mtk_u32 *)ep);
-	if (sch_ep != NULL)
-		kfree(sch_ep);
-	else
-		xhci_warn(xhci, "[MTK]Doesn't find ep_sch instance when removing endpoint\n");
+	xhci_mtk_drop_ep_quirk(hcd, udev, ep);
 #endif
 #ifdef CONFIG_SSUSB_MTK_XHCI
 	if (xhci->quirks & XHCI_MTK_HOST)
@@ -1767,17 +1754,7 @@ int xhci_add_endpoint(struct usb_hcd *hcd, struct usb_device *udev,
 	u32 new_add_flags, new_drop_flags;
 	struct xhci_virt_device *virt_dev;
 	int ret = 0;
-#ifdef CONFIG_USB_XHCI_MTK
-	struct xhci_slot_ctx *slot_ctx;
-	struct xhci_ep_ctx *in_ep_ctx;
-	struct sch_ep *sch_ep;
-	int isTT;
-	int ep_type = 0;
-	int maxp = 0;
-	int burst = 0;
-	int mult = 0;
-	int interval = 0;
-#endif
+
 	ret = xhci_check_args(hcd, udev, ep, 1, true, __func__);
 	if (ret <= 0) {
 		/* So we won't queue a reset ep command for a root hub */
@@ -1844,47 +1821,21 @@ int xhci_add_endpoint(struct usb_hcd *hcd, struct usb_device *udev,
 	}
 
 #ifdef CONFIG_USB_XHCI_MTK
-	in_ep_ctx = xhci_get_ep_ctx(xhci, in_ctx, ep_index);
-	slot_ctx = xhci_get_slot_ctx(xhci, virt_dev->out_ctx);
-
-	if ((slot_ctx->tt_info & 0xff) > 0)
-		isTT = 1;
-	else
-		isTT = 0;
-
-	if (usb_endpoint_xfer_int(&ep->desc))
-		ep_type = USB_EP_INT;
-	else if (usb_endpoint_xfer_isoc(&ep->desc))
-		ep_type = USB_EP_ISOC;
-	else if (usb_endpoint_xfer_bulk(&ep->desc))
-		ep_type = USB_EP_BULK;
-
-	if (udev->speed == USB_SPEED_FULL || udev->speed == USB_SPEED_HIGH
-		|| udev->speed == USB_SPEED_LOW) {
-		maxp = ep->desc.wMaxPacketSize & 0x7FF;
-		burst = ep->desc.wMaxPacketSize >> 11;
-		mult = 0;
-	} else if (udev->speed == USB_SPEED_SUPER) {
-		maxp = ep->desc.wMaxPacketSize & 0x7FF;
-		burst = ep->ss_ep_comp.bMaxBurst;
-		mult = ep->ss_ep_comp.bmAttributes & 0x3;
-	}
-	interval = (1 << ((in_ep_ctx->ep_info >> 16) & 0xff));
-	sch_ep = kmalloc(sizeof(struct sch_ep), GFP_KERNEL);
-	if (mtk_xhci_scheduler_add_ep(udev->speed, usb_endpoint_dir_in(&ep->desc),
-		isTT, ep_type, maxp, interval, burst, mult, (mtk_u32 *)ep
-		, (mtk_u32 *)in_ep_ctx, sch_ep) != SCH_SUCCESS) {
-		xhci_err(xhci, "[MTK] not enough bandwidth\n");
-		return -ENOSPC;
+	ret = xhci_mtk_add_ep_quirk(hcd, udev, ep);
+	if (ret < 0) {
+		xhci_free_or_cache_endpoint_ring(xhci,
+			virt_dev, ep_index);
+			return ret;
 	}
 #endif
 #ifdef CONFIG_SSUSB_MTK_XHCI
-if (xhci->quirks & XHCI_MTK_HOST) {
-		ret = xhci_mtk_add_ep_quirk(hcd, udev, ep);
-		if (ret < 0)
-			return ret;
-}
+		if (xhci->quirks & XHCI_MTK_HOST) {
+				ret = xhci_mtk_add_ep_quirk(hcd, udev, ep);
+				if (ret < 0)
+					return ret;
+		}
 #endif
+
 	ctrl_ctx->add_flags |= cpu_to_le32(added_ctxs);
 	new_add_flags = le32_to_cpu(ctrl_ctx->add_flags);
 
@@ -2844,7 +2795,8 @@ int xhci_check_bandwidth(struct usb_hcd *hcd, struct usb_device *udev)
 	if (ret <= 0)
 		return ret;
 	xhci = hcd_to_xhci(hcd);
-	if (xhci->xhc_state & XHCI_STATE_DYING)
+	if ((xhci->xhc_state & XHCI_STATE_DYING) ||
+		(xhci->xhc_state & XHCI_STATE_REMOVING))
 		return -ENODEV;
 
 	xhci_dbg(xhci, "%s called for udev %p\n", __func__, udev);
@@ -3556,6 +3508,9 @@ int xhci_discover_or_reset_device(struct usb_hcd *hcd, struct usb_device *udev)
 			return -EINVAL;
 	}
 
+	if (virt_dev->tt_info)
+		old_active_eps = virt_dev->tt_info->active_eps;
+
 	if (virt_dev->udev != udev) {
 		/* If the virt_dev and the udev does not match, this virt_dev
 		 * may belong to another udev.
@@ -3882,6 +3837,9 @@ static int xhci_setup_device(struct usb_hcd *hcd, struct usb_device *udev,
 	struct xhci_input_control_ctx *ctrl_ctx;
 	u64 temp_64;
 	struct xhci_command *command;
+
+	if (xhci->xhc_state)	/* dying, removing or halted */
+		return -EINVAL;
 
 	if (!udev->slot_id) {
 		xhci_dbg_trace(xhci, trace_xhci_dbg_address,
@@ -5006,6 +4964,16 @@ int xhci_gen_setup(struct usb_hcd *hcd, xhci_get_quirks_t get_quirks)
 		goto error;
 	xhci_dbg(xhci, "Reset complete\n");
 
+	/*
+	 * On some xHCI controllers (e.g. R-Car SoCs), the AC64 bit (bit 0)
+	 * of HCCPARAMS1 is set to 1. However, the xHCs don't support 64-bit
+	 * address memory pointers actually. So, this driver clears the AC64
+	 * bit of xhci->hcc_params to call dma_set_coherent_mask(dev,
+	 * DMA_BIT_MASK(32)) in this xhci_gen_setup().
+	 */
+	if (xhci->quirks & XHCI_NO_64BIT_SUPPORT)
+		xhci->hcc_params &= ~BIT(0);
+
 	/* Set dma_mask and coherent_dma_mask to 64-bits,
 	 * if xHC supports 64-bit addressing */
 	if (HCC_64BIT_ADDR(xhci->hcc_params) &&
@@ -5022,6 +4990,9 @@ int xhci_gen_setup(struct usb_hcd *hcd, xhci_get_quirks_t get_quirks)
 	xhci_dbg(xhci, "Called HCD init\n");
 	return 0;
 error:
+#ifdef CONFIG_USB_XHCI_MTK
+	mtk_xhci_reset(xhci);
+#endif
 	kfree(xhci);
 	return retval;
 }

@@ -76,10 +76,12 @@ static void trusty_irq_enable_pending_irqs(struct trusty_irq_state *is,
 		dev_dbg(is->dev,
 			"%s: enable pending irq %d, percpu %d, cpu %d\n",
 			__func__, trusty_irq->irq, percpu, smp_processor_id());
+#ifndef CONFIG_TRUSTY_INTERRUPT_FIQ_ONLY
 		if (percpu)
 			enable_percpu_irq(trusty_irq->irq, 0);
 		else
 			enable_irq(trusty_irq->irq);
+#endif
 		hlist_del(&trusty_irq->node);
 		hlist_add_head(&trusty_irq->node, &irqset->inactive);
 	}
@@ -211,10 +213,14 @@ irqreturn_t trusty_irq_handler(int irq, void *data)
 		trusty_irq->enable);
 
 	if (trusty_irq->percpu) {
+#ifndef CONFIG_TRUSTY_INTERRUPT_FIQ_ONLY
 		disable_percpu_irq(irq);
+#endif
 		irqset = this_cpu_ptr(is->percpu_irqs);
 	} else {
+#ifndef CONFIG_TRUSTY_INTERRUPT_FIQ_ONLY
 		disable_irq_nosync(irq);
+#endif
 		irqset = &is->normal_irqs;
 	}
 

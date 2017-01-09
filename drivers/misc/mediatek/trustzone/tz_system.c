@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 
 #include <linux/module.h>
 #include <linux/types.h>
@@ -12,7 +25,11 @@
 #include "trustzone/kree/system.h"
 #include "kree_int.h"
 #include "sys_ipc.h"
+#include "kree/mem.h"
+
 #include "kree/tz_trusty.h"
+
+#include <linux/trusty/trusty_ipc.h>
 
 #ifdef CONFIG_ARM64
 #define ARM_SMC_CALLING_CONVENTION
@@ -55,6 +72,10 @@ static const KREE_REE_Service_Func ree_service_funcs[] = {
 	KREE_ServThread_Create,
 
 	KREE_ServSemaphoreDownInterruptible,
+#ifdef CONFIG_MTEE_CMA_SECURE_MEMORY
+	KREE_ServGetChunkmemPool,
+	KREE_ServReleaseChunkmemPool,
+#endif
 };
 
 #define ree_service_funcs_num \
@@ -72,17 +93,71 @@ struct smc_args_s {
 	uint32_t paramTypes;
 };
 
+struct mtee_ipc_data {
+	u32 smcnr;
+	u32 smc_args_l;
+	u32 smc_args_h;
+	u32 param;
+};
+
 #define SMC_MTEE_SERVICE_CALL (0x34000008)
+#define MTEE_SERVICE_PORT_NAME "com.mediatek.trusty.mteesrv"
 static u32 tz_service_call(struct smc_args_s *smc_arg)
 {
 	s32 ret;
 	u64 param[REE_SERVICE_BUFFER_SIZE / sizeof(u64)];
+	tipc_k_handle h;
+	struct mtee_ipc_data data;
+	ssize_t c;
+	TZ_RESULT tz_ret;
 
 	smc_arg->reebuf = param;
-	ret = trusty_mtee_std_call32(SMC_MTEE_SERVICE_CALL,
-					(u32)(u64)smc_arg,
-					(u32)((u64)smc_arg >> 32),
-					(u32)(u64)param);
+
+	ret = tipc_k_connect(&h, MTEE_SERVICE_PORT_NAME);
+	if (ret != 0)
+		return ret;
+
+	data.smcnr = REE_SERV_NONE;
+	data.smc_args_l = (u32)(u64)smc_arg;
+	data.smc_args_h = (u32)((u64)smc_arg >> 32);
+	data.param = (u32)(u64)param;
+	c = tipc_k_write(h, &data, sizeof(data), 0);
+	if (c < 0) {
+		tipc_k_disconnect(h);
+		return c;
+	}
+
+	while (1) {
+		c = tipc_k_read(h, &data, sizeof(data), 0);
+		if (c < 0) {
+			tipc_k_disconnect(h);
+			return c;
+		}
+
+		if (data.smcnr == REE_SERV_NONE) {
+			ret = (u32)param[0];
+			break;
+		}
+
+		if (data.smcnr == REE_SERV_REQUEST_IRQ) {
+			tz_ret = KREE_ServRequestIrq(REE_SERV_REQUEST_IRQ, (u8 *)param);
+
+			data.smcnr = REE_SERV_REQUEST_IRQ;
+			data.param = tz_ret;
+			c = tipc_k_write(h, &data, sizeof(data), 0);
+			if (c < 0) {
+				tipc_k_disconnect(h);
+				return c;
+			}
+
+			if (tz_ret != TZ_RESULT_SUCCESS) {
+				tipc_k_disconnect(h);
+				return tz_ret;
+			}
+		}
+	}
+
+	tipc_k_disconnect(h);
 
 	return ret;
 }
@@ -285,8 +360,12 @@ TZ_RESULT KREE_TeeServiceCall(KREE_SESSION_HANDLE handle, uint32_t command,
 		switch (type) {
 		case TZPT_VALUE_INPUT:
 		case TZPT_VALUE_INOUT:
-		case TZPT_VALUE_OUTPUT:
 			param[i] = oparam[i];
+			break;
+		case TZPT_VALUE_OUTPUT:
+			/* reset to zero if output */
+			param[i].value.a = 0;
+			param[i].value.b = 0;
 			break;
 
 		case TZPT_MEM_INPUT:
@@ -310,9 +389,10 @@ TZ_RESULT KREE_TeeServiceCall(KREE_SESSION_HANDLE handle, uint32_t command,
 					goto error;
 				}
 
-				memcpy(param[i].mem.buffer,
-					oparam[i].mem.buffer,
-					param[i].mem.size);
+				if (TZPT_MEM_OUTPUT != type)
+					memcpy(param[i].mem.buffer,
+						oparam[i].mem.buffer,
+						param[i].mem.size);
 			}
 			break;
 
@@ -449,6 +529,7 @@ static TZ_RESULT tz_ree_service(u32 op, u8 param[REE_SERVICE_BUFFER_SIZE])
 
 	return (func) (op, param);
 }
+
 #endif /* ~CONFIG_TRUSTY */
 
 TZ_RESULT KREE_InitTZ(void)

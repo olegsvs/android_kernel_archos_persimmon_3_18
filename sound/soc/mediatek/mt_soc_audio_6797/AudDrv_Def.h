@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 /******************************************************************************
 *
  *
@@ -27,6 +40,7 @@
 #define AUDIO_DEF_H
 
 #include "AudDrv_Type_Def.h"
+#include <mt-plat/aee.h>
 
 #define PM_MANAGER_API
 #define AUDIO_MEMORY_SRAM
@@ -36,18 +50,21 @@
 /*#define DEBUG_AUDDRV */
 /* #define DEBUG_AFE_REG */
 /* #define DEBUG_ANA_REG */
-#define DEBUG_AUD_CLK
-#define DEBUG_AUD_HDMI
-/* efine DEBUG_AUD_FMTX */
+/* #define DEBUG_AUD_CLK */
+/* #define DEBUG_AUD_HDMI*/
+/* #define DEBUG_AUD_FMTX */
 /* #define DEBUG_AUD_UL2 */
 /* #define DEBUG_AUD_UL1 */
 /* #define DEBUG_AUD_DL1 */
 /* #define DEBUG_AUD_DAI */
+#define AUDIO_DL2_ISR_COPY_SUPPORT
 
 #ifdef DEBUG_AUDDRV
 #define PRINTK_AUDDRV(format, args...) pr_debug(format, ##args)
+#define pr_aud(format, args...) pr_debug(format, ##args)
 #else
 #define PRINTK_AUDDRV(format, args...)
+#define pr_aud(format, args...)
 #endif
 
 #ifdef DEBUG_AFE_REG
@@ -141,11 +158,14 @@
 #define PRINTK_AUD_DAI(format, args...)
 #endif
 
-
-#define PRINTK_AUD_ERROR(format, args...)  pr_debug(format, ##args)
+#define PRINTK_AUD_ERROR(format, args...)  pr_err(format, ##args)
 
 /* if need assert , use AUDIO_ASSERT(true) */
 #define AUDIO_ASSERT(value) BUG_ON(false)
+
+#define AUDIO_AEE(message) \
+	(aee_kernel_exception_api(__FILE__, __LINE__, DB_OPT_FTRACE, message, "audio dump ftrace"))
+
 
 
 /**********************************
@@ -190,15 +210,12 @@
 #define MT_SOC_DL1DAI_NAME "mt-soc-dl1dai-driver"
 #define MT_SOC_DL2DAI_NAME "mt-soc-dl2dai-driver"
 #define MT_SOC_EXTSPKDAI_NAME "mt-soc-extspkdai-driver"
-#define MT_SOC_VOICEMD1_EXTSPKDAI_NAME "mt-soc-voicemd1-extspkdai-driver"
-#define MT_SOC_VOICEMD2_EXTSPKDAI_NAME "mt-soc-voicemd2-extspkdai-driver"
-#define MT_SOC_FM_PLAYBACK_EXTSPKDAI_NAME "mt-soc-fmplayback-extspkdai-driver"
 #define MT_SOC_DL1DATA2DAI_NAME "mt-soc-dl1data2dai-driver"
 #define MT_SOC_UL1DAI_NAME "mt-soc-ul1dai-driver"
 #define MT_SOC_UL1DATA2_NAME "mt-soc-ul1data2dai-driver"
 #define MT_SOC_UL2DAI_NAME "mt-soc-ul2dai-driver"
 #define MT_SOC_I2S0AWBDAI_NAME "mt-soc-i2s0awbdai-driver"
-#define MT_SOC_4PINI2S0AWBDAI_NAME "mt-soc-4pini2s0awbdai-driver"
+#define MT_SOC_I2S2ADC2DAI_NAME "mt-soc-i2s2adc2dai-driver"
 #define MT_SOC_VOICE_MD1_NAME "mt-soc-voicemd1dai-driver"
 #define MT_SOC_VOICE_MD1_BT_NAME "mt-soc-voicemd1-btdai-driver"
 #define MT_SOC_VOICE_MD2_NAME "mt-soc-voicemd2dai-driver"
@@ -220,10 +237,11 @@
 #define MT_SOC_HP_IMPEDANCE_NAME "mt-soc-hpimpedancedai-driver"
 #define MT_SOC_FM_I2S_NAME "mt-soc-fmi2S-driver"
 #define MT_SOC_FM_I2S_CAPTURE_NAME "mt-soc-fmi2Scapturedai-driver"
-#define MT_SOC_OFFLOAD_GDMA_NAME "mt-soc-offload-gdma-driver"
 #define MT_SOC_BTCVSD_RX_DAI_NAME "mt-soc-btcvsd-rx-dai-driver"
 #define MT_SOC_BTCVSD_TX_DAI_NAME "mt-soc-btcvsd-tx-dai-driver"
-
+#define MT_SOC_MOD_DAI_NAME "mt-soc-moddai-driver"
+#define MT_SOC_ANC_NAME "mt-soc-anc-driver"
+#define MT_SOC_ANC_RECORD_DAI_NAME "mt-soc-anc-record-dai-driver"
 
 /* platform name */
 #define MT_SOC_DL1_PCM   "mt-soc-dl1-pcm"
@@ -233,7 +251,6 @@
 #define MT_SOC_UL1_PCM   "mt-soc-ul1-pcm"
 #define MT_SOC_UL2_PCM   "mt-soc-ul2-pcm"
 #define MT_SOC_I2S0_AWB_PCM   "mt-soc-i2s0awb-pcm"
-#define MT_SOC_4PINI2S0_AWB_PCM   "mt-soc-4pini2s0awb-pcm"
 #define MT_SOC_AWB_PCM   "mt-soc-awb-pcm"
 #define MT_SOC_MRGRX_AWB_PCM   "mt-soc-mrgrx-awb-pcm"
 #define MT_SOC_DL1_AWB_PCM   "mt-soc-dl1-awb-pcm"
@@ -247,6 +264,7 @@
 #define MT_SOC_VOICE_MD2  "mt-soc-voicemd2"
 #define MT_SOC_VOICE_MD1_BT "mt-soc-voicemd1-bt"
 #define MT_SOC_VOICE_MD2_BT "mt-soc-voicemd2-bt"
+#define MT_SOC_VOICE_ULTRA  "mt-soc-voice-ultra"
 #define MT_SOC_VOIP_BT_OUT "mt-soc-voip-bt-out"
 #define MT_SOC_VOIP_BT_IN "mt-soc-voip-bt-in"
 #define MT_SOC_IFMI2S2  "mt-soc-fm-i2s2"
@@ -256,14 +274,14 @@
 #define MT_SOC_FM_MRGTX_PCM "mt-soc-fmmrgtx-pcm"
 #define MT_SOC_TDMRX_PCM "mt-soc-tdmrx-pcm"
 #define MT_SOC_MOD_ADCI2S_PCM "mt-soc-mod2adci2s-pcm"
-#define MT_SOC_ADC2_AWB_PCM "mt-soc-adc2awb-pcm"
+#define MT_SOC_I2S2_ADC2_PCM "mt-soc-i2s2_adc2-pcm"
 #define MT_SOC_IO2_DAI_PCM "mt-soc-io2dai-pcm"
 #define MT_SOC_FM_I2S_PCM  "mt-soc-fm-i2s-pcm"
 #define MT_SOC_FM_I2S_AWB_PCM  "mt-soc-fm-i2s-awb-pcm"
-#define MT_SOC_OFFLOAD_GDMA_PCM "mt-soc-offload-gdma-pcm"
 #define MT_SOC_BTCVSD_RX_PCM   "mt-soc-btcvsd-rx-pcm"
 #define MT_SOC_BTCVSD_TX_PCM   "mt-soc-btcvsd-tx-pcm"
-
+#define MT_SOC_MOD_DAI_PCM   "mt-soc-MODDAI-pcm"
+#define MT_SOC_ANC_PCM   "mt-soc-anc-pcm"
 
 /* codec dai name */
 #define MT_SOC_CODEC_TXDAI_NAME "mt-soc-codec-tx-dai"
@@ -271,18 +289,19 @@
 #define MT_SOC_CODEC_RXDAI_NAME "mt-soc-codec-rx-dai"
 #define MT_SOC_CODEC_RXDAI2_NAME "mt-soc-codec-rx-dai2"
 #define MT_SOC_CODEC_I2S0AWB_NAME "mt-soc-codec-i2s0awb-dai"
-#define MT_SOC_CODEC_4PINI2S0AWB_NAME "mt-soc-codec-4pini2s0awb-dai"
 #define MT_SOC_CODEC_I2S0TXDAI_NAME "mt-soc-codec-I2s0tx-dai"
 #define MT_SOC_CODEC_DL1AWBDAI_NAME "mt-soc-codec-dl1awb-dai"
 #define MT_SOC_CODEC_VOICE_MD1DAI_NAME "mt-soc-codec-voicemd1-dai"
 #define MT_SOC_CODEC_VOICE_MD2DAI_NAME "mt-soc-codec-voicemd2-dai"
 #define MT_SOC_CODEC_VOICE_MD1_BTDAI_NAME "mt-soc-codec-voicemd1-bt-dai"
 #define MT_SOC_CODEC_VOICE_MD2_BTDAI_NAME "mt-soc-codec-voicemd2-bt-dai"
+#define MT_SOC_CODEC_VOICE_ULTRADAI_NAME "mt-soc-codec-voiceultra-dai"
 #define MT_SOC_CODEC_VOIPCALLBTOUTDAI_NAME "mt-soc-codec-voipcall-btout-dai"
 #define MT_SOC_CODEC_VOIPCALLBTINDAI_NAME "mt-soc-codec-voipcall-btin-dai"
 #define MT_SOC_CODEC_TDMRX_DAI_NAME "mt-soc-tdmrx-dai-codec"
 #define MT_SOC_CODEC_HP_IMPEDANCE_NAME "mt-soc-codec-hp-impedance-dai"
-
+#define MT_SOC_CODEC_OFFLOAD_NAME "mt-soc-codec-offload-dai"
+#define MT_SOC_CODEC_ANC_NAME "mt-soc-codec-anc-dai"
 
 #define MT_SOC_CODEC_FMI2S2TXDAI_NAME "mt-soc-codec-fmi2s2tx-dai"
 #define MT_SOC_CODEC_FMI2S2RXDAI_NAME "mt-soc-codec-fmi2s2rx-dai"
@@ -302,22 +321,20 @@
 #define MT_SOC_CODEC_IO2DAI_DUMMY_DAI_NAME "mt-soc-io2dai-dummy-dai-codec"
 #define MT_SOC_CODEC_FM_I2S_DUMMY_DAI_NAME "mt-soc-fm-i2s-dummy-dai-codec"
 #define MT_SOC_CODEC_FM_I2S_DAI_NAME "mt-soc-fm-i2s-dai-codec"
-#define MT_SOC_CODEC_OFFLOAD_GDMA_DAI_NAME "mt-soc-offload-gdma-dai-codec"
 #define MT_SOC_CODEC_BTCVSD_RX_DAI_NAME "mt-soc-codec-btcvsd-rx-dai"
 #define MT_SOC_CODEC_BTCVSD_TX_DAI_NAME "mt-soc-codec-btcvsd-tx-dai"
+#define MT_SOC_CODEC_MOD_DAI_NAME "mt-soc-mod-dai-codec"
 
 /* stream name */
 #define MT_SOC_DL1_STREAM_NAME "MultiMedia1_PLayback"
 #define MT_SOC_SPEAKER_STREAM_NAME "Speaker_PLayback"
-#define MT_SOC_VOICEMD1_SPEAKER_STREAM_NAME "VoiceMD1_Speaker_PLayback"
-#define MT_SOC_VOICEMD2_SPEAKER_STREAM_NAME "VoiceMD2_Speaker_PLayback"
-#define MT_SOC_FMPLAYBACK_EXTSPEAKER_STREAM_NAME "FmPLayback_extSpeaker_PLayback"
 #define MT_SOC_DL1DATA2_STREAM_NAME "MultiMedia1data2_PLayback"
 #define MT_SOC_DL2_STREAM_NAME "MultiMedia2_PLayback"
 #define MT_SOC_VOICE_MD1_STREAM_NAME "Voice_MD1_PLayback"
 #define MT_SOC_VOICE_MD2_STREAM_NAME "Voice_MD2_PLayback"
 #define MT_SOC_VOICE_MD1_BT_STREAM_NAME "Voice_MD1_BT_Playback"
 #define MT_SOC_VOICE_MD2_BT_STREAM_NAME "Voice_MD2_BT_Playback"
+#define MT_SOC_VOICE_ULTRA_STREAM_NAME "Voice_ULTRA_PLayback"
 #define MT_SOC_VOIP_BT_OUT_STREAM_NAME "VOIP_Call_BT_Playback"
 #define MT_SOC_VOIP_BT_IN_STREAM_NAME "VOIP_Call_BT_Capture"
 #define MT_SOC_HDMI_STREAM_NAME "HMDI_PLayback"
@@ -332,10 +349,10 @@
 #define MT_SOC_UL1_STREAM_NAME "MultiMedia1_Capture"
 #define MT_SOC_UL1DATA2_STREAM_NAME "MultiMediaData2_Capture"
 #define MT_SOC_I2S0AWB_STREAM_NAME "I2S0AWB_Capture"
-#define MT_SOC_4PINI2S0AWB_STREAM_NAME "4PINI2S0AWB_Capture"
+#define MT_SOC_I2S2ADC2_STREAM_NAME "I2S2ADC2_Capture"
 #define MT_SOC_AWB_STREAM_NAME "MultiMedia_awb_Capture"
 #define MT_SOC_DAI_STREAM_NAME "MultiMedia_dai_Capture"
-#define MT_SOC_MODDAI_STREAM_NAME "MultiMedia_Moddai_Capture"
+#define MT_SOC_MODDAI_STREAM_NAME "Voice_Dai_Capture"
 #define MT_SOC_ROUTING_STREAM_NAME "MultiMedia_Routing"
 #define MT_SOC_HP_IMPEDANCE_STREAM_NAME "HP_IMPEDANCE_Playback"
 #define MT_SOC_FM_MRGTX_STREAM_NAME "FM_MRGTX_Playback"
@@ -345,8 +362,10 @@
 #define MT_SOC_IO2DAI_STREAM_NAME "ANC_Debug_Record_IO2"
 #define MT_SOC_FM_I2S_PLAYBACK_STREAM_NAME "FM_I2S_Playback"
 #define MT_SOC_FM_I2S_CAPTURE_STREAM_NAME "FM_I2S_Capture"
-#define MT_SOC_OFFLOAD_GDMA_STREAM_NAME "OFFLOAD_GDMA_Playback"
 #define MT_SOC_BTCVSD_CAPTURE_STREAM_NAME "BTCVSD_Capture"
 #define MT_SOC_BTCVSD_PLAYBACK_STREAM_NAME "BTCVSD_Playback"
+#define MT_SOC_OFFLOAD_STREAM_NAME "Offload_Playback"
+#define MT_SOC_ANC_STREAM_NAME "ANC_Playback"
+#define MT_SOC_ANC_RECORD_STREAM_NAME "ANC_Record"
 
 #endif

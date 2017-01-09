@@ -55,6 +55,8 @@ the GNU General Public License for more details at http://www.gnu.org/licenses/g
 #include <mt-plat/mt_gpio.h>
 #include <cust_gpio_usage.h>
 #include <mach/mt_pm_ldo.h>
+#include "hdmi_cust.h"
+#include <pmic_drv.h>
 #endif
 
 ///#include <pmic_drv.h>
@@ -99,7 +101,12 @@ the GNU General Public License for more details at http://www.gnu.org/licenses/g
 
 #define MHL_DBG(fmt, arg...) \
 	do { \
-	pr_err("[EXTD][DISP]"fmt, ##arg); \
+	pr_err("[EXTD][MHL]"fmt, ##arg); \
+	}while (0)
+
+#define MHL_WARN(fmt, arg...) \
+	do { \
+		pr_debug("[hdmi-platform]"fmt, ##arg); \
 	}while (0)
 
 static struct i2c_adapter	*i2c_bus_adapter = NULL;
@@ -125,7 +132,7 @@ static struct i2c_dev_info device_addresses[] = {
 */
 
 extern int I2S_Enable;
-int	debug_msgs	= 3;	// print all msgs, default should be '0'
+int	debug_msgs	= 1;	// print all msgs, default should be '0'
 //int	debug_msgs	= 3;	// print all msgs, default should be '0'
 
 static bool reset_on_exit = 0; // request to reset hw before unloading driver
@@ -185,7 +192,7 @@ uint8_t reGetI2cAddress(uint8_t device_ID)
 			address = 0xA0;
 			break;
 		default:
-			MHL_DBG("Error: invaild device ID\n");
+			MHL_WARN("Error: invaild device ID\n");
 	}
 
 	return address;
@@ -207,7 +214,7 @@ uint8_t mhl_i2c_read_len_bytes(struct i2c_client *client, uint8_t offset, uint8_
 			ret = i2c_master_send(client, (const char*)&regAddress, sizeof(uint8_t));  
 			if(ret < 0)
 			{
-		        MHL_DBG("[Error]mhl i2c sends command error!\n");
+		        MHL_WARN("[Error]mhl i2c sends command error!\n");
 				return 0;
 			}
 			else
@@ -215,7 +222,7 @@ uint8_t mhl_i2c_read_len_bytes(struct i2c_client *client, uint8_t offset, uint8_
 				ret = i2c_master_recv(client, (char*)buf, MAX_I2C_READ_NUM);
 				if(ret < 0)
 				{
-			        MHL_DBG("[Error]mhl i2c recv data error!\n");
+			        MHL_WARN("[Error]mhl i2c recv data error!\n");
 				}
 
 				regAddress += MAX_I2C_READ_NUM;
@@ -255,7 +262,7 @@ uint8_t mhl_i2c_write_len_bytes(struct i2c_client *client, uint8_t offset, uint8
 	uint8_t regAddress = offset;
 	int ret = 0;
 	int i=0;
-	char write_data[8];
+	char write_data[17];
 
 	while(len > 0)
 	{
@@ -270,7 +277,7 @@ uint8_t mhl_i2c_write_len_bytes(struct i2c_client *client, uint8_t offset, uint8
 			ret = i2c_master_send(client, write_data, MAX_I2C_WRITE_NUM+1);  
 			if(ret < 0)
 			{
-				MHL_DBG("[Error]mhl i2c write command/data error!\n");
+				MHL_WARN("[Error]mhl i2c write command/data error!\n");
 				return 0;
 			}
 
@@ -287,7 +294,7 @@ uint8_t mhl_i2c_write_len_bytes(struct i2c_client *client, uint8_t offset, uint8
 			ret = i2c_master_send(client, write_data, len+1);  
 			if(ret < 0)
 			{
-				MHL_DBG("[Error1]mhl i2c write command/data error!\n");
+				MHL_WARN("[Error1]mhl i2c write command/data error!\n");
 				return 0;
 			}
 
@@ -319,7 +326,7 @@ uint8_t I2C_ReadBlock(uint8_t deviceID, uint8_t offset,uint8_t *buf, uint8_t len
     client_main_addr = si_dev_context->client->addr;
     si_dev_context->client->addr = accessI2cAddr;
     //si_dev_context->client->addr = (accessI2cAddr & I2C_MASK_FLAG)|I2C_WR_FLAG;
-    si_dev_context->client->timing = 100;
+    /*si_dev_context->client->timing = 100; */
 
     memset(buf,0xff,len);
 	mhl_i2c_read_len_bytes(si_dev_context->client, offset, buf, len);
@@ -378,7 +385,7 @@ void I2C_WriteBlock(uint8_t deviceID, uint8_t offset, uint8_t *buf, uint16_t len
     //backup addr
     client_main_addr = si_dev_context->client->addr;
     si_dev_context->client->addr = accessI2cAddr;
-    si_dev_context->client->timing = 100;
+    /*si_dev_context->client->timing = 100; */
 
 	mhl_i2c_write_len_bytes(si_dev_context->client, offset, buf, len);
 /*
@@ -458,7 +465,7 @@ static inline int platform_write_i2c_block(struct i2c_adapter *i2c_bus
 
 	buffer = kmalloc(count + 1, GFP_KERNEL);
 	if (!buffer) {
-		MHL_DBG("%s:%d buffer allocation failed\n",__FUNCTION__,__LINE__);
+		MHL_WARN("%s:%d buffer allocation failed\n",__FUNCTION__,__LINE__);
 		return -ENOMEM;
 	}
 
@@ -504,7 +511,7 @@ void mhl_tx_vbus_control(enum vbus_power_state power_state)
 #ifdef ENABLE_MHL_VBUS_POWER_OUT
 	///struct mhl_dev_context *dev_context;
 	///dev_context = i2c_get_clientdata(device_addresses[0].client);	// TODO: FD, TBC, it seems the 'client' is always 'NULL', is it right here
-	printk("%s: mhl_tx_vbus_control3 %d-%d received!\n", __func__, VBUS_state, power_state);
+	pr_info("%s: mhl_tx_vbus_control3 %d-%d received!\n", __func__, VBUS_state, power_state);
     if(VBUS_state == power_state)
         return;
         
@@ -520,23 +527,24 @@ void mhl_tx_vbus_control(enum vbus_power_state power_state)
 	case VBUS_ON:
 		//set_pin(dev_context,TX2MHLRX_PWR_M,0);
 		//set_pin(dev_context,LED_SRC_VBUS_ON,GPIO_LED_ON);
-		printk(	"%s:  power chg %d received!\n",
+		pr_info("%s:  power chg %d received!\n",
 				__func__, battery_meter_get_charger_voltage());
 		if(battery_meter_get_charger_voltage() > 4000)
 		    VBUS_state = VBUS_OFF;
 		else
     		mtk_enable_pmic_otg_mode();
-		printk(	"%s:  power chg %d received!\n",
+		pr_info("%s:  power chg %d received!\n",
 				__func__, battery_meter_get_charger_voltage());
+		msleep(100);
 		break;
 
 	default:
-		printk(	"%s: Invalid power state %d received!\n",
+		pr_info("%s: Invalid power state %d received!\n",
 				__func__, power_state);
 		break;
 	}        
 #else
-	printk(	"%s: do not support power out %d received!\n",
+	pr_info("%s: do not support power out %d received!\n",
 				__func__, power_state);
 #endif	
 }
@@ -655,7 +663,7 @@ void print_formatted_debug_msg(int level,
 	len = vscnprintf(msg_offset, remaining_msg_len, fmt, ap);
 	va_end(ap);
 
-	printk(msg);
+	pr_info("%s\n", msg);
 
 	kfree(msg);
 }
@@ -868,7 +876,7 @@ int32_t sii_8348_tx_init(void)
     VBUS_state = false;
 #endif
 	ret = mhl_tx_init(&drv_info, mClient);
-	MHL_DBG("mhl sii_8348_init, mClient is %p\n", mClient);
+	MHL_WARN("mhl sii_8348_init, mClient is %p\n", mClient);
 	
 	return ret;
 }
@@ -927,7 +935,7 @@ void register_mhl_eint(void)
     mt_eint_registration(CUST_EINT_MHL_NUM, CUST_EINT_MHL_TYPE, &mhl8338_irq_handler, 0);
     MHL_DBG("%s,CUST_EINT_MHL_NUM is %d \n", __func__, CUST_EINT_MHL_NUM);
 #else
-    MHL_DBG("%s,%d Error: GPIO_MHL_RST_B_PIN is not defined\n", __func__, __LINE__);
+    MHL_WARN("%s,%d Error: GPIO_MHL_RST_B_PIN is not defined\n", __func__, __LINE__);
 #endif    
     Mask_MHL_Intr(false);    
 }
@@ -948,24 +956,28 @@ void register_mhl_eint(void)
     struct device_node *node = NULL;
     u32 ints[2]={0, 0};
 
-    node = of_find_compatible_node(NULL, NULL, "mediatek,sii8348-hdmi");
+    node = of_find_compatible_node(NULL, NULL, "mediatek,extd_dev");
     if(node)
     {
         of_property_read_u32_array(node, "debounce", ints, ARRAY_SIZE(ints));
-		///mt_eint_set_hw_debounce(ints[0],ints[1]);
-		/*mt_gpio_set_debounce(ints[0],ints[1]);*/
-		mhl_eint_number = irq_of_parse_and_map(node, 0);
-		irq_set_irq_type(mhl_eint_number,MT_LEVEL_SENSITIVE);
-    	if(request_irq(mhl_eint_number, mhl_eint_irq_handler, IRQF_TRIGGER_LOW, "mediatek,sii8348-hdmi", NULL)) ///IRQF_TRIGGER_LOW
+	///mt_eint_set_hw_debounce(ints[0],ints[1]);
+	/*mt_gpio_set_debounce(ints[0],ints[1]);*/
+	mhl_eint_number = irq_of_parse_and_map(node, 0);
+	///irq_set_irq_type(mhl_eint_number,MT_LEVEL_SENSITIVE);
+    	if(request_irq(mhl_eint_number, mhl_eint_irq_handler, IRQF_TRIGGER_NONE, "mediatek,extd_dev", NULL)) ///IRQF_TRIGGER_LOW
     	{
-    		 MHL_DBG("request_irq fail\n");
+    		 MHL_DBG("request_irq fail-%d\n",mhl_eint_number);
     	}
     	else
+        {
+        	Mask_MHL_Intr(false);
+        	MHL_DBG("request_irq success to return\n");
         	return;
-	}
+    	}
+    }
 	
-	Mask_MHL_Intr(false);
-    MHL_DBG("Error: MHL EINT IRQ NOT AVAILABLE, node %p-irq %d!!\n", node, get_mhl_irq_num());
+    Mask_MHL_Intr(false);
+    MHL_WARN("Error: MHL EINT IRQ NOT AVAILABLE, node %p-irq %d!!\n", node, get_mhl_irq_num());
     
 }
 
@@ -991,6 +1003,10 @@ char* rst_gpio_name[2] ={
     "rst_low_cfg", "rst_high_cfg"
 };
 
+char* eint_gpio_name[1] ={
+    "eint_input_cfg"
+};
+
 void dpi_gpio_ctrl(int enable)
 {
     int offset = 0;
@@ -998,7 +1014,7 @@ void dpi_gpio_ctrl(int enable)
     MHL_DBG("dpi_gpio_ctrl+  %ld !!\n",sizeof(dpi_gpio_name)); 
     if (IS_ERR(mhl_pinctrl)) {
         ret = PTR_ERR(mhl_pinctrl);
-        MHL_DBG("Cannot find MHL RST pinctrl for dpi_gpio_ctrl!\n");
+        MHL_WARN("Cannot find MHL RST pinctrl for dpi_gpio_ctrl!\n");
         return;
     }  
     
@@ -1010,7 +1026,7 @@ void dpi_gpio_ctrl(int enable)
         pin_state = pinctrl_lookup_state(mhl_pinctrl, dpi_gpio_name[offset]);
         if (IS_ERR(pin_state)) {
             ret = PTR_ERR(pin_state);
-            MHL_DBG("Cannot find MHL pinctrl--%s!!\n", dpi_gpio_name[offset]);
+            MHL_WARN("Cannot find MHL pinctrl--%s!!\n", dpi_gpio_name[offset]);
         }
         else
             pinctrl_select_state(mhl_pinctrl, pin_state); 
@@ -1028,7 +1044,7 @@ void i2s_gpio_ctrl(int enable)
     
     if (IS_ERR(mhl_pinctrl)) {
         ret = PTR_ERR(mhl_pinctrl);
-        MHL_DBG("Cannot find MHL RST pinctrl for i2s_gpio_ctrl!\n");
+        MHL_WARN("Cannot find MHL RST pinctrl for i2s_gpio_ctrl!\n");
         return;
     }  
     
@@ -1040,7 +1056,7 @@ void i2s_gpio_ctrl(int enable)
         pin_state = pinctrl_lookup_state(mhl_pinctrl, i2s_gpio_name[offset]);
         if (IS_ERR(pin_state)) {
             ret = PTR_ERR(pin_state);
-            MHL_DBG("Cannot find MHL pinctrl--%s!!\n", i2s_gpio_name[offset]);
+            MHL_WARN("Cannot find MHL pinctrl--%s!!\n", i2s_gpio_name[offset]);
         }
         else
             pinctrl_select_state(mhl_pinctrl, pin_state);   
@@ -1065,21 +1081,21 @@ void reset_mhl_board(int hwResetPeriod, int hwResetDelay)
     MHL_DBG("reset_mhl_board+  %ld !!\n", sizeof(rst_gpio_name)); 
     if (IS_ERR(mhl_pinctrl)) {
         ret = PTR_ERR(mhl_pinctrl);
-        MHL_DBG("Cannot find MHL RST pinctrl for reset_mhl_board!\n");
+        MHL_WARN("Cannot find MHL RST pinctrl for reset_mhl_board!\n");
         return;
     }    
     
     rst_low_state = pinctrl_lookup_state(mhl_pinctrl, rst_gpio_name[0]);
     if (IS_ERR(rst_low_state)) {
         ret = PTR_ERR(rst_low_state);
-        MHL_DBG("Cannot find MHL pinctrl--%s!!\n", rst_gpio_name[0]);
+        MHL_WARN("Cannot find MHL pinctrl--%s!!\n", rst_gpio_name[0]);
         err_cnt++;
     }
     
     rst_high_state = pinctrl_lookup_state(mhl_pinctrl, rst_gpio_name[1]);
     if (IS_ERR(rst_high_state)) {
         ret = PTR_ERR(rst_high_state);
-        MHL_DBG("Cannot find MHL pinctrl--%s!!\n", rst_gpio_name[1]);
+        MHL_WARN("Cannot find MHL pinctrl--%s!!\n", rst_gpio_name[1]);
         err_cnt++;
     }
 
@@ -1112,87 +1128,71 @@ void cust_power_on(int enable)
 
 void mhl_platform_init(void)
 {
-    int ret =0;
-/*
-    struct device_node *kd_node =NULL;
-    const char *name = NULL;
-*/
-    
-    MHL_DBG("mhl_platform_init start !!\n");
+	int ret =0;
 
-    if(ext_dev_context == NULL)
-    {
-        MHL_DBG("Cannot find device in platform_init!\n");
-        goto plat_init_exit;
-        
-    }
-    mhl_pinctrl = devm_pinctrl_get(ext_dev_context);
-    if (IS_ERR(mhl_pinctrl)) {
-        ret = PTR_ERR(mhl_pinctrl);
-        MHL_DBG("Cannot find MHL Pinctrl!!!!\n");
-        goto plat_init_exit;
-    }
-    
-    pin_state = pinctrl_lookup_state(mhl_pinctrl, rst_gpio_name[1]);
-    if (IS_ERR(pin_state)) {
-        ret = PTR_ERR(pin_state);
-        MHL_DBG("Cannot find MHL RST pinctrl low!!\n");
-    }
-    else
-        pinctrl_select_state(mhl_pinctrl, pin_state);
+	struct device_node *kd_node =NULL;
+	/* backup original dev.of_node */
 
-    MHL_DBG("mhl_platform_init reset gpio init done!!\n");
+	MHL_DBG("mhl_platform_init start !!\n");
 
-    i2s_gpio_ctrl(0);
-    dpi_gpio_ctrl(0);
-/*  
-    kd_node = of_find_compatible_node(NULL, NULL, "mediatek,regulator_supply");
-  
-    if(kd_node)
-    {
-		name = of_get_property(kd_node, "MHL_POWER_LD01", NULL);
-		if (name == NULL)
-		{
-		    MHL_DBG("mhl_platform_init can't get MHL_POWER_LD01!\n");
-		    
-		    if (reg_v12_power == NULL)
-		    {
-		 	    reg_v12_power = regulator_get(ext_dev_context, "HDMI_12v");		 	    
-		    }
-		}
-		else
-		{			
-			kd_node = ext_dev_context->of_node;
-			ext_dev_context->of_node = of_find_compatible_node(NULL,NULL,"mediatek,regulator_supply");			
-		    if (reg_v12_power == NULL) 
-		    {
-		 	    reg_v12_power = regulator_get(ext_dev_context, "mhl_12v");
-		    }
-		    MHL_DBG("mhl_platform_init regulator name !\n" );
-		    ext_dev_context->of_node = kd_node;
-		}
+	if(ext_dev_context == NULL)
+	{
+		MHL_DBG("Cannot find device in platform_init!\n");
+		goto plat_init_exit;
+
+	}
+	mhl_pinctrl = devm_pinctrl_get(ext_dev_context);
+	if (IS_ERR(mhl_pinctrl)) {
+		ret = PTR_ERR(mhl_pinctrl);
+		MHL_DBG("Cannot find MHL Pinctrl!!!!\n");
+		goto plat_init_exit;
+	}
+
+	pin_state = pinctrl_lookup_state(mhl_pinctrl, rst_gpio_name[1]);
+	if (IS_ERR(pin_state)) {
+		ret = PTR_ERR(pin_state);
+		MHL_DBG("Cannot find MHL RST pinctrl low!!\n");
 	}
 	else
-	{
-			MHL_DBG("mhl_platform_init get node failed!\n");
-			goto plat_init_exit  ;
-	}
-	
+		pinctrl_select_state(mhl_pinctrl, pin_state);
+	MHL_DBG("mhl_platform_init reset gpio init done!!\n");
 
-    if (IS_ERR(reg_v12_power))
-    {
-        MHL_DBG("mhl_platform_init ldo %p!!!!!!!!!!!!!!\n", reg_v12_power );
-    }
-    else
-    {        
-        MHL_DBG("mhl_platform_init ldo init %p\n", reg_v12_power );
-        regulator_set_voltage(reg_v12_power, 1200000, 1200000);
-        
-    }
-*/
+	pin_state = pinctrl_lookup_state(mhl_pinctrl, eint_gpio_name[0]);
+	if (IS_ERR(pin_state)) {
+		ret = PTR_ERR(pin_state);
+		MHL_DBG("Cannot find MHL eint pinctrl low!!\n");
+	}
+	else
+		pinctrl_select_state(mhl_pinctrl, pin_state);
+	MHL_DBG("mhl_platform_init eint gpio init done!!\n");
+
+
+	i2s_gpio_ctrl(0);
+	dpi_gpio_ctrl(0);
+
+	kd_node = ext_dev_context->of_node;
+	/* get regulator supply node */
+	ext_dev_context->of_node = of_find_compatible_node(NULL,NULL,"mediatek,mt_pmic_regulator_supply"); 	
+
+	MHL_DBG("mhl_platform_init can't get MHL_POWER_LD01!\n");
+
+	if (reg_v12_power == NULL)
+	{
+		reg_v12_power = regulator_get(ext_dev_context, "mhl_12v");	
+	}
+
+	ext_dev_context->of_node = kd_node ;
+	if (IS_ERR(reg_v12_power))
+		MHL_DBG("mhl_platform_init ldo error %p!!!!!!!!!!!!!!\n", reg_v12_power );
+	else {
+		MHL_DBG("mhl_platform_init ldo init done %p\n", reg_v12_power );
+		regulator_set_voltage(reg_v12_power, 1200000, 1200000);
+		ret = regulator_enable(reg_v12_power);
+	}
+
 plat_init_exit:
-    MHL_DBG("mhl_platform_init init done !!\n");
-    
+
+	return;
 }
 
 #endif
@@ -1201,8 +1201,8 @@ static int32_t si_8348_mhl_tx_i2c_probe(struct i2c_client *client, const struct 
 {
 	int ret;
  
-	MHL_DBG("%s, client=%p\n", __func__, (void *)client);
-    client->timing = 100;
+	MHL_WARN("%s, client=%p\n", __func__, (void *)client);
+   	/*client->timing = 100; */
     
     i2c_bus_adapter = to_i2c_adapter(client->dev.parent);
 	/*
@@ -1294,8 +1294,8 @@ int HalOpenI2cDevice(char const *DeviceName, char const *DriverName)
     retVal = strnlen(DeviceName, I2C_NAME_SIZE);
     if (retVal >= I2C_NAME_SIZE)
     {
-    	MHL_DBG("I2c device name too long!\n");
-    	return HAL_RET_PARAMETER_ERROR;
+	MHL_WARN("I2c device name too long!\n");
+	return HAL_RET_PARAMETER_ERROR;
     }
 
     /*i2c_register_board_info(get_hdmi_i2c_channel(), &i2c_mhl, 1);*/
@@ -1309,8 +1309,8 @@ int HalOpenI2cDevice(char const *DeviceName, char const *DriverName)
     retVal = i2c_add_driver(&mhl_i2c_driver);
     if (retVal != 0)
     {
-    	MHL_DBG("I2C driver add failed, retVal=%d\n", retVal);
-        retStatus = HAL_RET_FAILURE;
+	MHL_WARN("I2C driver add failed, retVal=%d\n", retVal);
+	retStatus = HAL_RET_FAILURE;
     }
     else
     {
@@ -1337,7 +1337,7 @@ int HalOpenI2cDevice(char const *DeviceName, char const *DriverName)
     retVal = i2c_add_driver(&mhl_i2c_driver);
     if (retVal != 0)
     {
-    	MHL_DBG("I2C driver add failed, retVal=%d\n", retVal);
+	MHL_WARN("I2C driver add failed, retVal=%d\n", retVal);
         retStatus = HAL_RET_FAILURE;
     }
     else

@@ -1,3 +1,15 @@
+/*
+ * Copyright (C) 2016 MediaTek Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
+ */
 /******************************************************************************
  * pwrap_hal.c - Linux pmic_wrapper Driver,hardware_dependent driver
  *
@@ -539,7 +551,7 @@ static s32 pwrap_wacs2_hal(u32  write, u32  adr, u32  wdata, u32 *rdata)
 	/* check pmicaddr 0xa bit11 & bit10 ,bit 11 only can write1 bit 10 only can write 0 request by Wy Chuang */
 	if (0 != write && 0xa == adr) {
 
-		if (0 == (wdata & (1<<11)) || 1 == (wdata & (1<<10))) {
+		if (0 == (wdata & (1<<11)) || 1 == ((wdata>>10) & 0x1)) {
 			PWRAPERR(" pwrap_wacs2_hal check 0xa err pid=%d, wdata=0x%x\n", current->pid, wdata);
 			BUG_ON(1);
 		}
@@ -637,7 +649,7 @@ static s32 _pwrap_wacs2_nochk(u32 write, u32 adr, u32 wdata, u32 *rdata)
 
 	if (0 != write && 0xa == adr) {
 
-		if (0 == (wdata & (1<<11)) || 1 == (wdata & (1<<10))) {
+		if (0 == (wdata & (1<<11)) || 1 == ((wdata>>10) & 0x01)) {
 			PWRAPERR("_pwrap_wacs2_nochk check 0xa err pid=%d, wdata=0x%x\n", current->pid, wdata);
 			BUG_ON(1);
 		}

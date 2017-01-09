@@ -1,6 +1,18 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
+
 /*Register address define*/
-
-
 #define ACCDET_BASE                 0x00000000
 #define TOP_RST_ACCDET		     (ACCDET_BASE + 0x0298)
 #define TOP_RST_ACCDET_SET		 (ACCDET_BASE + 0x029A)
@@ -48,6 +60,9 @@
 #define ACCDET_AUXADC_AUTO_SPL   (ACCDET_BASE + 0x0ECA)
 
 #define ACCDET_ADC_REG			 (ACCDET_BASE + 0x0D00)
+
+#define PMIC_REG_BASE_START		(0x0000)/* MT6328 register base address start */
+#define PMIC_REG_BASE_END		(0x0FAE)/* MT6328 register base address end */
 
 /*Register value define*/
 

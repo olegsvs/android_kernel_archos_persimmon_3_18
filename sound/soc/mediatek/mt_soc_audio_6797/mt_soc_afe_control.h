@@ -1,17 +1,19 @@
 /*
- * Copyright (C) 2007 The Android Open Source Project
+ * Copyright (C) 2015 MediaTek Inc.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ * You should have received a copy of the GNU General Public License
+ * along with this program
+ * If not, see <http://www.gnu.org/licenses/>.
  */
 /*******************************************************************************
  *
@@ -61,18 +63,20 @@
 #define MASK_ALL          (0xFFFFFFFF)
 #define AFE_MASK_ALL  (0xffffffff)
 
-bool InitAfeControl(void);
+bool InitAfeControl(struct device *pDev);
 bool ResetAfeControl(void);
 bool Register_Aud_Irq(void *dev, uint32 afe_irq_number);
 void Auddrv_Reg_map(void);
 
 bool SetSampleRate(uint32 Aud_block, uint32 SampleRate);
 bool SetChannels(uint32 Memory_Interface, uint32 channel);
-
+int SetMemifMonoSel(uint32 Memory_Interface, bool mono_use_r_ch);
+/*
+DO NOT USER DIRECTLY, use irq manager
 bool SetIrqMcuCounter(uint32 Irqmode, uint32 Counter);
 bool SetIrqEnable(uint32 Irqmode, bool bEnable);
 bool SetIrqMcuSampleRate(uint32 Irqmode, uint32 SampleRate);
-
+*/
 bool SetConnection(uint32 ConnectionState, uint32 Input, uint32 Output);
 bool SetMemoryPathEnable(uint32 Aud_block, bool bEnable);
 bool GetMemoryPathEnable(uint32 Aud_block);
@@ -83,6 +87,14 @@ bool Set2ndI2SOutAttribute(uint32_t sampleRate);
 bool Set2ndI2SOut(AudioDigtalI2S *DigtalI2S);
 bool Set2ndI2SOutEnable(bool benable);
 bool SetI2SAdcIn(AudioDigtalI2S *DigtalI2S);
+bool setDmicPath(bool _enable);
+
+void SetULSrcEnable(bool bEnable);
+void SetADDAEnable(bool bEnable);
+
+bool SetExtI2SAdcIn(AudioDigtalI2S *DigtalI2S);
+bool SetExtI2SAdcInEnable(bool bEnable);
+
 bool Set2ndI2SAdcIn(AudioDigtalI2S *DigtalI2S);
 bool SetDLSrc2(uint32 SampleRate);
 
@@ -149,6 +161,8 @@ uint32 SampleRateTransform(uint32 sampleRate, Soc_Aud_Digital_Block audBlock);
 /* APLL , low jitter mode setting */
 void EnableALLbySampleRate(uint32 SampleRate);
 void DisableALLbySampleRate(uint32 SampleRate);
+void EnableAPLLTunerbySampleRate(uint32 SampleRate);
+void DisableAPLLTunerbySampleRate(uint32 SampleRate);
 uint32 SetCLkMclk(uint32 I2snum, uint32 SampleRate);
 void EnableI2SDivPower(uint32 Diveder_name, bool bEnable);
 void EnableApll1(bool bEnable);
@@ -168,23 +182,29 @@ void Auddrv_Dl1_Spinlock_lock(void);
 void Auddrv_Dl1_Spinlock_unlock(void);
 void Auddrv_Dl2_Spinlock_lock(void);
 void Auddrv_Dl2_Spinlock_unlock(void);
+void Auddrv_Dl3_Spinlock_lock(void);
+void Auddrv_Dl3_Spinlock_unlock(void);
 
 void Auddrv_DL1_Interrupt_Handler(void);
 void Auddrv_DL2_Interrupt_Handler(void);
 void Auddrv_UL1_Interrupt_Handler(void);
 void Auddrv_UL1_Spinlock_lock(void);
 void Auddrv_UL1_Spinlock_unlock(void);
+void Auddrv_UL2_Spinlock_lock(void);
+void Auddrv_UL2_Spinlock_unlock(void);
 void Auddrv_AWB_Interrupt_Handler(void);
 void Auddrv_DAI_Interrupt_Handler(void);
 void Auddrv_HDMI_Interrupt_Handler(void);
 void Auddrv_UL2_Interrupt_Handler(void);
+void Auddrv_MOD_DAI_Interrupt_Handler(void);
 kal_uint32 Get_Mem_CopySizeByStream(Soc_Aud_Digital_Block MemBlock,
 				    struct snd_pcm_substream *substream);
 void Set_Mem_CopySizeByStream(Soc_Aud_Digital_Block MemBlock, struct snd_pcm_substream *substream,
 			      uint32 size);
 
 struct snd_dma_buffer *Get_Mem_Buffer(Soc_Aud_Digital_Block MemBlock);
-int AudDrv_Allocate_DL1_Buffer(struct device *pDev, kal_uint32 Afe_Buf_Length);
+int AudDrv_Allocate_DL1_Buffer(struct device *pDev, kal_uint32 Afe_Buf_Length,
+	dma_addr_t dma_addr, unsigned char *dma_area);
 
 
 bool BackUp_Audio_Register(void);
@@ -216,11 +236,32 @@ void SetFMEnableFlag(bool bEnable);
 void SetOffloadEnableFlag(bool bEnable);
 void SetOffloadSWMode(bool bEnable);
 
-bool SetOffloadCbk(Soc_Aud_Digital_Block block, void *offloadstream, void (*offloadCbk) (void *stream));
-bool ClrOffloadCbk(Soc_Aud_Digital_Block block, void *offloadstream);
-
 unsigned int Align64ByteSize(unsigned int insize);
 
 void AudDrv_checkDLISRStatus(void);
+
+/* sram mamager */
+bool InitSramManager(struct device *pDev, unsigned int sramblocksize);
+bool CheckSramAvail(unsigned int mSramLength, unsigned int *mSramBlockidx, unsigned int *mSramBlocknum);
+int AllocateAudioSram(dma_addr_t *sram_phys_addr, unsigned char **msram_virt_addr,
+	unsigned int mSramLength, void *user);
+int freeAudioSram(void *user);
+
+/* IRQ Manager */
+int init_irq_manager(void);
+int irq_add_user(const void *_user,
+		 enum Soc_Aud_IRQ_MCU_MODE _irq,
+		 unsigned int _rate,
+		 unsigned int _count);
+int irq_remove_user(const void *_user,
+		    enum Soc_Aud_IRQ_MCU_MODE _irq);
+int irq_update_user(const void *_user,
+		    enum Soc_Aud_IRQ_MCU_MODE _irq,
+		    unsigned int _rate,
+		    unsigned int _count);
+
+/* IRQ Manager */
+
+bool SetHighAddr(Soc_Aud_Digital_Block MemBlock, bool usingdram);
 
 #endif

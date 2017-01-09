@@ -1,17 +1,19 @@
 /*
- * Copyright (C) 2007 The Android Open Source Project
+ * Copyright (C) 2015 MediaTek Inc.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ * You should have received a copy of the GNU General Public License
+ * along with this program
+ * If not, see <http://www.gnu.org/licenses/>.
  */
 /*******************************************************************************
  *
@@ -91,7 +93,7 @@ static struct snd_pcm_hardware mtk_mgrrx_awb_hardware = {
 
 static void StopAudioFMI2SAWBHardware(struct snd_pcm_substream *substream)
 {
-	pr_debug("StopAudioFMI2SAWBHardware\n");
+	PRINTK_AUDDRV("StopAudioFMI2SAWBHardware\n");
 
 	SetMemoryPathEnable(Soc_Aud_Digital_Block_MEM_AWB, false);
 
@@ -114,7 +116,7 @@ static void StartAudioFMI2SAWBHardware(struct snd_pcm_substream *substream)
 {
 	AudioDigtalI2S m2ndI2SInAttribute;
 
-	pr_debug("StartAudioFMI2SAWBHardware\n");
+	PRINTK_AUDDRV("StartAudioFMI2SAWBHardware\n");
 
 	/* here to set interrupt */
 	SetIrqMcuCounter(Soc_Aud_IRQ_MCU_MODE_IRQ2_MCU_MODE, substream->runtime->period_size >> 1);
@@ -159,14 +161,14 @@ static void StartAudioFMI2SAWBHardware(struct snd_pcm_substream *substream)
 
 static int mtk_fm_i2s_awb_pcm_prepare(struct snd_pcm_substream *substream)
 {
-	pr_debug("%s, substream->rate = %d, substream->channels = %d\n",
+	PRINTK_AUDDRV("%s, substream->rate = %d, substream->channels = %d\n",
 		__func__, substream->runtime->rate, substream->runtime->channels);
 	return 0;
 }
 
 static int mtk_fm_i2s_awb_alsa_stop(struct snd_pcm_substream *substream)
 {
-	pr_debug("mtk_fm_i2s_awb_alsa_stop\n");
+	PRINTK_AUDDRV("mtk_fm_i2s_awb_alsa_stop\n");
 	StopAudioFMI2SAWBHardware(substream);
 	RemoveMemifSubStream(Soc_Aud_Digital_Block_MEM_AWB, substream);
 
@@ -188,7 +190,7 @@ static snd_pcm_uframes_t mtk_awb_pcm_pointer(struct snd_pcm_substream *substream
 	kal_uint32 Frameidx = 0;
 	AFE_BLOCK_T *Awb_Block = &(FM_I2S_AWB_Control_context->rBlock);
 
-	PRINTK_AUD_AWB("mtk_awb_pcm_pointer, Awb_Block->u4WriteIdx = 0x%x\n",
+	PRINTK_AUD_AWB("%s, Awb_Block->u4WriteIdx = 0x%x\n", __func__,
 		Awb_Block->u4WriteIdx);
 
 	if (GetMemoryPathEnable(Soc_Aud_Digital_Block_MEM_AWB) == true) {
@@ -198,13 +200,13 @@ static snd_pcm_uframes_t mtk_awb_pcm_pointer(struct snd_pcm_substream *substream
 
 		HW_Cur_ReadIdx = Align64ByteSize(Afe_Get_Reg(AFE_AWB_CUR));
 		if (HW_Cur_ReadIdx == 0) {
-			pr_debug("[Auddrv] mtk_awb_pcm_pointer, HW_Cur_ReadIdx == 0\n");
+			PRINTK_AUD_AWB("%s, mtk_awb_pcm_pointer, HW_Cur_ReadIdx == 0\n", __func__);
 			HW_Cur_ReadIdx = Awb_Block->pucPhysBufAddr;
 		}
 		HW_memory_index = (HW_Cur_ReadIdx - Awb_Block->pucPhysBufAddr);
 		Previous_Hw_cur = HW_memory_index;
-		PRINTK_AUD_AWB("[Auddrv] mtk_awb_pcm_pointer = 0x%x, HW_memory_index = 0x%x\n",
-			       HW_Cur_ReadIdx, HW_memory_index);
+		PRINTK_AUD_AWB("%s, mtk_awb_pcm_pointer = 0x%x, HW_memory_index = 0x%x\n",
+			__func__, HW_Cur_ReadIdx, HW_memory_index);
 		return audio_bytes_to_frame(substream, Previous_Hw_cur);
 	}
 	return 0;
@@ -216,7 +218,6 @@ static void SetAWBBuffer(struct snd_pcm_substream *substream, struct snd_pcm_hw_
 	AFE_BLOCK_T *pblock = &FM_I2S_AWB_Control_context->rBlock;
 	struct snd_pcm_runtime *runtime = substream->runtime;
 
-	pr_debug("SetAWBBuffer\n");
 	pblock->pucPhysBufAddr = runtime->dma_addr;
 	pblock->pucVirtBufAddr = runtime->dma_area;
 	pblock->u4BufferSize = runtime->dma_bytes;
@@ -226,8 +227,10 @@ static void SetAWBBuffer(struct snd_pcm_substream *substream, struct snd_pcm_hw_
 	pblock->u4DataRemained = 0;
 	pblock->u4fsyncflag = false;
 	pblock->uResetFlag = true;
-	pr_debug("dma_bytes = %d, dma_area = %p, dma_addr = 0x%x\n",
+
+	PRINTK_AUDDRV("%s dma_bytes = %d, dma_area = %p, dma_addr = 0x%x\n", __func__,
 		pblock->u4BufferSize, pblock->pucVirtBufAddr, pblock->pucPhysBufAddr);
+
 	/* set sram address top hardware */
 	Afe_Set_Reg(AFE_AWB_BASE, pblock->pucPhysBufAddr, 0xffffffff);
 	Afe_Set_Reg(AFE_AWB_END, pblock->pucPhysBufAddr + (pblock->u4BufferSize - 1), 0xffffffff);
@@ -241,37 +244,28 @@ static int mtk_mgrrx_awb_pcm_hw_params(struct snd_pcm_substream *substream,
 	struct snd_dma_buffer *dma_buf = &substream->dma_buffer;
 	int ret = 0;
 
-	pr_debug("mtk_mgrrx_awb_pcm_hw_params\n");
-
 	dma_buf->dev.type = SNDRV_DMA_TYPE_DEV;
 	dma_buf->dev.dev = substream->pcm->card->dev;
 	dma_buf->private_data = NULL;
 
 	if (Awb_Capture_dma_buf->area) {
-		pr_debug("mtk_mgrrx_awb_pcm_hw_params Awb_Capture_dma_buf->area\n");
+		PRINTK_AUDDRV("mtk_mgrrx_awb_pcm_hw_params Awb_Capture_dma_buf->area\n");
 		runtime->dma_bytes = params_buffer_bytes(hw_params);
 		runtime->dma_area = Awb_Capture_dma_buf->area;
 		runtime->dma_addr = Awb_Capture_dma_buf->addr;
 	} else {
-		pr_debug("mtk_mgrrx_awb_pcm_hw_params snd_pcm_lib_malloc_pages\n");
+		PRINTK_AUDDRV("mtk_mgrrx_awb_pcm_hw_params snd_pcm_lib_malloc_pages\n");
 		ret = snd_pcm_lib_malloc_pages(substream, params_buffer_bytes(hw_params));
 	}
-	pr_debug("%s dma_bytes = %zu, dma_area = %p, dma_addr = 0x%x\n",
-		__func__, runtime->dma_bytes, runtime->dma_area,
-		(uint32) runtime->dma_addr);
 
-	pr_debug("runtime->hw.buffer_bytes_max = 0x%zu\n", runtime->hw.buffer_bytes_max);
 	SetAWBBuffer(substream, hw_params);
 
-	pr_debug("dma_bytes = %zu dma_area = %p dma_addr = 0x%lx\n",
-	       substream->runtime->dma_bytes, substream->runtime->dma_area,
-	       (long)substream->runtime->dma_addr);
 	return ret;
 }
 
 static int mtk_fm_i2s_capture_pcm_hw_free(struct snd_pcm_substream *substream)
 {
-	pr_debug("mtk_fm_i2s_capture_pcm_hw_free\n");
+	PRINTK_AUDDRV("mtk_fm_i2s_capture_pcm_hw_free\n");
 
 	if (Awb_Capture_dma_buf->area)
 		return 0;
@@ -290,7 +284,6 @@ static int mtk_fm_i2s_awb_pcm_open(struct snd_pcm_substream *substream)
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	int ret = 0;
 
-	pr_debug("mtk_fm_i2s_awb_pcm_open\n");
 	FM_I2S_AWB_Control_context = Get_Mem_ControlT(Soc_Aud_Digital_Block_MEM_AWB);
 	runtime->hw = mtk_mgrrx_awb_hardware;
 	memcpy((void *)(&(runtime->hw)), (void *)&mtk_mgrrx_awb_hardware,
@@ -303,11 +296,11 @@ static int mtk_fm_i2s_awb_pcm_open(struct snd_pcm_substream *substream)
 	if (ret < 0)
 		pr_warn("snd_pcm_hw_constraint_integer failed\n");
 
-	pr_debug("mtk_fm_i2s_awb_pcm_open, runtime->rate = %d, channels = %d\n",
+	PRINTK_AUDDRV("%s, runtime->rate = %d, channels = %d\n", __func__,
 		runtime->rate, runtime->channels);
 
 	if (substream->stream == SNDRV_PCM_STREAM_CAPTURE)
-		pr_debug("SNDRV_PCM_STREAM_CAPTURE\n");
+		PRINTK_AUDDRV("SNDRV_PCM_STREAM_CAPTURE\n");
 	else
 		return -1;
 
@@ -318,17 +311,18 @@ static int mtk_fm_i2s_awb_pcm_open(struct snd_pcm_substream *substream)
 	AudDrv_Emi_Clk_On();
 
 	if (ret < 0) {
-		pr_err("mtk_fm_i2s_awb_pcm_close\n");
+		pr_err("%s ret < 0, close\n", __func__);
 		mtk_fm_i2s_awb_pcm_close(substream);
 		return ret;
 	}
 
-	pr_debug("mtk_fm_i2s_awb_pcm_open return\n");
+	PRINTK_AUDDRV("%s return\n", __func__);
 	return 0;
 }
 
 static int mtk_fm_i2s_awb_pcm_close(struct snd_pcm_substream *substream)
 {
+	PRINTK_AUDDRV("%s\n", __func__);
 	AudDrv_Emi_Clk_Off();
 	AudDrv_I2S_Clk_Off();
 	AudDrv_Clk_Off();
@@ -338,7 +332,7 @@ static int mtk_fm_i2s_awb_pcm_close(struct snd_pcm_substream *substream)
 
 static int mtk_fm_i2s_awb_alsa_start(struct snd_pcm_substream *substream)
 {
-	pr_debug("mtk_fm_i2s_awb_alsa_start\n");
+	PRINTK_AUDDRV("mtk_fm_i2s_awb_alsa_start\n");
 	SetMemifSubStream(Soc_Aud_Digital_Block_MEM_AWB, substream);
 	StartAudioFMI2SAWBHardware(substream);
 	return 0;
@@ -346,7 +340,7 @@ static int mtk_fm_i2s_awb_alsa_start(struct snd_pcm_substream *substream)
 
 static int mtk_capture_fm_i2s_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 {
-	pr_debug("mtk_capture_fm_i2s_pcm_trigger cmd = %d\n", cmd);
+	PRINTK_AUDDRV("mtk_capture_fm_i2s_pcm_trigger cmd = %d\n", cmd);
 
 	switch (cmd) {
 	case SNDRV_PCM_TRIGGER_START:
@@ -361,10 +355,9 @@ static int mtk_capture_fm_i2s_pcm_trigger(struct snd_pcm_substream *substream, i
 
 static bool CheckNullPointer(void *pointer)
 {
-	if (pointer == NULL) {
-		pr_debug("CheckNullPointer pointer = NULL");
+	if (pointer == NULL)
 		return true;
-	}
+
 	return false;
 }
 
@@ -394,6 +387,7 @@ static int mtk_fm_i2s_awb_pcm_copy(struct snd_pcm_substream *substream,
 	}
 
 	if (Awb_Block->u4BufferSize <= 0) {
+		pr_err("Awb_Block->u4BufferSize <= 0 !!!!!!!\n");
 		msleep(50);
 		return 0;
 	}
@@ -421,7 +415,7 @@ static int mtk_fm_i2s_awb_pcm_copy(struct snd_pcm_substream *substream,
 
 	PRINTK_AUD_AWB
 	("%s finish0, read_count:%x, read_size:%x, u4DataRemained:%x, u4DMAReadIdx:%x, u4WriteIdx:%x\n",
-	__func__, read_count, read_size, Awb_Block->u4DataRemained, Awb_Block->u4DMAReadIdx,
+	__func__, (uint32)read_count, (uint32)read_size, Awb_Block->u4DataRemained, Awb_Block->u4DMAReadIdx,
 	Awb_Block->u4WriteIdx);
 
 	if (DMA_Read_Ptr + read_size < Awb_Block->u4BufferSize) {
@@ -454,7 +448,7 @@ static int mtk_fm_i2s_awb_pcm_copy(struct snd_pcm_substream *substream,
 
 		PRINTK_AUD_AWB
 			("%s finish1, copy size:%x, u4DMAReadIdx:%x, u4WriteIdx:%x, u4DataRemained:%x\n",
-			__func__, read_size, Awb_Block->u4DMAReadIdx, Awb_Block->u4WriteIdx,
+			__func__, (uint32)read_size, Awb_Block->u4DMAReadIdx, Awb_Block->u4WriteIdx,
 			Awb_Block->u4DataRemained);
 
 	} else {
@@ -528,7 +522,7 @@ static int mtk_fm_i2s_awb_pcm_copy(struct snd_pcm_substream *substream,
 static int mtk_capture_pcm_silence(struct snd_pcm_substream *substream,
 				   int channel, snd_pcm_uframes_t pos, snd_pcm_uframes_t count)
 {
-	pr_debug("dummy_pcm_silence\n");
+	PRINTK_AUDDRV("dummy_pcm_silence\n");
 	/* do nothing */
 	return 0;
 }

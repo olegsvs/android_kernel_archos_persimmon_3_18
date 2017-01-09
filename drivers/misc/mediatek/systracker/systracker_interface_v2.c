@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/device.h>
@@ -91,6 +104,15 @@ static int systracker_platform_probe_default(struct platform_device *pdev)
 		is_systracker_irq_registered = 1;
 	}
 #endif
+
+#ifdef CONFIG_MTK_BUS_TRACER
+	pr_debug("register systracker_isr for bus tracer...\n");
+	if (request_irq(systracker_irq, (irq_handler_t)systracker_isr, IRQF_TRIGGER_NONE, "SYSTRACKER", NULL)) {
+		pr_err("SYSTRACKER IRQ LINE NOT AVAILABLE!!\n");
+		return -1;
+	}
+#endif
+
 	/* save entry info */
 	save_entry();
 

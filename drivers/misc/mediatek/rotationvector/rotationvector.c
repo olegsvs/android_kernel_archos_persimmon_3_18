@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 
 #include "rotationvector.h"
 
@@ -6,10 +19,6 @@ static struct rotationvector_context *rotationvector_context_obj;
 
 static struct rotationvector_init_info *rotationvectorsensor_init_list[MAX_CHOOSE_RV_NUM] = { 0 };	/* modified */
 
-#if defined(CONFIG_HAS_EARLYSUSPEND) && defined(CONFIG_EARLYSUSPEND)
-static void rotationvector_early_suspend(struct early_suspend *h);
-static void rotationvector_late_resume(struct early_suspend *h);
-#endif
 
 static void rotationvector_work_func(struct work_struct *work)
 {
@@ -71,7 +80,7 @@ static void rotationvector_work_func(struct work_struct *work)
 				   cxt->drv_data.rotationvector_data.values[1],
 				   cxt->drv_data.rotationvector_data.values[2],
 				   cxt->drv_data.rotationvector_data.values[3],
-				   cxt->drv_data.rotationvector_data.status);
+				   cxt->drv_data.rotationvector_data.status, nt);
 
 rotationvector_loop:
 	if (true == cxt->is_polling_run)
@@ -330,7 +339,7 @@ static ssize_t rotationvector_store_delay(struct device *dev, struct device_attr
 		atomic_set(&rotationvector_context_obj->delay, mdelay);
 	}
 	cxt->rotationvector_ctl.set_delay(delay);
-	RV_LOG(" rotationvector_delay %d ns\n", delay);
+	RV_LOG("rotationvector_delay %d ns\n", delay);
 	mutex_unlock(&rotationvector_context_obj->rotationvector_op_mutex);
 	return count;
 }
@@ -340,7 +349,7 @@ static ssize_t rotationvector_show_delay(struct device *dev,
 {
 	int len = 0;
 
-	RV_LOG(" not support now\n");
+	RV_LOG("not support now\n");
 	return len;
 }
 
@@ -348,10 +357,15 @@ static ssize_t rotationvector_show_sensordevnum(struct device *dev,
 						struct device_attribute *attr, char *buf)
 {
 	struct rotationvector_context *cxt = NULL;
-	char *devname = NULL;
+	const char *devname = NULL;
+	struct input_handle *handle;
 
 	cxt = rotationvector_context_obj;
-	devname = (char *)dev_name(&cxt->idev->dev);
+	list_for_each_entry(handle, &cxt->idev->h_list, d_node)
+		if (strncmp(handle->name, "event", 5) == 0) {
+			devname = handle->name;
+			break;
+		}
 	return snprintf(buf, PAGE_SIZE, "%s\n", devname + 5);
 }
 
@@ -430,7 +444,7 @@ static int rotationvectorsensor_probe(struct platform_device *pdev)
 
 #ifdef CONFIG_OF
 static const struct of_device_id rotationvectorsensor_of_match[] = {
-	{.compatible = "mediatek,rotationvectorsensor",},
+	{.compatible = "mediatek,rotationvector",},
 	{},
 };
 #endif
@@ -439,7 +453,7 @@ static struct platform_driver rotationvectorsensor_driver = {
 	.probe = rotationvectorsensor_probe,
 	.remove = rotationvectorsensor_remove,
 	.driver = {
-		   .name = "rotationvectorsensor",
+		   .name = "rotationvector",
 #ifdef CONFIG_OF
 		   .of_match_table = rotationvectorsensor_of_match,
 #endif
@@ -508,16 +522,18 @@ static int rotationvector_input_init(struct rotationvector_context *cxt)
 
 	dev->name = RV_INPUTDEV_NAME;
 
-	input_set_capability(dev, EV_ABS, EVENT_TYPE_RV_X);
-	input_set_capability(dev, EV_ABS, EVENT_TYPE_RV_Y);
-	input_set_capability(dev, EV_ABS, EVENT_TYPE_RV_Z);
-	input_set_capability(dev, EV_ABS, EVENT_TYPE_RV_SCALAR);
+	input_set_capability(dev, EV_REL, EVENT_TYPE_RV_X);
+	input_set_capability(dev, EV_REL, EVENT_TYPE_RV_Y);
+	input_set_capability(dev, EV_REL, EVENT_TYPE_RV_Z);
+	input_set_capability(dev, EV_REL, EVENT_TYPE_RV_SCALAR);
 	input_set_capability(dev, EV_REL, EVENT_TYPE_RV_STATUS);
+	input_set_capability(dev, EV_REL, EVENT_TYPE_RV_TIMESTAMP_HI);
+	input_set_capability(dev, EV_REL, EVENT_TYPE_RV_TIMESTAMP_LO);
 
-	input_set_abs_params(dev, EVENT_TYPE_RV_X, RV_VALUE_MIN, RV_VALUE_MAX, 0, 0);
+	/*input_set_abs_params(dev, EVENT_TYPE_RV_X, RV_VALUE_MIN, RV_VALUE_MAX, 0, 0);
 	input_set_abs_params(dev, EVENT_TYPE_RV_Y, RV_VALUE_MIN, RV_VALUE_MAX, 0, 0);
 	input_set_abs_params(dev, EVENT_TYPE_RV_Z, RV_VALUE_MIN, RV_VALUE_MAX, 0, 0);
-	input_set_abs_params(dev, EVENT_TYPE_RV_SCALAR, RV_VALUE_MIN, RV_VALUE_MAX, 0, 0);
+	input_set_abs_params(dev, EVENT_TYPE_RV_SCALAR, RV_VALUE_MIN, RV_VALUE_MAX, 0, 0);*/
 	input_set_drvdata(dev, cxt);
 
 	input_set_events_per_packet(dev, 32);	/* test */
@@ -532,7 +548,7 @@ static int rotationvector_input_init(struct rotationvector_context *cxt)
 	return 0;
 }
 
-DEVICE_ATTR(rvnablenodata, S_IWUSR | S_IRUGO, rotationvector_show_enable_nodata,
+DEVICE_ATTR(rvenablenodata, S_IWUSR | S_IRUGO, rotationvector_show_enable_nodata,
 	    rotationvector_store_enable_nodata);
 DEVICE_ATTR(rvactive, S_IWUSR | S_IRUGO, rotationvector_show_active, rotationvector_store_active);
 DEVICE_ATTR(rvdelay, S_IWUSR | S_IRUGO, rotationvector_show_delay, rotationvector_store_delay);
@@ -541,7 +557,7 @@ DEVICE_ATTR(rvflush, S_IWUSR | S_IRUGO, rotationvector_show_flush, rotationvecto
 DEVICE_ATTR(rvdevnum, S_IWUSR | S_IRUGO, rotationvector_show_sensordevnum, NULL);
 
 static struct attribute *rotationvector_attributes[] = {
-	&dev_attr_rvnablenodata.attr,
+	&dev_attr_rvenablenodata.attr,
 	&dev_attr_rvactive.attr,
 	&dev_attr_rvdelay.attr,
 	&dev_attr_rvbatch.attr,
@@ -606,22 +622,24 @@ int rotationvector_register_control_path(struct rotationvector_control_path *ctl
 	return 0;
 }
 
-int rotationvector_data_report(int x, int y, int z, int scalar, int status)
+int rotationvector_data_report(int x, int y, int z, int scalar, int status, int64_t nt)
 {
 	/* RV_LOG("+rotationvector_data_report! %d, %d, %d, %d\n",x,y,z,status); */
 	struct rotationvector_context *cxt = NULL;
 
 	cxt = rotationvector_context_obj;
-	input_report_abs(cxt->idev, EVENT_TYPE_RV_X, x);
-	input_report_abs(cxt->idev, EVENT_TYPE_RV_Y, y);
-	input_report_abs(cxt->idev, EVENT_TYPE_RV_Z, z);
-	input_report_abs(cxt->idev, EVENT_TYPE_RV_SCALAR, scalar);
+	input_report_rel(cxt->idev, EVENT_TYPE_RV_X, x);
+	input_report_rel(cxt->idev, EVENT_TYPE_RV_Y, y);
+	input_report_rel(cxt->idev, EVENT_TYPE_RV_Z, z);
+	input_report_rel(cxt->idev, EVENT_TYPE_RV_SCALAR, scalar);
+	input_report_rel(cxt->idev, EVENT_TYPE_RV_TIMESTAMP_HI, nt >> 32);
+	input_report_rel(cxt->idev, EVENT_TYPE_RV_TIMESTAMP_LO, nt & 0xFFFFFFFFLL);
 	/* input_report_rel(cxt->idev, EVENT_TYPE_RV_STATUS, status); */
 	input_sync(cxt->idev);
 	return 0;
 }
 
-static int rotationvector_probe(struct platform_device *pdev)
+static int rotationvector_probe(void)
 {
 
 	int err;
@@ -645,13 +663,6 @@ static int rotationvector_probe(struct platform_device *pdev)
 		RV_ERR("unable to register rotationvector input device!\n");
 		goto exit_alloc_input_dev_failed;
 	}
-#if defined(CONFIG_HAS_EARLYSUSPEND) && defined(CONFIG_EARLYSUSPEND)
-	atomic_set(&(rotationvector_context_obj->early_suspend), 0);
-	rotationvector_context_obj->early_drv.level = 1;	/* EARLY_SUSPEND_LEVEL_STOP_DRAWING - 1, */
-	rotationvector_context_obj->early_drv.suspend = rotationvector_early_suspend,
-	    rotationvector_context_obj->early_drv.resume = rotationvector_late_resume,
-	    register_early_suspend(&rotationvector_context_obj->early_drv);
-#endif
 
 	RV_LOG("----rotationvector_probe OK !!\n");
 	return 0;
@@ -679,7 +690,7 @@ exit_alloc_data_failed:
 
 
 
-static int rotationvector_remove(struct platform_device *pdev)
+static int rotationvector_remove(void)
 {
 	int err = 0;
 
@@ -696,55 +707,6 @@ static int rotationvector_remove(struct platform_device *pdev)
 
 	return 0;
 }
-
-#if defined(CONFIG_HAS_EARLYSUSPEND) && defined(CONFIG_EARLYSUSPEND)
-static void rotationvector_early_suspend(struct early_suspend *h)
-{
-	atomic_set(&(rotationvector_context_obj->early_suspend), 1);
-	RV_LOG(" rotationvector_early_suspend ok------->hwm_obj->early_suspend=%d\n",
-	       atomic_read(&(rotationvector_context_obj->early_suspend)));
-}
-
-/*----------------------------------------------------------------------------*/
-
-static void rotationvector_late_resume(struct early_suspend *h)
-{
-	atomic_set(&(rotationvector_context_obj->early_suspend), 0);
-	RV_LOG(" rotationvector_late_resume ok------->hwm_obj->early_suspend=%d\n",
-	       atomic_read(&(rotationvector_context_obj->early_suspend)));
-}
-#endif
-
-static int rotationvector_suspend(struct platform_device *dev, pm_message_t state)
-{
-	return 0;
-}
-
-/*----------------------------------------------------------------------------*/
-static int rotationvector_resume(struct platform_device *dev)
-{
-	return 0;
-}
-
-#ifdef CONFIG_OF
-static const struct of_device_id m_rv_pl_of_match[] = {
-	{.compatible = "mediatek,m_rv_pl",},
-	{},
-};
-#endif
-
-static struct platform_driver rotationvector_driver = {
-	.probe = rotationvector_probe,
-	.remove = rotationvector_remove,
-	.suspend = rotationvector_suspend,
-	.resume = rotationvector_resume,
-	.driver = {
-		   .name = RV_PL_DEV_NAME,
-#ifdef CONFIG_OF
-		   .of_match_table = m_rv_pl_of_match,
-#endif
-		   }
-};
 
 int rotationvector_driver_add(struct rotationvector_init_info *obj)
 {
@@ -771,13 +733,12 @@ int rotationvector_driver_add(struct rotationvector_init_info *obj)
 		err = -1;
 	}
 	return err;
-} EXPORT_SYMBOL_GPL(rotationvector_driver_add);
-
+}
 static int __init rotationvector_init(void)
 {
 	RV_FUN();
 
-	if (platform_driver_register(&rotationvector_driver)) {
+	if (rotationvector_probe()) {
 		RV_ERR("failed to register rv driver\n");
 		return -ENODEV;
 	}
@@ -787,7 +748,7 @@ static int __init rotationvector_init(void)
 
 static void __exit rotationvector_exit(void)
 {
-	platform_driver_unregister(&rotationvector_driver);
+	rotationvector_remove();
 	platform_driver_unregister(&rotationvectorsensor_driver);
 }
 

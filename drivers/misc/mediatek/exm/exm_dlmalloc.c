@@ -1,4 +1,15 @@
-/* EXM */
+/*
+* Copyright (C) 2016 MediaTek Inc.
+*
+* This program is free software; you can redistribute it and/or modify
+* it under the terms of the GNU General Public License version 2 as
+* published by the Free Software Foundation.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+* See http://www.gnu.org/licenses/gpl-2.0.html for more details.
+*/
 #include <linux/module.h>
 #include <linux/io.h>
 #include <linux/slab.h>
@@ -309,6 +320,7 @@ static int mt_mspace_probe(struct platform_device *dev)
 
 	if (!info->mem[0].addr) {
 		dev_err(&dev->dev, "Invalid memory resource\n");
+		kfree(info);
 		return -ENODEV;
 	}
 
@@ -317,6 +329,7 @@ static int mt_mspace_probe(struct platform_device *dev)
 
 	if (exm_register_device(&dev->dev, info)) {
 		iounmap(info->mem[0].internal_addr);
+		kfree(info);
 		pr_err("exm_register failed\n");
 		return -ENODEV;
 	}

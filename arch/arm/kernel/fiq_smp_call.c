@@ -1,10 +1,27 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #include <linux/kernel.h>
 #include <linux/init.h>
 #include <linux/cpu.h>
 #include <linux/percpu.h>
 #include <linux/smp.h>
 #include <asm/fiq_smp_call.h>
+#ifdef CONFIG_MTK_GIC_EXT
+#include <linux/irqchip/mtk-gic-extend.h>
+#else
 #include <mach/irqs.h>
+#endif
 
 #if defined(CONFIG_FIQ_GLUE)
 
@@ -210,6 +227,6 @@ static int __init fiq_smp_call_init(void)
 
 	return 0;
 }
-arch_initcall(fiq_smp_call_init);
+subsys_initcall(fiq_smp_call_init);
 
 #endif				/* CONFIG_FIQ_GLUE */

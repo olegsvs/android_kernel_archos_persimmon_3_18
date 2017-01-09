@@ -4,6 +4,17 @@ config MTK_LENS
   help
     CONFIG_MTK_LENS
 
+config MTK_LENS_USE_MODULE
+  bool "Mediatek lens driver build as module"
+  default n
+  help
+    Say Y here if you want to build touch driver as xxx.ko.
+
+    If unsure, say N.
+
+    To compile this dirver as a module,
+    It will be called by insmod xxx.ko in init.rc.
+
 #
 # LENS
 #
@@ -62,6 +73,15 @@ config MTK_LENS_AK7345AF_SUPPORT
     lens driver for the camera sensor module
     Set as y if the driver is used in this project
 
+config MTK_LENS_AK7371AF_SUPPORT
+  bool "AK7371AF Lens Driver"
+  default n
+  help
+    AK7371AF Lens Driver
+    This config is used to enable the corresponding
+    lens driver for the camera sensor module
+    Set as y if the driver is used in this project
+
 config MTK_LENS_BU6424AF_SUPPORT
   bool "BU6424AF Lens Driver"
   default n
@@ -98,20 +118,20 @@ config MTK_LENS_AK7345AF_SUPPORT
     lens driver for the camera sensor module
     Set as y if the driver is used in this project
 
+config MTK_LENS_DW9719TAF_SUPPORT
+  bool "DW9719TAF Lens Driver"
+  default n
+  help
+    DW9719TAF Lens Driver
+    This config is used to enable the corresponding
+    lens driver for the camera sensor module
+    Set as y if the driver is used in this project
+
 config MTK_LENS_DW9718AF_SUPPORT
   bool "DW9718AF Lens Driver"
   default n
   help
     DW9718AF Lens Driver
-    This config is used to enable the corresponding
-    lens driver for the camera sensor module
-    Set as y if the driver is used in this project
-
-config MTK_LENS_DW9800AF_SUPPORT
-  bool "DW9800AF Lens Driver"
-  default n
-  help
-    DW9800AF Lens Driver
     This config is used to enable the corresponding
     lens driver for the camera sensor module
     Set as y if the driver is used in this project
@@ -125,15 +145,6 @@ config MTK_LENS_DW9714AF_SUPPORT
     lens driver for the camera sensor module
     Set as y if the driver is used in this project
 
-config MTK_LENS_GT9766AF_SUPPORT
-  bool "GT9766AF Lens Driver"
-  default n
-  help
-    GT9766AF Lens Driver
-    This config is used to enable the corresponding
-    lens driver for the camera sensor module
-    Set as y if the driver is used in this project
-    
 config MTK_LENS_DW9714A_SUPPORT
   bool "DW9714A Lens Driver"
   default n
@@ -175,6 +186,15 @@ config MTK_LENS_LC898212XDAF_SUPPORT
   default n
   help
     LC898212XDAF Lens Driver
+    This config is used to enable the corresponding
+    lens driver for the camera sensor module
+    Set as y if the driver is used in this project
+
+config MTK_LENS_LC898214AF_SUPPORT
+  bool "LC898214AF Lens Driver"
+  default n
+  help
+    LC898212AF Lens Driver
     This config is used to enable the corresponding
     lens driver for the camera sensor module
     Set as y if the driver is used in this project

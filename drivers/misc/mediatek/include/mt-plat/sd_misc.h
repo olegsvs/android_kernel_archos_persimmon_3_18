@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #ifndef SD_MISC_H
 #define SD_MISC_H
 
@@ -10,7 +23,7 @@
 #include <linux/mmc/sd.h>
 #endif
 
-#include <mt_sd.h>
+#include "mt_sd.h"
 
 #ifndef FPGA_PLATFORM
 extern void msdc_set_driving(struct msdc_host *host, struct msdc_hw *hw, bool sd_18);
@@ -127,6 +140,8 @@ extern  int simple_sd_ioctl_rw(struct msdc_ioctl *msdc_ctl);
 #define MSDC_GET_PARTSIZE               (13)
 
 #define MSDC_CD_PIN_EN_SDCARD           _IOW('r', 14, int)
+#define MSDC_SD_POWER_OFF               (15)
+#define MSDC_SD_POWER_ON                (16)
 
 #define MSDC_ERASE_SELECTED_AREA        (0x20)
 #define MSDC_CARD_DUNM_FUNC             (0xff)

@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #ifndef _MT_GPT_H_
 #define _MT_GPT_H_
 
@@ -49,17 +62,13 @@ unsigned int clkdiv, unsigned int cmp,
 void (*func)(unsigned long), unsigned int flags);
 
 extern int free_gpt(unsigned int id);
-
 extern int start_gpt(unsigned int id);
 extern int stop_gpt(unsigned int id);
 extern int restart_gpt(unsigned int id);
-
 extern int gpt_is_counting(unsigned int id);
-
 extern int gpt_set_cmp(unsigned int id, unsigned int val);
 extern int gpt_get_cmp(unsigned int id, unsigned int *ptr);
 extern int gpt_get_cnt(unsigned int id, unsigned int *ptr);
-
 extern int gpt_check_irq(unsigned int id);
 extern int gpt_check_and_ack_irq(unsigned int id);
 

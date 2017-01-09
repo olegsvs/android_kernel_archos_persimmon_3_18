@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 /*****************************************************************************
  *
  * Filename:
@@ -112,7 +125,12 @@
 #define MAIN_VIDEO_RESOLUTION_PROFILE		{{176,144},{320,240},{640,480},{720,480}}
 #define MAIN_PREVIEW_RESOLUTION_PROFILE	{{232,174},{320,240},{240,320}}
 #define MAIN_STILL_RESOLUTION_PROFILE		{{CAM_SIZE_QVGA_WIDTH,CAM_SIZE_QVGA_HEIGHT}, \
-									 {CAM_SIZE_VGA_WIDTH,CAM_SIZE_VGA_HEIGHT}}
+									 {CAM_SIZE_VGA_WIDTH,CAM_SIZE_VGA_HEIGHT}, \
+							//		 {CAM_SIZE_05M_WIDTH,CAM_SIZE_05M_HEIGHT}, \
+							//		 {CAM_SIZE_1M_WIDTH,CAM_SIZE_1M_HEIGHT}, \
+							//		 {CAM_SIZE_2M_WIDTH,CAM_SIZE_2M_HEIGHT}, \
+							//		 {CAM_SIZE_3M_WIDTH,CAM_SIZE_3M_HEIGHT}, \
+							//		 {CAM_SIZE_5M_WIDTH,CAM_SIZE_5M_HEIGHT}}
 
 // if sub sensor does not exist, set all the parameters as 0
 #define SUB_NUM_OF_PREVIEW_RESOLUTION 0

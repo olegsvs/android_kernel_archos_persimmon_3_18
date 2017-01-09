@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 
 #include "heart_rate.h"
 
@@ -78,7 +91,6 @@ static void hrm_work_func(struct work_struct *work)
 		}
 	}
 	/* report data to input device */
-	/* printk("new hrm work run....\n"); */
 	HRM_LOG("hrm data %d,%d,%d %d\n", cxt->drv_data.hrm_data.values[0],
 		cxt->drv_data.hrm_data.values[1], cxt->drv_data.hrm_data.values[2],
 		cxt->drv_data.hrm_data.values[3]);
@@ -389,8 +401,13 @@ static ssize_t hrm_show_flush(struct device *dev, struct device_attribute *attr,
 static ssize_t hrm_show_devnum(struct device *dev, struct device_attribute *attr, char *buf)
 {
 	const char *devname = NULL;
+	struct input_handle *handle;
 
-	devname = dev_name(&hrm_context_obj->idev->dev);
+	list_for_each_entry(handle, &hrm_context_obj->idev->h_list, d_node)
+		if (strncmp(handle->name, "event", 5) == 0) {
+			devname = handle->name;
+			break;
+		}
 	return snprintf(buf, PAGE_SIZE, "%s\n", devname + 5);
 }
 

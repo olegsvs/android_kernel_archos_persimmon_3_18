@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #include <linux/cpu.h>
 #include <linux/cpumask.h>
 #include <linux/ptrace.h>
@@ -132,11 +145,14 @@ int aed_get_process_bt(struct aee_process_bt *bt)
 
 	err = 0;
 	if (bt->pid > 0) {
+		rcu_read_lock();
 		task = find_task_by_vpid(bt->pid);
 		if (task == NULL) {
+			rcu_read_unlock();
 			err = -EINVAL;
 			goto exit;
 		}
+		rcu_read_unlock();
 	} else {
 		err = -EINVAL;
 		goto exit;
@@ -145,7 +161,7 @@ int aed_get_process_bt(struct aee_process_bt *bt)
 	err = mutex_lock_killable(&task->signal->cred_guard_mutex);
 	if (err)
 		goto exit;
-	if (!ptrace_may_access(task, PTRACE_MODE_ATTACH)) {
+	if (!ptrace_may_access(task, PTRACE_MODE_ATTACH_FSCREDS)) {
 		mutex_unlock(&task->signal->cred_guard_mutex);
 		err = -EPERM;
 		goto exit;
@@ -169,7 +185,18 @@ int aed_get_process_bt(struct aee_process_bt *bt)
 			break;
 	}
 
-	aed_get_bt(task, bt);
+	rcu_read_lock();
+	task = find_task_by_vpid(bt->pid);
+	if (task && (task->pid == bt->pid)) {
+		rcu_read_unlock();
+		task_lock(task);
+		aed_get_bt(task, bt);
+		task_unlock(task);
+	} else {
+		rcu_read_unlock();
+		err = -EINVAL;
+		LOGE("%s: pid %d can't find\n", __func__, bt->pid);
+	}
 
 	atomic_set(&s.cpus_report, nr_cpus - 1);
 	atomic_set(&s.cpus_lock, 0);

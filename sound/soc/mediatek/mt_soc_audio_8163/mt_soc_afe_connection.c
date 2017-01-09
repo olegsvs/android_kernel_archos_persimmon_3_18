@@ -1,17 +1,19 @@
 /*
- * Copyright (C) 2007 The Android Open Source Project
+ * Copyright (C) 2015 MediaTek Inc.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ * You should have received a copy of the GNU General Public License
+ * along with this program
+ * If not, see <http://www.gnu.org/licenses/>.
  */
 /*******************************************************************************
  *
@@ -68,19 +70,11 @@
 #include <linux/proc_fs.h>
 #include <linux/string.h>
 #include <linux/mutex.h>
-/* #include <mach/irqs.h> */
 #include <asm/uaccess.h>
 #include <asm/irq.h>
 #include <asm/io.h>
-/* #include <mach/mt_reg_base.h> */
 #include <asm/div64.h>
 #include <mt-plat/aee.h>
-/* #include <mach/pmic_mt6325_sw.h> */
-/* #include <mach/upmu_common.h> */
-/* #include <mach/upmu_hw.h> */
-/* #include <mach/mt_gpio.h> */
-/* #include <mach/mt_typedefs.h> */
-/* #include <mt-plat/upmu_common.h> */
 
 #include <linux/clk.h>
 #include <linux/delay.h>
@@ -92,7 +86,6 @@
 #include <sound/soc-dapm.h>
 #include <sound/pcm.h>
 #include <sound/jack.h>
-/* #include <asm/mach-types.h> */
 
 #include "AudDrv_Common.h"
 #include "AudDrv_Def.h"
@@ -100,13 +93,6 @@
 #include "AudDrv_Ana.h"
 #include "AudDrv_Clk.h"
 #include "mt_soc_digital_type.h"
-
-
-#ifdef DEBUG_AUDDRV
-#define PRINTK_AUDDRV(format, args...) pr_debug(format, ##args)
-#else
-#define PRINTK_AUDDRV(format, args...)
-#endif
 
 /* mutex lock */
 static DEFINE_MUTEX(afe_connection_mutex);

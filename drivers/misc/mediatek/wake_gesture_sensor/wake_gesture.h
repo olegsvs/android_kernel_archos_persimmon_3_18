@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #ifndef __WAG_H__
 #define __WAG_H__
 
@@ -10,9 +23,8 @@
 #include <linux/workqueue.h>
 #include <linux/slab.h>
 #include <linux/module.h>
-#include <linux/hwmsensor.h>
-#include <linux/earlysuspend.h>
-#include <linux/hwmsen_dev.h>
+#include <hwmsensor.h>
+#include <hwmsen_dev.h>
 
 
 #define WAG_TAG		"<WAKE_GESTURE> "
@@ -51,7 +63,7 @@ struct wag_control_path {
 };
 
 struct wag_data_path {
-	int (*get_data)(u16 *value, int *status);
+	int (*get_data)(int *value, int *status);
 };
 
 struct wag_init_info {
@@ -62,7 +74,7 @@ struct wag_init_info {
 };
 
 struct wag_data {
-	hwm_sensor_data wag_data;
+	struct hwm_sensor_data wag_data;
 	int data_updata;
 	/* struct mutex lock; */
 };
@@ -83,7 +95,6 @@ struct wag_context {
 	atomic_t trace;
 	struct timer_list notify_timer;
 
-	struct early_suspend early_drv;
 	atomic_t early_suspend;
 	atomic_t suspend;
 

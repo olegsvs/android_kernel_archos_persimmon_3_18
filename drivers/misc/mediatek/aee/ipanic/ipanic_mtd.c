@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #include <linux/slab.h>
 #include <linux/kernel.h>
 #include <linux/hardirq.h>
@@ -189,7 +202,7 @@ static void ipanic_mtd_block_erase(void)
 			LOGE("Erase of 0x%llx, 0x%llx failed\n",
 			     (unsigned long long)erase.addr, (unsigned long long)erase.len);
 			if (rc == -EIO) {
-				if (ctx->mtd->_block_markbad(ctx->mtd, erase.addr)) {
+				if (ctx->mtd->_block_markbad(ctx->mtd, erase.addr, NULL)) {
 					LOGE("aee-ipanic: Err marking blk bad\n");
 					goto out;
 				}

@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #include <linux/kernel.h>
 #include <linux/mm.h>
 #include <linux/mm_types.h>
@@ -24,8 +37,6 @@
 /* #include <linux/xlog.h> */
 
 #include <linux/io.h>
-
-#include <cmdq_core.h>
 /* ============================================================ */
 
 /* #include <linux/uaccess.h> */
@@ -71,7 +82,10 @@
 /* #include <mach/mt_boot.h> */
 #endif
 
+#ifndef MTK_JPEG_CMDQ_NO_SUPPORT
+#include <cmdq_core.h>
 #include <cmdq_record.h>
+#endif
 
 #ifndef JPEG_DEV
 #include <linux/proc_fs.h>
@@ -93,8 +107,10 @@
 
 #include "jpeg_drv.h"
 #include "jpeg_drv_common.h"
-#include "jpeg_cmdq.h"
 
+#ifndef MTK_JPEG_CMDQ_NO_SUPPORT
+#include "jpeg_cmdq.h"
+#endif
 /* #define USE_SYSRAM */
 
 #define JPEG_DEVNAME "mtk_jpeg"
@@ -1598,8 +1614,10 @@ static int __init jpeg_init(void)
 		return ret;
 	}
 #endif
+#ifndef MTK_JPEG_CMDQ_NO_SUPPORT
 	cmdqCoreRegisterCB(CMDQ_GROUP_JPEG,
 			   cmdqJpegClockOn, cmdqJpegDumpInfo, cmdqJpegResetEng, cmdqJpegClockOff);
+#endif
 	return 0;
 }
 
@@ -1614,8 +1632,9 @@ static void __exit jpeg_exit(void)
 #else
 	remove_proc_entry("mtk_jpeg", NULL);
 #endif
+#ifndef MTK_JPEG_CMDQ_NO_SUPPORT
 	cmdqCoreRegisterCB(CMDQ_GROUP_JPEG, NULL, NULL, NULL, NULL);
-
+#endif
 	/* JPEG_MSG("Unregistering driver\n"); */
 	platform_driver_unregister(&jpeg_driver);
 	platform_device_unregister(&jpeg_device);

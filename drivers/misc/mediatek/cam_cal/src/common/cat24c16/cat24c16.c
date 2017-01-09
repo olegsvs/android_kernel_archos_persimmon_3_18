@@ -1,10 +1,26 @@
 /*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+/*
  * Driver for CAM_CAL
  *
  *
  */
 
+#ifndef CONFIG_MTK_I2C_EXTENSION
+#define CONFIG_MTK_I2C_EXTENSION
+#endif
 #include <linux/i2c.h>
+#undef CONFIG_MTK_I2C_EXTENSION
 #include <linux/platform_device.h>
 #include <linux/delay.h>
 #include <linux/cdev.h>
@@ -25,21 +41,30 @@
 
 
 /* #define CAM_CALGETDLT_DEBUG */
-#define CAM_CAL_DEBUG
+/*#define CAM_CAL_DEBUG*/
 #ifdef CAM_CAL_DEBUG
 #define PFX "cat2416c"
-
 #define CAM_CALINF(fmt, arg...)    pr_debug("[%s] " fmt, __func__, ##arg)
 #define CAM_CALDB(fmt, arg...)    pr_debug("[%s] " fmt, __func__, ##arg)
-#define CAM_CALERR(fmt, arg...)    pr_err("[%s] " fmt, __func__, ##arg)
+#define CAM_CALERR(fmt, arg...)    pr_debug("[%s] " fmt, __func__, ##arg)
 #else
-#define CAM_CALDB(x, ...)
+#define CAM_CALINF(fmt, arg...)
+#define CAM_CALDB(fmt, arg...)
+#define CAM_CALERR(fmt, arg...)
 #endif
 #define PAGE_SIZE_ 256
 #define BUFF_SIZE 8
 
-static DEFINE_SPINLOCK(g_CAM_CALLock); /* for SMP */
-#define CAM_CAL_I2C_BUSNUM 0
+static DEFINE_SPINLOCK(g_CAM_CALLock);/*for SMP*/
+#define CAM_CAL_I2C_BUSNUM 2
+
+#define CAM_CAL_DEV_MAJOR_NUMBER 226
+
+/* CAM_CAL READ/WRITE ID */
+#define CATC24C16_DEVICE_ID							0xA0
+/*#define I2C_UNIT_SIZE                                  1 //in byte*/
+/*#define OTP_START_ADDR                            0x0A04*/
+/*#define OTP_SIZE                                      24*/
 
 /*******************************************************************************
 *
@@ -53,40 +78,44 @@ static DEFINE_SPINLOCK(g_CAM_CALLock); /* for SMP */
 /*******************************************************************************
 *
 ********************************************************************************/
-static struct i2c_board_info kd_cam_cal_dev __initdata = {
+/*static struct i2c_board_info kd_cam_cal_dev __initdata = {
 	I2C_BOARD_INFO(CAM_CAL_DRVNAME, 0xA0 >> 1)
 };
+*/
 /* A0 for page0 A2 for page 2 and so on for 8 pages */
 
 static struct i2c_client *g_pstI2Cclient;
+static int selective_read_region(u32 addr, u8 *data, u16 i2c_id, u32 size);
+
 
 /* 81 is used for V4L driver */
-static dev_t g_CAM_CALdevno = MKDEV(CAM_CAL_DEV_MAJOR_NUMBER, 0);
-static struct cdev *g_pCAM_CAL_CharDrv;
+/*static dev_t g_CAM_CALdevno = MKDEV(CAM_CAL_DEV_MAJOR_NUMBER, 0);*/
+/*static struct cdev *g_pCAM_CAL_CharDrv;*/
 /* static spinlock_t g_CAM_CALLock; */
 /* spin_lock(&g_CAM_CALLock); */
 /* spin_unlock(&g_CAM_CALLock); */
 
-static struct class *CAM_CAL_class;
-static atomic_t g_CAM_CALatomic;
+/*static struct class *CAM_CAL_class;*/
+/*static atomic_t g_CAM_CALatomic;*/
 /* static DEFINE_SPINLOCK(kdcam_cal_drv_lock); */
 /* spin_lock(&kdcam_cal_drv_lock); */
 /* spin_unlock(&kdcam_cal_drv_lock); */
 
 
-
-
 #define EEPROM_I2C_SPEED 100
 /* #define LSCOTPDATASIZE 0x03c4 //964 */
 /* static kal_uint8 lscotpdata[LSCOTPDATASIZE]; */
-
+/*
 static void kdSetI2CSpeed(u32 i2cSpeed)
 {
+#ifdef USE_I2C_MTK_EXT
 	spin_lock(&g_CAM_CALLock);
 	g_pstI2Cclient->timing = i2cSpeed;
 	spin_unlock(&g_CAM_CALLock);
+#endif
 
 }
+*/
 
 static int iReadRegI2C(u8 *a_pSendData , u16 a_sizeSendData, u8 *a_pRecvData, u16 a_sizeRecvData, u16 i2cId)
 {
@@ -96,15 +125,16 @@ static int iReadRegI2C(u8 *a_pSendData , u16 a_sizeSendData, u8 *a_pRecvData, u1
 	g_pstI2Cclient->addr = (i2cId >> 1);
 	g_pstI2Cclient->ext_flag = (g_pstI2Cclient->ext_flag) & (~I2C_DMA_FLAG);
 
+
 	spin_unlock(&g_CAM_CALLock);
 	i4RetValue = i2c_master_send(g_pstI2Cclient, a_pSendData, a_sizeSendData);
 	if (i4RetValue != a_sizeSendData) {
-		CAM_CALERR(" I2C send failed!!, Addr = 0x%x\n", a_pSendData[0]);
+		CAM_CALERR("I2C send failed!!, Addr = 0x%x\n", a_pSendData[0]);
 		return -1;
 	}
 	i4RetValue = i2c_master_recv(g_pstI2Cclient, (char *)a_pRecvData, a_sizeRecvData);
 	if (i4RetValue != a_sizeRecvData) {
-		CAM_CALERR(" I2C read failed!!\n");
+		CAM_CALERR("I2C read failed!!\n");
 		return -1;
 	}
 	return 0;
@@ -158,14 +188,13 @@ static int iWriteReg(u16 a_u2Addr , u32 a_u4Data , u32 a_u4Bytes , u16 i2cId)
 }
 #endif
 
-bool selective_read_byte(u32 addr, BYTE *data, u16 i2c_id)
+static bool selective_read_byte(u32 addr, u8 *data, u16 i2c_id)
 {
 	/* CAM_CALDB("selective_read_byte\n"); */
 
 	u8 page = addr / PAGE_SIZE_; /* size of page was 256 */
 	u8 offset = addr % PAGE_SIZE_;
-
-	kdSetI2CSpeed(EEPROM_I2C_SPEED);
+	/*kdSetI2CSpeed(EEPROM_I2C_SPEED);*/
 
 	if (iReadRegI2C(&offset, 1, (u8 *)data, 1, i2c_id + (page << 1)) < 0) {
 		CAM_CALERR("fail selective_read_byte addr =0x%x data = 0x%x,page %d, offset 0x%x",
@@ -177,17 +206,17 @@ bool selective_read_byte(u32 addr, BYTE *data, u16 i2c_id)
 	return true;
 }
 
-int selective_read_region(u32 addr, BYTE *data, u16 i2c_id, u32 size)
+static int selective_read_region(u32 addr, u8 *data, u16 i2c_id, u32 size)
 {
-	/* u32 page = addr/PAGE_SIZE; /* size of page was 256 */ */
+	/* u32 page = addr/PAGE_SIZE; // size of page was 256 */
 	/* u32 offset = addr%PAGE_SIZE; */
-	BYTE *buff = data;
+	u8 *buff = data;
 	u32 size_to_read = size;
 	/* kdSetI2CSpeed(EEPROM_I2C_SPEED); */
 	int ret = 0;
 
 	while (size_to_read > 0) {
-		if (selective_read_byte(addr, (u8 *)buff, CATC24C16_DEVICE_ID)) {
+		if (selective_read_byte(addr, buff, i2c_id)) {
 			addr += 1;
 			buff += 1;
 			size_to_read -= 1;
@@ -221,18 +250,28 @@ int selective_read_region(u32 addr, BYTE *data, u16 i2c_id, u32 size)
 }
 
 
-
-
 /* Burst Write Data */
+/*
 static int iWriteData(unsigned int  ui4_offset, unsigned int  ui4_length, unsigned char *pinputdata)
 {
 	CAM_CALDB("not implemented!");
 	return 0;
 }
+*/
+unsigned int cat24c16_selective_read_region(struct i2c_client *client, unsigned int addr,
+	unsigned char *data, unsigned int size)
+{
+	g_pstI2Cclient = client;
+	if (selective_read_region(addr, data, g_pstI2Cclient->addr, size) == 0)
+		return size;
+	else
+		return 0;
+
+}
 
 
-
-
+/*#define CAT24C16_DRIVER_ON 0*/
+#ifdef CAT24C16_DRIVER_ON
 #ifdef CONFIG_COMPAT
 static int compat_put_cal_info_struct(
 	COMPAT_stCAM_CAL_INFO_STRUCT __user *data32,
@@ -274,11 +313,9 @@ static int compat_get_cal_info_struct(
 static long cat24c16_Ioctl_Compat(struct file *filp, unsigned int cmd, unsigned long arg)
 {
 	long ret;
-	int err;
-
 	COMPAT_stCAM_CAL_INFO_STRUCT __user *data32;
 	stCAM_CAL_INFO_STRUCT __user *data;
-
+	int err;
 	CAM_CALDB("[CAMERA SENSOR] cat24c16_Ioctl_Compat,%p %p %x ioc size %d\n",
 	filp->f_op , filp->f_op->unlocked_ioctl, cmd, _IOC_SIZE(cmd));
 
@@ -335,7 +372,6 @@ static long CAM_CAL_Ioctl(
 	u8 *pBuff = NULL;
 	u8 *pu1Params = NULL;
 	stCAM_CAL_INFO_STRUCT *ptempbuf;
-
 	CAM_CALDB("[S24CAM_CAL] ioctl\n");
 
 #ifdef CAM_CALGETDLT_DEBUG
@@ -455,8 +491,7 @@ static int CAM_CAL_Open(struct inode *a_pstInode, struct file *a_pstFile)
 		spin_unlock(&g_CAM_CALLock);
 		CAM_CALDB("[S24CAM_CAL] Opened, return -EBUSY\n");
 		return -EBUSY;
-	} /*else {*//*LukeHu--150720=For check patch*/
-	if (!g_u4Opened) {/*LukeHu--150720=For check patch*/
+	} else {
 		g_u4Opened = 1;
 		atomic_set(&g_CAM_CALatomic, 0);
 	}
@@ -541,7 +576,6 @@ static inline int RegisterCAM_CALCharDrv(void)
 	CAM_CAL_class = class_create(THIS_MODULE, "CAM_CALdrv");
 	if (IS_ERR(CAM_CAL_class)) {
 		int ret = PTR_ERR(CAM_CAL_class);
-
 		CAM_CALDB("Unable to create class, err = %d\n", ret);
 		return ret;
 	}
@@ -594,7 +628,6 @@ static int CAM_CAL_i2c_detect(struct i2c_client *client, int kind, struct i2c_bo
 static int CAM_CAL_i2c_probe(struct i2c_client *client, const struct i2c_device_id *id)
 {
 	int i4RetValue = 0;
-
 	CAM_CALDB("[S24CAM_CAL] Attach I2C\n");
 	/* spin_lock_init(&g_CAM_CALLock); */
 
@@ -679,5 +712,7 @@ module_exit(CAM_CAL_i2C_exit);
 MODULE_DESCRIPTION("CAM_CAL driver");
 MODULE_AUTHOR("Sean Lin <Sean.Lin@Mediatek.com>");
 MODULE_LICENSE("GPL");
+
+#endif
 
 

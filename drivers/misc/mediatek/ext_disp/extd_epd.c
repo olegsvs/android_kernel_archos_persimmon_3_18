@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 /*****************************************************************************/
 /*****************************************************************************/
 #include "extd_info.h"
@@ -84,7 +97,7 @@ static void _epd_rdma_irq_handler(DISP_MODULE_ENUM module, unsigned int param)
 /* extern int ddp_dpi_dump(DISP_MODULE_ENUM module, int level); */
 static int epd_fence_release_kthread(void *data)
 {
-	struct sched_param param = {.sched_priority = RTPM_PRIO_SCRN_UPDATE };
+	struct sched_param param = {.sched_priority = 94 }; /*RTPM_PRIO_SCRN_UPDATE*/
 
 	sched_setscheduler(current, SCHED_RR, &param);
 

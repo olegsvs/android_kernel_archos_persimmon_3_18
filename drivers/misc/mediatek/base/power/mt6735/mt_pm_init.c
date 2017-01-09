@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #include <linux/pm.h>
 #include <linux/module.h>
 #include <linux/proc_fs.h>
@@ -280,6 +293,38 @@ static unsigned int mt_get_emi_freq(void)
 		return output;
 }
 EXPORT_SYMBOL(mt_get_emi_freq);
+
+unsigned int mt_check_bus_freq(void)
+{
+	unsigned int axi_bus_sel = 0;
+	unsigned int bus_clk = 273000;
+
+	axi_bus_sel = (readl(CLK_CFG_0) & 0x00000007);
+	switch (axi_bus_sel) {
+	case 0: /* 26M */
+		bus_clk = 26000;
+		break;
+	case 1: /* SYSPLL1_D2: 273M */
+		bus_clk = 273000;
+		break;
+	case 2: /* SYSPLL_D5: 218.4M */
+		bus_clk = 218400;
+		break;
+	case 3: /* SYSPLL1_D4: 136.5M */
+		bus_clk = 136500;
+		break;
+	case 4: /* UNIVPLL_D5: 249.6M */
+		bus_clk = 249600;
+		break;
+	case 5: /* UNIVPLL2_D2: 208M */
+		bus_clk = 208000;
+		break;
+	default:
+		break;
+	}
+		return bus_clk; /* Khz */
+}
+EXPORT_SYMBOL(mt_check_bus_freq);
 
 unsigned int mt_get_bus_freq(void)
 {

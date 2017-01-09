@@ -1,17 +1,19 @@
 /*
- * Copyright (C) 2007 The Android Open Source Project
+ * Copyright (C) 2015 MediaTek Inc.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ * You should have received a copy of the GNU General Public License
+ * along with this program
+ * If not, see <http://www.gnu.org/licenses/>.
  */
 /*******************************************************************************
  *
@@ -204,12 +206,6 @@ static int mtk_pcm_fm_i2s_open(struct snd_pcm_substream *substream)
 	ret = snd_pcm_hw_constraint_integer(runtime, SNDRV_PCM_HW_PARAM_PERIODS);
 	if (ret < 0)
 		pr_warn("snd_pcm_hw_constraint_integer failed\n");
-	pr_warn("mtk_pcm_fm_i2s_open runtime rate = %d channels = %d substream->pcm->device = %d\n",
-	       runtime->rate, runtime->channels, substream->pcm->device);
-
-	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
-		pr_warn("SNDRV_PCM_STREAM_PLAYBACK mtkalsa_fm_i2s_playback_constraints\n");
-
 
 	if (ret < 0) {
 		pr_err("mtk_pcm_fm_i2s_close\n");
@@ -320,7 +316,10 @@ static int mtk_pcm_fm_i2s_prepare(struct snd_pcm_substream *substream)
 			m2ndI2SInAttribute.mI2S_WLEN = Soc_Aud_I2S_WLEN_WLEN_16BITS;
 			Set2ndI2SIn(&m2ndI2SInAttribute);
 
-			SetI2SASRCConfig(true, 44100);  /* Covert from 32000 Hz to 44100 Hz */
+			if (runtime->rate == 48000)
+				SetI2SASRCConfig(true, 48000);	/* Covert from 32000 Hz to 48000 Hz */
+			else
+				SetI2SASRCConfig(true, 44100);	/* Covert from 32000 Hz to 44100 Hz */
 			SetI2SASRCEnable(true);
 
 			Set2ndI2SInEnable(true);

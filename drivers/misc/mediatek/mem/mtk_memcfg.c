@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/types.h>
@@ -15,7 +28,8 @@
 #include <linux/of_reserved_mem.h>
 #include <linux/mod_devicetable.h>
 #include <linux/io.h>
-#include <linux/memblock.h>
+#include <linux/sort.h>
+#include <linux/mm.h>
 
 #define MTK_MEMCFG_SIMPLE_BUFFER_LEN 16
 #define MTK_MEMCFG_LARGE_BUFFER_LEN (2048)
@@ -32,7 +46,98 @@ static struct mtk_memcfg_info_buf mtk_memcfg_layout_buf = {
 	.curr_pos = 0,
 };
 
+static void mtk_memcfg_show_layout_region(struct seq_file *m, char *name,
+		unsigned long long end, unsigned long long size, int is_end);
+
+static void mtk_memcfg_show_layout_region_gap(struct seq_file *m,
+		unsigned long long end, unsigned long long size);
+
+static int mtk_memcfg_layout_phy_count;
+static int mtk_memcfg_layout_debug_count;
+static int sort_layout;
+
+struct mtk_memcfg_layout_info {
+	char name[20];
+	unsigned long long start;
+	unsigned long long size;
+};
+
+static struct mtk_memcfg_layout_info mtk_memcfg_layout_info_phy[20];
+static struct mtk_memcfg_layout_info mtk_memcfg_layout_info_debug[20];
+
+int mtk_memcfg_memory_layout_info_compare(const void *p1, const void *p2)
+{
+	if (((struct mtk_memcfg_layout_info *)p1)->start > ((struct mtk_memcfg_layout_info *)p2)->start)
+		return 1;
+	return -1;
+}
+
+void mtk_memcfg_sort_memory_layout(void)
+{
+	if (sort_layout != 0)
+		return;
+	sort(&mtk_memcfg_layout_info_phy, mtk_memcfg_layout_phy_count,
+			sizeof(struct mtk_memcfg_layout_info),
+			mtk_memcfg_memory_layout_info_compare, NULL);
+	sort(&mtk_memcfg_layout_info_debug, mtk_memcfg_layout_debug_count,
+			sizeof(struct mtk_memcfg_layout_info),
+			mtk_memcfg_memory_layout_info_compare, NULL);
+	sort_layout = 1;
+}
+
+void mtk_memcfg_write_memory_layout_info(int type, const char *name, unsigned long
+		start, unsigned long size)
+{
+	struct mtk_memcfg_layout_info *info;
+
+	if (type == MTK_MEMCFG_MEMBLOCK_PHY)
+		info = &mtk_memcfg_layout_info_phy[mtk_memcfg_layout_phy_count++];
+	else if (type == MTK_MEMCFG_MEMBLOCK_DEBUG)
+		info = &mtk_memcfg_layout_info_debug[mtk_memcfg_layout_debug_count++];
+	else
+		BUG();
+
+	strncpy(info->name, name, sizeof(info->name) - 1);
+	info->name[sizeof(info->name) - 1] = '\0';
+	info->start = start;
+	info->size = size;
+}
+
 static unsigned long mtk_memcfg_late_warning_flag;
+
+void mtk_memcfg_merge_memblock_record(void)
+{
+	static int memblock_is_cal;
+	int i = 0, j = 0, n = 0;
+	struct memblock_stack_trace *trace, *next;
+
+	if (memblock_is_cal == 0) {
+		i = 0;
+		while (i < memblock_count) {
+			trace = &memblock_stack_trace[i];
+			for (j = i + 1; j < memblock_count; j++) {
+				next = &memblock_stack_trace[j];
+				next->merge = 1;
+				if (trace->trace.nr_entries != next->trace.nr_entries) {
+					next->merge = 0;
+					break;
+				}
+				for (n = 0; n < trace->trace.nr_entries; n++) {
+					if (trace->addrs[n] != next->addrs[n]) {
+						next->merge = 0;
+						break;
+					}
+				}
+				if (next->merge == 0)
+					break;
+				trace->size += next->size;
+			}
+			i = j;
+		}
+		memblock_is_cal = 1;
+	}
+
+}
 
 void mtk_memcfg_write_memory_layout_buf(char *fmt, ...)
 {
@@ -58,6 +163,32 @@ void mtk_memcfg_late_warning(unsigned long flag)
 
 static int mtk_memcfg_memory_layout_show(struct seq_file *m, void *v)
 {
+	int i = 0;
+	struct mtk_memcfg_layout_info *info, *prev;
+
+	mtk_memcfg_sort_memory_layout();
+
+	seq_puts(m, "Physical layout:\n");
+	for (i = mtk_memcfg_layout_phy_count - 1; i > 0; i--) {
+		info = &mtk_memcfg_layout_info_phy[i];
+		prev = &mtk_memcfg_layout_info_phy[i - 1];
+
+		mtk_memcfg_show_layout_region(m, info->name,
+				info->start + info->size,
+				info->size, 0);
+
+		if (info->start > prev->start + prev->size) {
+			mtk_memcfg_show_layout_region_gap(m, info->start,
+					info->start - (prev->start + prev->size));
+		}
+	}
+	info = &mtk_memcfg_layout_info_phy[0];
+	mtk_memcfg_show_layout_region(m, info->name,
+			info->start + info->size,
+			info->size, 1);
+
+	seq_puts(m, "\n");
+	seq_puts(m, "Debug Info:\n");
 	seq_printf(m, "%s", mtk_memcfg_layout_buf.buf);
 	seq_printf(m, "buffer usage: %lu/%lu\n",
 		   (mtk_memcfg_layout_buf.curr_pos <=
@@ -66,9 +197,72 @@ static int mtk_memcfg_memory_layout_show(struct seq_file *m, void *v)
 		    mtk_memcfg_layout_buf.max_len),
 		   mtk_memcfg_layout_buf.max_len);
 
+	seq_printf(m, "Memory: %luK/%luK available, %luK kernel code, %luK rwdata, %luK rodata, %luK init, %luK bss, %luK reserved"
+#ifdef CONFIG_HIGHMEM
+		", %luK highmem"
+#endif
+		, kernel_reserve_meminfo.available
+		, kernel_reserve_meminfo.total
+		, kernel_reserve_meminfo.kernel_code
+		, kernel_reserve_meminfo.rwdata
+		, kernel_reserve_meminfo.rodata
+		, kernel_reserve_meminfo.init
+		, kernel_reserve_meminfo.bss
+		, kernel_reserve_meminfo.reserved
+#ifdef CONFIG_HIGHMEM
+		, kernel_reserve_meminfo.highmem
+#endif
+		);
+	seq_puts(m, "\n");
+
+#ifdef CONFIG_SPARSEMEM_VMEMMAP
+	seq_printf(m, "vmemmap : 0x%16lx - 0x%16lx   (%6ld MB actual)\n",
+			(unsigned long)virt_to_page(PAGE_OFFSET),
+			(unsigned long)virt_to_page(high_memory),
+			((unsigned long)virt_to_page(high_memory) -
+			 (unsigned long)virt_to_page(PAGE_OFFSET)) >> 20);
+#else
+#ifndef CONFIG_NEED_MULTIPLE_NODES
+	seq_printf(m, "memmap : %lu MB\n", mem_map_size >> 20);
+#endif
+#endif
+
 	return 0;
 }
 
+static void mtk_memcfg_show_layout_region(struct seq_file *m, char *name,
+		unsigned long long end, unsigned long long size, int is_end)
+{
+	int i = 0;
+	int name_length = strlen(name);
+	int padding = (30 - name_length - 2) / 2;
+	int odd = (30 - name_length - 2) % 2;
+
+	seq_printf(m, "------------------------------  0x%08llx\n", end);
+	seq_puts(m, "-                            -\n");
+	seq_puts(m, "-");
+	for (i = 0; i < padding; i++)
+		seq_puts(m, " ");
+	seq_printf(m, "%s", name);
+	for (i = 0; i < padding + odd; i++)
+		seq_puts(m, " ");
+	seq_printf(m, "-  size : (0x%0llx)\n", size);
+	seq_puts(m, "-                            -\n");
+
+	if (is_end)
+		seq_printf(m, "------------------------------  0x%0llx\n"
+				, end - size);
+}
+
+
+static void mtk_memcfg_show_layout_region_gap(struct seq_file *m,
+		unsigned long long end, unsigned long long size)
+{
+	seq_printf(m, "------------------------------  0x%08llx\n", end);
+	seq_puts(m, "-                            -\n");
+	seq_printf(m, "-~~~~~~~~~~~~~~~~~~~~~~~~~~~~-  size : (0x%0llx)\n", size);
+	seq_puts(m, "-                            -\n");
+}
 static int mtk_memcfg_memory_layout_open(struct inode *inode, struct file *file)
 {
 	return single_open(file, mtk_memcfg_memory_layout_show, NULL);
@@ -76,10 +270,50 @@ static int mtk_memcfg_memory_layout_open(struct inode *inode, struct file *file)
 
 /* end of kenerl memory information */
 
+/* memblock reserve information */
+static int mtk_memcfg_memblock_reserved_show(struct seq_file *m, void *v)
+{
+	int i = 0, display_count = 0, start = 0;
+	struct memblock_stack_trace *trace;
+	struct memblock_record *record;
+	unsigned long total_size = 0;
+
+	mtk_memcfg_merge_memblock_record();
+
+	for (i = 0; i < memblock_count; i++) {
+		record = &memblock_record[i];
+		total_size += record->size;
+	}
+
+	seq_printf(m, "Memblock reserve total size: 0x%lx\n", total_size);
+
+	for (i = 0; i < memblock_count; i++) {
+		trace = &memblock_stack_trace[i];
+		if (trace->merge == 0) {
+			start = trace->trace.nr_entries - 3;
+			seq_printf(m, "%d 0x%lx %pF %pF %pF %pF\n",
+					display_count++,
+					trace->size,
+					(void *)trace->addrs[start],
+					(void *)trace->addrs[start - 1],
+					(void *)trace->addrs[start - 2],
+					(void *)trace->addrs[start - 3]);
+		}
+	}
+	return 0;
+}
+
+static int mtk_memcfg_memblock_reserved_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, mtk_memcfg_memblock_reserved_show, NULL);
+}
+/* end of memblock reserve information */
+
 /* kenerl memory fragmentation trigger */
 
 static LIST_HEAD(frag_page_list);
 static DEFINE_SPINLOCK(frag_page_list_lock);
+static DEFINE_MUTEX(frag_task_lock);
 static unsigned long mtk_memcfg_frag_round;
 static struct kmem_cache *frag_page_cache;
 
@@ -191,13 +425,18 @@ mtk_memcfg_frag_write(struct file *file, const char __user *buffer,
 			return -EFAULT;
 		state -= '0';
 		pr_alert("%s state = %d\n", __func__, state);
-		if (state) {
+
+		mutex_lock(&frag_task_lock);
+		if (state && !p) {
 			pr_alert("activate do_fragmentation kthread\n");
 			p = kthread_create(do_fragmentation, NULL,
 					   "fragmentationd");
 			if (!IS_ERR(p))
 				wake_up_process(p);
+			else
+				p = 0;
 		}
+		mutex_unlock(&frag_task_lock);
 	}
 	return count;
 }
@@ -230,8 +469,10 @@ mtk_memcfg_oom_write(struct file *file, const char __user *buffer,
 		if (state) {
 			pr_alert("oom test, trying to kill system under oom scenario\n");
 			/* exhaust all memory */
-			for (;;)
+			for (;;) {
+				alloc_pages(GFP_HIGHUSER_MOVABLE, 0);
 				alloc_pages(GFP_KERNEL, 0);
+			}
 		}
 	}
 	return count;
@@ -250,6 +491,13 @@ static void __exit mtk_memcfg_exit(void)
 
 static const struct file_operations mtk_memcfg_memory_layout_operations = {
 	.open = mtk_memcfg_memory_layout_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
+
+static const struct file_operations mtk_memcfg_memblock_reserved_operations = {
+	.open = mtk_memcfg_memblock_reserved_open,
 	.read = seq_read,
 	.llseek = seq_lseek,
 	.release = single_release,
@@ -297,6 +545,14 @@ static int __init mtk_memcfg_late_init(void)
 
 		if (!entry)
 			pr_err("create memory_layout proc entry failed\n");
+
+		/* memblock reserved */
+		entry = proc_create("memblock_reserved", S_IRUGO | S_IWUSR,
+				mtk_memcfg_dir,
+				&mtk_memcfg_memblock_reserved_operations);
+		if (!entry)
+			pr_err("create memblock_reserved proc entry failed\n");
+		pr_info("create memblock_reserved proc entry success!!!!!\n");
 
 		/* fragmentation test */
 		entry = proc_create("frag-trigger",
@@ -412,12 +668,6 @@ static int dt_scan_memory(unsigned long node, const char *uname,
 		if (size == 0)
 			continue;
 
-		MTK_MEMCFG_LOG_AND_PRINTK(
-			"[debug]DRAM size (dt) :  0x%llx - 0x%llx  (0x%llx)\n",
-				(unsigned long long)base,
-				(unsigned long long)base +
-				(unsigned long long)size - 1,
-				(unsigned long long)size);
 		kernel_mem_sz += size;
 	}
 
@@ -426,14 +676,6 @@ static int dt_scan_memory(unsigned long node, const char *uname,
 			"orig_dram_info", NULL);
 	if (dram_info) {
 		for (i = 0; i < dram_info->rank_num; i++) {
-			MTK_MEMCFG_LOG_AND_PRINTK(
-				"[debug]orig_dram rank[%d]   :   0x%08llx - 0x%08llx (0x%llx)\n",
-				i,
-				dram_info->rank_info[i].start,
-				dram_info->rank_info[i].start +
-				dram_info->rank_info[i].size - 1,
-				dram_info->rank_info[i].size
-				);
 			phone_dram_sz += dram_info->rank_info[i].size;
 		}
 	}
@@ -443,15 +685,6 @@ static int dt_scan_memory(unsigned long node, const char *uname,
 			"mblock_info", NULL);
 	if (mblock_info) {
 		for (i = 0; i < mblock_info->mblock_num; i++) {
-			MTK_MEMCFG_LOG_AND_PRINTK(
-				"[debug]mblock[%d][r%d]  :   0x%08llx - 0x%08llx (0x%llx)\n",
-				i,
-				mblock_info->mblock[i].rank,
-				mblock_info->mblock[i].start,
-				mblock_info->mblock[i].start +
-				mblock_info->mblock[i].size - 1,
-				mblock_info->mblock[i].size
-				);
 			dram_sz += mblock_info->mblock[i].size;
 		}
 	}

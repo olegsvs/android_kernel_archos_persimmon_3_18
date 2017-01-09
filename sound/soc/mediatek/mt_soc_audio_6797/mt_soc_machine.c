@@ -1,17 +1,19 @@
 /*
- * Copyright (C) 2007 The Android Open Source Project
+ * Copyright (C) 2015 MediaTek Inc.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ * You should have received a copy of the GNU General Public License
+ * along with this program
+ * If not, see <http://www.gnu.org/licenses/>.
  */
 /*******************************************************************************
  *
@@ -100,64 +102,10 @@
 #include "mt_soc_codec_63xx.h"
 
 static int mt_soc_lowjitter_control;
+static int mt_soc_dmic_control;
 static struct dentry *mt_sco_audio_debugfs;
 #define DEBUG_FS_NAME "mtksocaudio"
 #define DEBUG_ANA_FS_NAME "mtksocanaaudio"
-
-static int mtmachine_startup(struct snd_pcm_substream *substream)
-{
-	/* printk("mtmachine_startup\n"); */
-	return 0;
-}
-
-static int mtmachine_prepare(struct snd_pcm_substream *substream)
-{
-	/* printk("mtmachine_prepare\n"); */
-	return 0;
-}
-
-static struct snd_soc_ops mt_machine_audio_ops = {
-	.startup = mtmachine_startup,
-	.prepare = mtmachine_prepare,
-};
-
-static int mtmachine_compr_startup(struct snd_compr_stream *stream)
-{
-	return 0;
-}
-
-static struct snd_soc_compr_ops mt_machine_audio_compr_ops = {
-	.startup = mtmachine_compr_startup,
-};
-
-static int mtmachine_startupmedia2(struct snd_pcm_substream *substream)
-{
-	/* printk("mtmachine_startupmedia2\n"); */
-	return 0;
-}
-
-static int mtmachine_preparemedia2(struct snd_pcm_substream *substream)
-{
-	/* printk("mtmachine_preparemedia2\n"); */
-	return 0;
-}
-
-static struct snd_soc_ops mtmachine_audio_ops2 = {
-	.startup = mtmachine_startupmedia2,
-	.prepare = mtmachine_preparemedia2,
-};
-
-static int mt_soc_audio_init(struct snd_soc_pcm_runtime *rtd)
-{
-	pr_debug("mt_soc_audio_init\n");
-	return 0;
-}
-
-static int mt_soc_audio_init2(struct snd_soc_pcm_runtime *rtd)
-{
-	pr_debug("mt_soc_audio_init2\n");
-	return 0;
-}
 
 static int mt_soc_ana_debug_open(struct inode *inode, struct file *file)
 {
@@ -169,8 +117,16 @@ static ssize_t mt_soc_ana_debug_read(struct file *file, char __user *buf,
 				     size_t count, loff_t *pos)
 {
 	const int size = 4096;
-	char buffer[size];
+	/* char buffer[size]; */
+	char *buffer = NULL; /* for reduce kernel stack */
 	int n = 0;
+	int ret = 0;
+
+	buffer = kmalloc(size, GFP_KERNEL);
+	if (!buffer) {
+		kfree(buffer);
+		return -ENOMEM;
+	}
 
 	pr_debug("mt_soc_ana_debug_read count = %zu\n", count);
 	AudDrv_Clk_On();
@@ -269,6 +225,14 @@ static ssize_t mt_soc_ana_debug_read(struct file *file, char __user *buf,
 	n += scnprintf(buffer + n, size - n, "AFE_VOW_MON3  = 0x%x\n", Ana_Get_Reg(AFE_VOW_MON3));
 	n += scnprintf(buffer + n, size - n, "AFE_VOW_MON4  = 0x%x\n", Ana_Get_Reg(AFE_VOW_MON4));
 	n += scnprintf(buffer + n, size - n, "AFE_VOW_MON5  = 0x%x\n", Ana_Get_Reg(AFE_VOW_MON5));
+
+	n += scnprintf(buffer + n, size - n, "AFE_VOW_POSDIV_CFG0  = 0x%x\n", Ana_Get_Reg(AFE_VOW_POSDIV_CFG0));
+	n += scnprintf(buffer + n, size - n, "AFE_VOW_TGEN_CFG0  = 0x%x\n", Ana_Get_Reg(AFE_VOW_TGEN_CFG0));
+
+	n += scnprintf(buffer + n, size - n, "BUCK_VOW_CON0 = 0x%x\n", Ana_Get_Reg(0x416));
+	n += scnprintf(buffer + n, size - n, "BUCK_VOW_CON3 = 0x%x\n", Ana_Get_Reg(0x41C));
+	n += scnprintf(buffer + n, size - n, "TOP_CKSEL_CON2 = 0x%x\n", Ana_Get_Reg(0x26A));
+	n += scnprintf(buffer + n, size - n, "BUCK_VCORE_CON8 = 0x%x\n", Ana_Get_Reg(0x610));
 
 	n += scnprintf(buffer + n, size - n, "AFE_DCCLK_CFG0  = 0x%x\n",
 		       Ana_Get_Reg(AFE_DCCLK_CFG0));
@@ -421,16 +385,45 @@ static ssize_t mt_soc_ana_debug_read(struct file *file, char __user *buf,
 		       Ana_Get_Reg(AUDNCP_CLKDIV_CON3));
 	n += scnprintf(buffer + n, size - n, "AUDNCP_CLKDIV_CON4  = 0x%x\n",
 		       Ana_Get_Reg(AUDNCP_CLKDIV_CON4));
+	n += scnprintf(buffer + n, size - n, "GPIO_MODE3  = 0x%x\n",
+		       Ana_Get_Reg(GPIO_MODE3));
+	n += scnprintf(buffer + n, size - n, "DRV_CON2  = 0x%x\n",
+		       Ana_Get_Reg(DRV_CON2));
+	n += scnprintf(buffer + n, size - n, "AUDRC_TUNE_MON0  = 0x%x\n",
+		       Ana_Get_Reg(AUDRC_TUNE_MON0));
+	n += scnprintf(buffer + n, size - n, "AFE_VOW_PERIODIC_CFG0  = 0x%x\n",
+		       Ana_Get_Reg(AFE_VOW_PERIODIC_CFG0));
+	n += scnprintf(buffer + n, size - n, "AFE_VOW_PERIODIC_CFG2  = 0x%x\n",
+		       Ana_Get_Reg(AFE_VOW_PERIODIC_CFG2));
+	n += scnprintf(buffer + n, size - n, "AFE_VOW_PERIODIC_CFG4  = 0x%x\n",
+		       Ana_Get_Reg(AFE_VOW_PERIODIC_CFG4));
+	n += scnprintf(buffer + n, size - n, "AFE_VOW_PERIODIC_CFG6  = 0x%x\n",
+		       Ana_Get_Reg(AFE_VOW_PERIODIC_CFG6));
+	n += scnprintf(buffer + n, size - n, "AFE_VOW_PERIODIC_CFG7  = 0x%x\n",
+		       Ana_Get_Reg(AFE_VOW_PERIODIC_CFG7));
+	n += scnprintf(buffer + n, size - n, "AFE_VOW_PERIODIC_CFG8  = 0x%x\n",
+		       Ana_Get_Reg(AFE_VOW_PERIODIC_CFG8));
+	n += scnprintf(buffer + n, size - n, "AFE_VOW_PERIODIC_CFG9  = 0x%x\n",
+		       Ana_Get_Reg(AFE_VOW_PERIODIC_CFG9));
+	n += scnprintf(buffer + n, size - n, "AFE_VOW_PERIODIC_CFG10  = 0x%x\n",
+		       Ana_Get_Reg(AFE_VOW_PERIODIC_CFG10));
+	n += scnprintf(buffer + n, size - n, "AFE_VOW_PERIODIC_CFG11  = 0x%x\n",
+		       Ana_Get_Reg(AFE_VOW_PERIODIC_CFG11));
+	n += scnprintf(buffer + n, size - n, "AFE_VOW_PERIODIC_CFG12  = 0x%x\n",
+		       Ana_Get_Reg(AFE_VOW_PERIODIC_CFG12));
+	n += scnprintf(buffer + n, size - n, "AFE_VOW_PERIODIC_MON0  = 0x%x\n",
+		       Ana_Get_Reg(AFE_VOW_PERIODIC_MON0));
+	n += scnprintf(buffer + n, size - n, "AFE_VOW_PERIODIC_MON1  = 0x%x\n",
+		       Ana_Get_Reg(AFE_VOW_PERIODIC_MON1));
 
-	n += scnprintf(buffer + n, size - n, "TOP_CKPDN_CON0  = 0x%x\n",
-		       Ana_Get_Reg(TOP_CKPDN_CON0));
-	n += scnprintf(buffer + n, size - n, "GPIO_MODE3  = 0x%x\n", Ana_Get_Reg(GPIO_MODE3));
 	pr_debug("mt_soc_ana_debug_read len = %d\n", n);
 
 	audckbufEnable(false);
 	AudDrv_Clk_Off();
 
-	return simple_read_from_buffer(buf, count, pos, buffer, n);
+	ret = simple_read_from_buffer(buf, count, pos, buffer, n);
+	kfree(buffer);
+	return ret;
 }
 
 
@@ -443,9 +436,17 @@ static int mt_soc_debug_open(struct inode *inode, struct file *file)
 static ssize_t mt_soc_debug_read(struct file *file, char __user *buf,
 				size_t count, loff_t *pos)
 {
-	const int size = 4096;
-	char buffer[size];
+	const int size = 6144;
+	/* char buffer[size]; */
+	char *buffer = NULL; /* for reduce kernel stack */
 	int n = 0;
+	int ret = 0;
+
+	buffer = kmalloc(size, GFP_KERNEL);
+	if (!buffer) {
+		kfree(buffer);
+		return -ENOMEM;
+	}
 
 	AudDrv_Clk_On();
 
@@ -486,7 +487,7 @@ static ssize_t mt_soc_debug_read(struct file *file, char __user *buf,
 			Afe_Get_Reg(AFE_DL1_CUR));
 	n += scnprintf(buffer + n, size - n, "AFE_DL1_END		   = 0x%x\n",
 			Afe_Get_Reg(AFE_DL1_END));
-	n += scnprintf(buffer + n, size - n, "AFE_VUL_D2_BASE	   = 0x%x\n",
+	n += scnprintf(buffer + n, size - n, "AFE_VUL_D2_BASE		   = 0x%x\n",
 			Afe_Get_Reg(AFE_VUL_D2_BASE));
 	n += scnprintf(buffer + n, size - n, "AFE_VUL_D2_END		   = 0x%x\n",
 			Afe_Get_Reg(AFE_VUL_D2_END));
@@ -500,6 +501,12 @@ static ssize_t mt_soc_debug_read(struct file *file, char __user *buf,
 			Afe_Get_Reg(AFE_DL2_CUR));
 	n += scnprintf(buffer + n, size - n, "AFE_DL2_END		   = 0x%x\n",
 			Afe_Get_Reg(AFE_DL2_END));
+	n += scnprintf(buffer + n, size - n, "AFE_DL3_BASE		   = 0x%x\n",
+			Afe_Get_Reg(AFE_DL3_BASE));
+	n += scnprintf(buffer + n, size - n, "AFE_DL3_CUR		   = 0x%x\n",
+			Afe_Get_Reg(AFE_DL3_CUR));
+	n += scnprintf(buffer + n, size - n, "AFE_DL3_END		   = 0x%x\n",
+			Afe_Get_Reg(AFE_DL3_END));
 	n += scnprintf(buffer + n, size - n, "AFE_CONN5			   = 0x%x\n",
 			Afe_Get_Reg(AFE_CONN5));
 	n += scnprintf(buffer + n, size - n, "AFE_CONN_24BIT		   = 0x%x\n",
@@ -604,6 +611,8 @@ static ssize_t mt_soc_debug_read(struct file *file, char __user *buf,
 			Afe_Get_Reg(AFE_IRQ_MCU_EN));
 	n += scnprintf(buffer + n, size - n, "AFE_IRQ_MCU_MON2	   = 0x%x\n",
 			Afe_Get_Reg(AFE_IRQ_MCU_MON2));
+	n += scnprintf(buffer + n, size - n, "AFE_IRQ_MCU_CNT4		   = 0x%x\n",
+			Afe_Get_Reg(AFE_IRQ_MCU_CNT4));
 	n += scnprintf(buffer + n, size - n, "AFE_IRQ_MCU_CNT5		   = 0x%x\n",
 			Afe_Get_Reg(AFE_IRQ_MCU_CNT5));
 	n += scnprintf(buffer + n, size - n, "AFE_IRQ1_MCU_CNT_MON   = 0x%x\n",
@@ -650,8 +659,46 @@ static ssize_t mt_soc_debug_read(struct file *file, char __user *buf,
 			Afe_Get_Reg(AFE_CONN8));
 	n += scnprintf(buffer + n, size - n, "AFE_CONN9			   = 0x%x\n",
 			Afe_Get_Reg(AFE_CONN9));
-	n += scnprintf(buffer + n, size - n, "AFE_CONN10			   = 0x%x\n",
+	n += scnprintf(buffer + n, size - n, "AFE_CONN10		   = 0x%x\n",
 			Afe_Get_Reg(AFE_CONN10));
+	n += scnprintf(buffer + n, size - n, "AFE_CONN11		   = 0x%x\n",
+			Afe_Get_Reg(AFE_CONN11));
+	n += scnprintf(buffer + n, size - n, "AFE_CONN12		   = 0x%x\n",
+			Afe_Get_Reg(AFE_CONN12));
+	n += scnprintf(buffer + n, size - n, "AFE_CONN13		   = 0x%x\n",
+			Afe_Get_Reg(AFE_CONN13));
+	n += scnprintf(buffer + n, size - n, "AFE_CONN14		   = 0x%x\n",
+			Afe_Get_Reg(AFE_CONN14));
+	n += scnprintf(buffer + n, size - n, "AFE_CONN15		   = 0x%x\n",
+			Afe_Get_Reg(AFE_CONN15));
+	n += scnprintf(buffer + n, size - n, "AFE_CONN16		   = 0x%x\n",
+			Afe_Get_Reg(AFE_CONN16));
+	n += scnprintf(buffer + n, size - n, "AFE_CONN17		   = 0x%x\n",
+			Afe_Get_Reg(AFE_CONN17));
+	n += scnprintf(buffer + n, size - n, "AFE_CONN18		   = 0x%x\n",
+			Afe_Get_Reg(AFE_CONN18));
+	n += scnprintf(buffer + n, size - n, "AFE_CONN19		   = 0x%x\n",
+			Afe_Get_Reg(AFE_CONN19));
+	n += scnprintf(buffer + n, size - n, "AFE_CONN20		   = 0x%x\n",
+			Afe_Get_Reg(AFE_CONN20));
+	n += scnprintf(buffer + n, size - n, "AFE_CONN21		   = 0x%x\n",
+			Afe_Get_Reg(AFE_CONN21));
+	n += scnprintf(buffer + n, size - n, "AFE_CONN22		   = 0x%x\n",
+			Afe_Get_Reg(AFE_CONN22));
+	n += scnprintf(buffer + n, size - n, "AFE_CONN23		   = 0x%x\n",
+			Afe_Get_Reg(AFE_CONN23));
+	n += scnprintf(buffer + n, size - n, "AFE_CONN24		   = 0x%x\n",
+			Afe_Get_Reg(AFE_CONN24));
+	n += scnprintf(buffer + n, size - n, "AFE_CONN25		   = 0x%x\n",
+			Afe_Get_Reg(AFE_CONN25));
+	n += scnprintf(buffer + n, size - n, "AFE_CONN26		   = 0x%x\n",
+			Afe_Get_Reg(AFE_CONN26));
+	n += scnprintf(buffer + n, size - n, "AFE_CONN27		   = 0x%x\n",
+			Afe_Get_Reg(AFE_CONN27));
+	n += scnprintf(buffer + n, size - n, "AFE_CONN28		   = 0x%x\n",
+			Afe_Get_Reg(AFE_CONN28));
+	n += scnprintf(buffer + n, size - n, "AFE_CONN29		   = 0x%x\n",
+			Afe_Get_Reg(AFE_CONN29));
 	n += scnprintf(buffer + n, size - n, "AFE_ASRC_CON0		   = 0x%x\n",
 			Afe_Get_Reg(AFE_ASRC_CON0));
 	n += scnprintf(buffer + n, size - n, "AFE_ASRC_CON1		   = 0x%x\n",
@@ -730,10 +777,33 @@ static ssize_t mt_soc_debug_read(struct file *file, char __user *buf,
 			Afe_Get_Reg(CLK_AUDDIV_0));
 	n += scnprintf(buffer + n, size - n, "AUDIO_CLK_AUDDIV_1  = 0x%x\n",
 			Afe_Get_Reg(CLK_AUDDIV_1));
+	n += scnprintf(buffer + n, size - n, "AUDIO_CLK_AUDDIV_2  = 0x%x\n",
+			Afe_Get_Reg(CLK_AUDDIV_2));
+	n += scnprintf(buffer + n, size - n, "AFE_TDM_CON1  = 0x%x\n",
+			Afe_Get_Reg(AFE_TDM_CON1));
+	n += scnprintf(buffer + n, size - n, "AFE_TDM_CON2  = 0x%x\n",
+			Afe_Get_Reg(AFE_TDM_CON2));
+	n += scnprintf(buffer + n, size - n, "AFE_HDMI_OUT_CON0  = 0x%x\n",
+			Afe_Get_Reg(AFE_HDMI_OUT_CON0));
+	n += scnprintf(buffer + n, size - n, "AFE_HDMI_BASE  = 0x%x\n",
+			Afe_Get_Reg(AFE_HDMI_BASE));
+	n += scnprintf(buffer + n, size - n, "AFE_HDMI_CUR  = 0x%x\n",
+			Afe_Get_Reg(AFE_HDMI_CUR));
+	n += scnprintf(buffer + n, size - n, "AFE_HDMI_END  = 0x%x\n",
+			Afe_Get_Reg(AFE_HDMI_END));
+	n += scnprintf(buffer + n, size - n, "AFE_HDMI_CONN0  = 0x%x\n",
+			Afe_Get_Reg(AFE_HDMI_CONN0));
+	n += scnprintf(buffer + n, size - n, "AFE_MEMIF_HD_MODE  = 0x%x\n",
+			Afe_Get_Reg(AFE_MEMIF_HD_MODE));
+	n += scnprintf(buffer + n, size - n, "AFE_MEMIF_HDALIGN  = 0x%x\n",
+			Afe_Get_Reg(AFE_MEMIF_HDALIGN));
 #ifdef CONFIG_FPGA_EARLY_PORTING
 	n += scnprintf(buffer + n, size - n, "FPGA_CFG0  = 0x%x\n",
 		       Afe_Get_Reg(FPGA_CFG0));
 #endif
+	n += scnprintf(buffer + n, size - n, "AFE_ADDA2_TOP_CON0  = 0x%x\n",
+		       Afe_Get_Reg(AFE_ADDA2_TOP_CON0));
+
 	n += scnprintf(buffer + n, size - n, "CLK_CFG_4  = 0x%x\n",
 			GetClkCfg(AUDIO_CLK_CFG_4));
 	n += scnprintf(buffer + n, size - n, "CLK_CFG_6  = 0x%x\n",
@@ -759,14 +829,39 @@ static ssize_t mt_soc_debug_read(struct file *file, char __user *buf,
 	n += scnprintf(buffer + n, size - n, "APLL2_CON3  = 0x%x\n",
 			GetApmixedCfg(APLL2_CON3));
 
+	n += scnprintf(buffer + n, size - n, "AFE_GENERAL_REG0  = 0x%x\n",
+			Afe_Get_Reg(AFE_GENERAL_REG0));
+	n += scnprintf(buffer + n, size - n, "AFE_GENERAL_REG1  = 0x%x\n",
+			Afe_Get_Reg(AFE_GENERAL_REG1));
+	n += scnprintf(buffer + n, size - n, "AFE_GENERAL_REG2  = 0x%x\n",
+			Afe_Get_Reg(AFE_GENERAL_REG2));
+	n += scnprintf(buffer + n, size - n, "AFE_GENERAL_REG3  = 0x%x\n",
+			Afe_Get_Reg(AFE_GENERAL_REG3));
+	n += scnprintf(buffer + n, size - n, "AFE_GENERAL_REG4  = 0x%x\n",
+			Afe_Get_Reg(AFE_GENERAL_REG4));
+	n += scnprintf(buffer + n, size - n, "AFE_GENERAL_REG5  = 0x%x\n",
+			Afe_Get_Reg(AFE_GENERAL_REG5));
+	n += scnprintf(buffer + n, size - n, "AFE_GENERAL_REG6  = 0x%x\n",
+			Afe_Get_Reg(AFE_GENERAL_REG6));
+	n += scnprintf(buffer + n, size - n, "AFE_GENERAL_REG7  = 0x%x\n",
+			Afe_Get_Reg(AFE_GENERAL_REG7));
+	n += scnprintf(buffer + n, size - n, "AFE_GENERAL_REG8  = 0x%x\n",
+			Afe_Get_Reg(AFE_GENERAL_REG8));
+	n += scnprintf(buffer + n, size - n, "AFE_GENERAL_REG9  = 0x%x\n",
+			Afe_Get_Reg(AFE_GENERAL_REG9));
+
 	n += scnprintf(buffer + n, size - n, "0x1f8  = 0x%x\n",
 			Afe_Get_Reg(AFE_BASE + 0x1f8));
+	n += scnprintf(buffer + n, size - n, "AP_PLL_CON5 = 0x%x\n",
+			GetApmixedCfg(AP_PLL_CON5));
 
 
 	pr_debug("mt_soc_debug_read len = %d\n", n);
 	AudDrv_Clk_Off();
 
-	return  simple_read_from_buffer(buf, count, pos, buffer, n);
+	ret = simple_read_from_buffer(buf, count, pos, buffer, n);
+	kfree(buffer);
+	return ret;
 }
 
 static char const ParSetkeyAfe[] = "Setafereg";
@@ -795,6 +890,10 @@ static ssize_t mt_soc_debug_write(struct file *f, const char __user *buf,
 	char delim[] = " ,";
 
 	memset_io((void *)InputString, 0, 256);
+
+	if (count > 256)
+		count = 256;
+
 	if (copy_from_user((InputString), buf, count))
 		pr_warn("copy_from_user mt_soc_debug_write count = %zu temp = %s\n", count, InputString);
 
@@ -830,11 +929,10 @@ static ssize_t mt_soc_debug_write(struct file *f, const char __user *buf,
 		ret =  kstrtoul(token5, 16, &regvalue);
 		pr_debug("%s regaddr = 0x%lu regvalue = 0x%lu\n", ParSetkeyAna, regaddr,
 			regvalue);
-		/* clk_buf_ctrl(CLK_BUF_AUDIO, true); //6752 need? */
-		AudDrv_Clk_On();
 		audckbufEnable(true);
 		Ana_Set_Reg(regaddr,  regvalue, 0xffffffff);
 		regvalue = Ana_Get_Reg(regaddr);
+		audckbufEnable(false);
 		pr_debug("%s regaddr = 0x%lu regvalue = 0x%lu\n", ParSetkeyAna, regaddr,
 			regvalue);
 	}
@@ -878,6 +976,26 @@ static const struct file_operations mtaudio_ana_debug_ops = {
 	.read = mt_soc_ana_debug_read,
 };
 
+/* snd_soc_ops */
+static int mt_machine_trigger(struct snd_pcm_substream *substream,
+				     int cmd)
+{
+	switch (cmd) {
+	case SNDRV_PCM_TRIGGER_START:
+	case SNDRV_PCM_TRIGGER_RESUME:
+		EnableAfe(true);
+		return 0;
+	case SNDRV_PCM_TRIGGER_STOP:
+	case SNDRV_PCM_TRIGGER_SUSPEND:
+		EnableAfe(false);
+		return 0;
+	}
+	return -EINVAL;
+}
+
+static struct snd_soc_ops mt_machine_audio_ops = {
+	.trigger = mt_machine_trigger,
+};
 
 /* Digital audio interface glue - connects codec <---> CPU */
 static struct snd_soc_dai_link mt_soc_dai_common[] = {
@@ -889,8 +1007,6 @@ static struct snd_soc_dai_link mt_soc_dai_common[] = {
 		.platform_name  = MT_SOC_DL1_PCM,
 		.codec_dai_name = MT_SOC_CODEC_TXDAI_NAME,
 		.codec_name = MT_SOC_CODEC_NAME,
-		.init = mt_soc_audio_init,
-		.ops = &mt_machine_audio_ops,
 	},
 	{
 		.name = "MultiMedia2",
@@ -899,8 +1015,6 @@ static struct snd_soc_dai_link mt_soc_dai_common[] = {
 		.platform_name  = MT_SOC_UL1_PCM,
 		.codec_dai_name = MT_SOC_CODEC_RXDAI_NAME,
 		.codec_name = MT_SOC_CODEC_NAME,
-		.init = mt_soc_audio_init,
-		.ops = &mt_machine_audio_ops,
 	},
 	{
 		.name = "Voice_MD1",
@@ -909,8 +1023,6 @@ static struct snd_soc_dai_link mt_soc_dai_common[] = {
 		.platform_name  = MT_SOC_VOICE_MD1,
 		.codec_dai_name = MT_SOC_CODEC_VOICE_MD1DAI_NAME,
 		.codec_name = MT_SOC_CODEC_NAME,
-		.init = mt_soc_audio_init,
-		.ops = &mt_machine_audio_ops,
 	},
 	{
 		.name = "HDMI_OUT",
@@ -919,8 +1031,6 @@ static struct snd_soc_dai_link mt_soc_dai_common[] = {
 		.platform_name  = MT_SOC_HDMI_PCM,
 		.codec_dai_name = MT_SOC_CODEC_HDMI_DUMMY_DAI_NAME,
 		.codec_name = MT_SOC_CODEC_DUMMY_NAME,
-		.init = mt_soc_audio_init,
-		.ops = &mt_machine_audio_ops,
 	},
 	{
 		.name = "ULDLOOPBACK",
@@ -929,8 +1039,6 @@ static struct snd_soc_dai_link mt_soc_dai_common[] = {
 		.platform_name  = MT_SOC_ULDLLOOPBACK_PCM,
 		.codec_dai_name = MT_SOC_CODEC_ULDLLOOPBACK_NAME,
 		.codec_name = MT_SOC_CODEC_NAME,
-		.init = mt_soc_audio_init,
-		.ops = &mt_machine_audio_ops,
 	},
 	{
 		.name = "I2S0OUTPUT",
@@ -939,8 +1047,6 @@ static struct snd_soc_dai_link mt_soc_dai_common[] = {
 		.platform_name  = MT_SOC_I2S0_PCM,
 		.codec_dai_name = MT_SOC_CODEC_I2S0_DUMMY_DAI_NAME,
 		.codec_name = MT_SOC_CODEC_DUMMY_NAME,
-		.init = mt_soc_audio_init,
-		.ops = &mt_machine_audio_ops,
 	},
 	{
 		.name = "MRGRX",
@@ -949,8 +1055,6 @@ static struct snd_soc_dai_link mt_soc_dai_common[] = {
 		.platform_name  = MT_SOC_MRGRX_PCM,
 		.codec_dai_name = MT_SOC_CODEC_MRGRX_DAI_NAME,
 		.codec_name = MT_SOC_CODEC_NAME,
-		.init = mt_soc_audio_init,
-		.ops = &mt_machine_audio_ops,
 	},
 	{
 		.name = "MRGRXCAPTURE",
@@ -959,8 +1063,6 @@ static struct snd_soc_dai_link mt_soc_dai_common[] = {
 		.platform_name  = MT_SOC_MRGRX_AWB_PCM,
 		.codec_dai_name = MT_SOC_CODEC_MRGRX_DUMMY_DAI_NAME,
 		.codec_name = MT_SOC_CODEC_DUMMY_NAME,
-		.init = mt_soc_audio_init,
-		.ops = &mt_machine_audio_ops,
 	},
 	{
 		.name = "I2S0DL1OUTPUT",
@@ -969,8 +1071,6 @@ static struct snd_soc_dai_link mt_soc_dai_common[] = {
 		.platform_name  = MT_SOC_I2S0DL1_PCM,
 		.codec_dai_name = MT_SOC_CODEC_I2S0TXDAI_NAME,
 		.codec_name = MT_SOC_CODEC_NAME,
-		.init = mt_soc_audio_init,
-		.ops = &mt_machine_audio_ops,
 	},
 	{
 		.name = "DL1AWBCAPTURE",
@@ -979,8 +1079,6 @@ static struct snd_soc_dai_link mt_soc_dai_common[] = {
 		.platform_name  = MT_SOC_DL1_AWB_PCM,
 		.codec_dai_name = MT_SOC_CODEC_DL1AWBDAI_NAME,
 		.codec_name = MT_SOC_CODEC_DUMMY_NAME,
-		.init = mt_soc_audio_init,
-		.ops = &mt_machine_audio_ops,
 	},
 	{
 		.name = "Voice_MD1_BT",
@@ -989,8 +1087,6 @@ static struct snd_soc_dai_link mt_soc_dai_common[] = {
 		.platform_name  = MT_SOC_VOICE_MD1_BT,
 		.codec_dai_name = MT_SOC_CODEC_VOICE_MD1_BTDAI_NAME,
 		.codec_name = MT_SOC_CODEC_DUMMY_NAME,
-		.init = mt_soc_audio_init,
-		.ops = &mt_machine_audio_ops,
 	},
 	{
 		.name = "VOIP_CALL_BT_PLAYBACK",
@@ -999,8 +1095,6 @@ static struct snd_soc_dai_link mt_soc_dai_common[] = {
 		.platform_name  = MT_SOC_VOIP_BT_OUT,
 		.codec_dai_name = MT_SOC_CODEC_VOIPCALLBTOUTDAI_NAME,
 		.codec_name = MT_SOC_CODEC_DUMMY_NAME,
-		.init = mt_soc_audio_init,
-		.ops = &mt_machine_audio_ops,
 	},
 	{
 		.name = "VOIP_CALL_BT_CAPTURE",
@@ -1009,8 +1103,6 @@ static struct snd_soc_dai_link mt_soc_dai_common[] = {
 		.platform_name  = MT_SOC_VOIP_BT_IN,
 		.codec_dai_name = MT_SOC_CODEC_VOIPCALLBTINDAI_NAME,
 		.codec_name = MT_SOC_CODEC_DUMMY_NAME,
-		.init = mt_soc_audio_init,
-		.ops = &mt_machine_audio_ops,
 	},
 	{
 		.name = "TDM_Debug_CAPTURE",
@@ -1019,8 +1111,6 @@ static struct snd_soc_dai_link mt_soc_dai_common[] = {
 		.platform_name  = MT_SOC_TDMRX_PCM,
 		.codec_dai_name = MT_SOC_CODEC_TDMRX_DAI_NAME,
 		.codec_name = MT_SOC_CODEC_DUMMY_NAME,
-		.init = mt_soc_audio_init,
-		.ops = &mt_machine_audio_ops,
 	},
 	{
 		.name = "FM_MRG_TX",
@@ -1029,8 +1119,6 @@ static struct snd_soc_dai_link mt_soc_dai_common[] = {
 		.platform_name  = MT_SOC_FM_MRGTX_PCM,
 		.codec_dai_name = MT_SOC_CODEC_FMMRGTXDAI_DUMMY_DAI_NAME,
 		.codec_name = MT_SOC_CODEC_DUMMY_NAME,
-		.init = mt_soc_audio_init,
-		.ops = &mt_machine_audio_ops,
 	},
 	{
 		.name = "MultiMedia3",
@@ -1039,8 +1127,6 @@ static struct snd_soc_dai_link mt_soc_dai_common[] = {
 		.platform_name  = MT_SOC_UL2_PCM,
 		.codec_dai_name = MT_SOC_CODEC_RXDAI2_NAME,
 		.codec_name = MT_SOC_CODEC_NAME,
-		.init = mt_soc_audio_init,
-		.ops = &mt_machine_audio_ops,
 	},
 	{
 		.name = "I2S0_AWB_CAPTURE",
@@ -1049,8 +1135,6 @@ static struct snd_soc_dai_link mt_soc_dai_common[] = {
 		.platform_name  = MT_SOC_I2S0_AWB_PCM,
 		.codec_dai_name = MT_SOC_CODEC_I2S0AWB_NAME,
 		.codec_name = MT_SOC_CODEC_DUMMY_NAME,
-		.init = mt_soc_audio_init,
-		.ops = &mt_machine_audio_ops,
 	},
 	{
 		.name = "Voice_MD2",
@@ -1059,8 +1143,6 @@ static struct snd_soc_dai_link mt_soc_dai_common[] = {
 		.platform_name  = MT_SOC_VOICE_MD2,
 		.codec_dai_name = MT_SOC_CODEC_VOICE_MD2DAI_NAME,
 		.codec_name = MT_SOC_CODEC_NAME,
-		.init = mt_soc_audio_init,
-		.ops = &mt_machine_audio_ops,
 	},
 	{
 		.name = "PLATOFRM_CONTROL",
@@ -1069,8 +1151,6 @@ static struct snd_soc_dai_link mt_soc_dai_common[] = {
 		.platform_name  = MT_SOC_ROUTING_PCM,
 		.codec_dai_name = MT_SOC_CODEC_DUMMY_DAI_NAME,
 		.codec_name = MT_SOC_CODEC_DUMMY_NAME,
-		.init = mt_soc_audio_init2,
-		.ops = &mtmachine_audio_ops2,
 	},
 	{
 		.name = "Voice_MD2_BT",
@@ -1079,8 +1159,6 @@ static struct snd_soc_dai_link mt_soc_dai_common[] = {
 		.platform_name  = MT_SOC_VOICE_MD2_BT,
 		.codec_dai_name = MT_SOC_CODEC_VOICE_MD2_BTDAI_NAME,
 		.codec_name = MT_SOC_CODEC_DUMMY_NAME,
-		.init = mt_soc_audio_init,
-		.ops = &mt_machine_audio_ops,
 	},
 	{
 		.name = "HP_IMPEDANCE",
@@ -1089,8 +1167,6 @@ static struct snd_soc_dai_link mt_soc_dai_common[] = {
 		.platform_name  = MT_SOC_HP_IMPEDANCE_PCM,
 		.codec_dai_name = MT_SOC_CODEC_HP_IMPEDANCE_NAME,
 		.codec_name = MT_SOC_CODEC_NAME,
-		.init = mt_soc_audio_init,
-		.ops = &mt_machine_audio_ops,
 	},
 	{
 		.name = "FM_I2S_RX_Playback",
@@ -1099,8 +1175,6 @@ static struct snd_soc_dai_link mt_soc_dai_common[] = {
 		.platform_name  = MT_SOC_FM_I2S_PCM,
 		.codec_dai_name = MT_SOC_CODEC_FM_I2S_DAI_NAME,
 		.codec_name = MT_SOC_CODEC_NAME,
-		.init = mt_soc_audio_init,
-		.ops = &mt_machine_audio_ops,
 	},
 	{
 		.name = "FM_I2S_RX_Capture",
@@ -1109,19 +1183,6 @@ static struct snd_soc_dai_link mt_soc_dai_common[] = {
 		.platform_name  = MT_SOC_FM_I2S_AWB_PCM,
 		.codec_dai_name = MT_SOC_CODEC_FM_I2S_DUMMY_DAI_NAME,
 		.codec_name = MT_SOC_CODEC_DUMMY_NAME,
-		.init = mt_soc_audio_init,
-		.ops = &mt_machine_audio_ops,
-	},
-	{
-		.name = "OFFLOAD_GDMA_OUT",
-		.stream_name = MT_SOC_OFFLOAD_GDMA_STREAM_NAME,
-		.cpu_dai_name   = MT_SOC_OFFLOAD_GDMA_NAME,
-		.platform_name  = MT_SOC_OFFLOAD_GDMA_PCM,
-		.codec_dai_name = MT_SOC_CODEC_OFFLOAD_GDMA_DAI_NAME,
-		.codec_name = MT_SOC_CODEC_DUMMY_NAME,
-		.init = mt_soc_audio_init,
-		/* .ops = &mt_machine_audio_ops, */
-		.compr_ops = &mt_machine_audio_compr_ops,
 	},
 	{
 		.name = "MultiMedia_DL2",
@@ -1130,72 +1191,84 @@ static struct snd_soc_dai_link mt_soc_dai_common[] = {
 		.platform_name  = MT_SOC_DL2_PCM,
 		.codec_dai_name = MT_SOC_CODEC_TXDAI2_NAME,
 		.codec_name = MT_SOC_CODEC_NAME,
-		.init = mt_soc_audio_init,
-		.ops = &mt_machine_audio_ops,
 	},
 #ifdef CONFIG_MTK_BTCVSD_ALSA
-	 {
-	 .name = "BTCVSD_RX",
-	 .stream_name = MT_SOC_BTCVSD_CAPTURE_STREAM_NAME,
-	 .cpu_dai_name   = MT_SOC_BTCVSD_RX_DAI_NAME,
-	 .platform_name  = MT_SOC_BTCVSD_RX_PCM,
-	 .codec_dai_name = MT_SOC_CODEC_BTCVSD_RX_DAI_NAME,
-	 .codec_name = MT_SOC_CODEC_DUMMY_NAME,
-	 .init = mt_soc_audio_init,
-	 .ops = &mt_machine_audio_ops,
-	 },
-	 {
-	 .name = "BTCVSD_TX",
-	 .stream_name = MT_SOC_BTCVSD_PLAYBACK_STREAM_NAME,
-	 .cpu_dai_name   = MT_SOC_BTCVSD_TX_DAI_NAME,
-	 .platform_name  = MT_SOC_BTCVSD_TX_PCM,
-	 .codec_dai_name = MT_SOC_CODEC_BTCVSD_TX_DAI_NAME,
-	 .codec_name = MT_SOC_CODEC_DUMMY_NAME,
-	 .init = mt_soc_audio_init,
-	 .ops = &mt_machine_audio_ops,
-	 },
+	{
+		.name = "BTCVSD_RX",
+		.stream_name = MT_SOC_BTCVSD_CAPTURE_STREAM_NAME,
+		.cpu_dai_name   = "snd-soc-dummy-dai",
+		.platform_name  = MT_SOC_BTCVSD_RX_PCM,
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.codec_name = "snd-soc-dummy",
+		},
+	{
+		.name = "BTCVSD_TX",
+		.stream_name = MT_SOC_BTCVSD_PLAYBACK_STREAM_NAME,
+		.cpu_dai_name   = "snd-soc-dummy-dai",
+		.platform_name  = MT_SOC_BTCVSD_TX_PCM,
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.codec_name = "snd-soc-dummy",
+	},
 #endif
+	{
+		.name = "MOD_DAI_CAPTURE",
+		.stream_name = MT_SOC_MODDAI_STREAM_NAME,
+		.cpu_dai_name	= MT_SOC_MOD_DAI_NAME,
+		.platform_name	= MT_SOC_MOD_DAI_PCM,
+		.codec_dai_name = MT_SOC_CODEC_MOD_DAI_NAME,
+		.codec_name = MT_SOC_CODEC_DUMMY_NAME,
+	},
+	{
+		.name = "OFFLOAD",
+		.stream_name = MT_SOC_OFFLOAD_STREAM_NAME,
+		.cpu_dai_name	= "snd-soc-dummy-dai",
+		.platform_name	= "snd-soc-dummy",
+		.codec_dai_name = MT_SOC_CODEC_OFFLOAD_NAME,
+		.codec_name = MT_SOC_CODEC_NAME,
+	},
+	{
+		.name = "PCM_ANC",
+		.stream_name = MT_SOC_ANC_STREAM_NAME,
+		.cpu_dai_name   = MT_SOC_ANC_NAME,
+		.platform_name  = MT_SOC_ANC_PCM,
+		.codec_dai_name = MT_SOC_CODEC_ANC_NAME,
+		.codec_name = MT_SOC_CODEC_NAME,
+	},
+	{
+		.name = "ANC_RECORD",
+		.stream_name = MT_SOC_ANC_RECORD_STREAM_NAME,
+		.cpu_dai_name	= MT_SOC_ANC_RECORD_DAI_NAME,
+		.platform_name	= MT_SOC_I2S2_ADC2_PCM,
+		.codec_dai_name = MT_SOC_CODEC_DUMMY_DAI_NAME,
+		.codec_name = MT_SOC_CODEC_DUMMY_NAME,
+		.ops = &mt_machine_audio_ops,
+	},
+	{
+		.name = "Voice_Ultrasound",
+		.stream_name = MT_SOC_VOICE_ULTRA_STREAM_NAME,
+		.cpu_dai_name	= "snd-soc-dummy-dai",
+		.platform_name	= MT_SOC_VOICE_ULTRA,
+		.codec_dai_name = MT_SOC_CODEC_VOICE_ULTRADAI_NAME,
+		.codec_name = MT_SOC_CODEC_NAME,
+	},
 };
 
 static struct snd_soc_dai_link mt_soc_extspk_dai[] = {
 	{
 		.name = "ext_Speaker_Multimedia",
 		.stream_name = MT_SOC_SPEAKER_STREAM_NAME,
-		.cpu_dai_name   = MT_SOC_EXTSPKDAI_NAME,
-		.platform_name  = MT_SOC_I2S0DL1_PCM,
+		.cpu_dai_name   = "snd-soc-dummy-dai",
+		.platform_name  = "snd-soc-dummy",
 		.codec_dai_name = "max98926-aif1",
 		.codec_name = "MAX98926_MT",
-		.init = mt_soc_audio_init,
-		.ops = &mt_machine_audio_ops,
 	},
 	{
-		.name = "Voice_MD1_Ext_Speaker",
-		.stream_name = MT_SOC_VOICEMD1_SPEAKER_STREAM_NAME,
-		.cpu_dai_name   = MT_SOC_VOICEMD1_EXTSPKDAI_NAME,
-		.platform_name  = MT_SOC_VOICE_MD1,
-		.codec_dai_name = "max98926-aif1",
-		.codec_name = "MAX98926_MT",
-		.init = mt_soc_audio_init,
-		.ops = &mt_machine_audio_ops,
-	},
-	{
-		.name = "Voice_MD2_Ext_Speaker",
-		.stream_name = MT_SOC_VOICEMD2_SPEAKER_STREAM_NAME,
-		.cpu_dai_name   = MT_SOC_VOICEMD2_EXTSPKDAI_NAME,
-		.platform_name  = MT_SOC_VOICE_MD2,
-		.codec_dai_name = "max98926-aif1",
-		.codec_name = "MAX98926_MT",
-		.init = mt_soc_audio_init,
-		.ops = &mt_machine_audio_ops,
-	},
-	{
-		.name = "FM_Playback_Ext_Speaker",
-		.stream_name = MT_SOC_FMPLAYBACK_EXTSPEAKER_STREAM_NAME,
-		.cpu_dai_name   = MT_SOC_FM_PLAYBACK_EXTSPKDAI_NAME,
-		.platform_name  = MT_SOC_FM_I2S_PCM,
-		.codec_dai_name = "max98926-aif1",
-		.codec_name = "MAX98926_MT",
-		.init = mt_soc_audio_init,
+		.name = "I2S1_AWB_CAPTURE",
+		.stream_name = MT_SOC_I2S2ADC2_STREAM_NAME,
+		.cpu_dai_name   = MT_SOC_I2S2ADC2DAI_NAME,
+		.platform_name  = MT_SOC_I2S2_ADC2_PCM,
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.codec_name = "snd-soc-dummy",
 		.ops = &mt_machine_audio_ops,
 	},
 };
@@ -1205,9 +1278,12 @@ static struct snd_soc_dai_link mt_soc_dai_component[
 	ARRAY_SIZE(mt_soc_extspk_dai)];
 
 static const char const *I2S_low_jittermode[] = {"Off", "On"};
+static const char const *on_off[] = {"Off", "On"};
+
 
 static const struct soc_enum mt_soc_machine_enum[] = {
 	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(I2S_low_jittermode), I2S_low_jittermode),
+	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(on_off), on_off),
 };
 
 
@@ -1227,9 +1303,29 @@ static int mt6595_set_lowjitter(struct snd_kcontrol *kcontrol, struct snd_ctl_el
 	return 0;
 }
 
+static int mt_get_dmic_path(struct snd_kcontrol *kcontrol,
+			    struct snd_ctl_elem_value *ucontrol)
+{
+	ucontrol->value.integer.value[0] = mt_soc_dmic_control;
+	return 0;
+}
+
+static int mt_set_dmic_path(struct snd_kcontrol *kcontrol,
+			    struct snd_ctl_elem_value *ucontrol)
+{
+	pr_warn("%s()\n", __func__);
+
+	mt_soc_dmic_control = ucontrol->value.integer.value[0];
+	setDmicPath(mt_soc_dmic_control);
+	return 0;
+}
+
 
 static const struct snd_kcontrol_new mt_soc_controls[] = {
-	SOC_ENUM_EXT("I2S low Jitter function", mt_soc_machine_enum[0], mt6595_get_lowjitter, mt6595_set_lowjitter),
+	SOC_ENUM_EXT("I2S low Jitter function", mt_soc_machine_enum[0],
+		     mt6595_get_lowjitter, mt6595_set_lowjitter),
+	SOC_ENUM_EXT("dmic path", mt_soc_machine_enum[1],
+		     mt_get_dmic_path, mt_set_dmic_path),
 };
 
 static struct snd_soc_card snd_soc_card_mt = {

@@ -1,117 +1,14 @@
 /*
-** Id: //Department/DaVinci/BRANCHES/MT6620_WIFI_DRIVER_V2_3/include/nic/mac.h#1
-*/
-
-/*! \file   "mac.h"
-    \brief  Brief description.
-
-    Detail description.
-*/
-
-/*
-** Log: mac.h
- *
- * 03 02 2012 terry.wu
- * NULL
- * Sync CFG80211 modification from branch 2,2.
- *
- * 01 05 2012 tsaiyuan.hsu
- * [WCXRP00001157] [MT6620 Wi-Fi][FW][DRV] add timing measurement support for 802.11v
- * add timing measurement support for 802.11v.
- *
- * 10 12 2011 wh.su
- * [WCXRP00001036] [MT6620 Wi-Fi][Driver][FW] Adding the 802.11w code for MFP
- * adding the 802.11w related function and define .
- *
- * 06 22 2011 wh.su
- * [WCXRP00000806] [MT6620 Wi-Fi][Driver] Move the WPA/RSN IE and WAPI IE structure to mac.h
- * and let the sw structure not align at byte
- * Move the WAPI/RSN IE to mac.h and SW structure not align to byte,
- * Notice needed update P2P.ko.
- *
- * 05 06 2011 wh.su
- * [WCXRP00000699] [MT6620 Wi-Fi][Driver] Add the ie pointer check for avoid TP-LINK AP send
- * the wrong beacon make driver got incorrect support rate set
- * Add the length check before access the ie length filed.
- *
- * 05 06 2011 wh.su
- * [WCXRP00000699] [MT6620 Wi-Fi][Driver] Add the ie pointer check for avoid TP-LINK AP send
- * the wrong beacon make driver got incorrect support rate set
- * adding the length check before processing next ie..
- *
- * 04 18 2011 terry.wu
- * [WCXRP00000660] [MT6620 Wi-Fi][Driver] Remove flag CFG_WIFI_DIRECT_MOVED
- * Remove flag CFG_WIFI_DIRECT_MOVED.
- *
- * 04 12 2011 cm.chang
- * [WCXRP00000634] [MT6620 Wi-Fi][Driver][FW] 2nd BSS will not support 40MHz bandwidth for concurrency
- * .
- *
- * 04 08 2011 yuche.tsai
- * [WCXRP00000624] [Volunteer Patch][MT6620][Driver] Add device discoverability support for GO.
- * Add device discover ability support.
- *
- * 03 17 2011 chinglan.wang
- * [WCXRP00000570] [MT6620 Wi-Fi][Driver] Add Wi-Fi Protected Setup v2.0 feature
- * .
- *
- * 01 25 2011 yuche.tsai
- * [WCXRP00000388] [Volunteer Patch][MT6620][Driver/Fw] change Station Type in station record.
- * Some action frame define is not belong to P2P.
- *
- * 01 25 2011 yuche.tsai
- * [WCXRP00000388] [Volunteer Patch][MT6620][Driver/Fw] change Station Type in station record.
- * Add some service discovery MAC define, phase I.
- *
- * 12 13 2010 cp.wu
- * [WCXRP00000260] [MT6620 Wi-Fi][Driver][Firmware] Create V1.1 branch for both firmware and driver
- * create branch for Wi-Fi driver v1.1
- *
- * 12 13 2010 cp.wu
- * [WCXRP00000256] [MT6620 Wi-Fi][Driver] Eliminate potential issues which is identified by Klockwork
- * suppress warning reported by Klockwork.
- *
- * 11 01 2010 cp.wu
- * [WCXRP00000122] [MT6620 Wi-Fi][Driver] Preparation for YuSu source tree integration
- * revert to previous revision. (this file is not necessary to be changed)
- *
- * 08 20 2010 cm.chang
- * NULL
- * Migrate RLM code to host from FW
- *
- * 08 02 2010 yuche.tsai
- * NULL
- * 1. Add P2P MAC define.
- * 2. Add scan device found event
- *
- * 07 08 2010 cp.wu
- *
- * [WPD00003833] [MT6620 and MT5931] Driver migration - move to new repository.
- *
- * 06 21 2010 yuche.tsai
- * [WPD00003839][MT6620 5931][P2P] Feature migration
- * Add WFA specific OUI.
- *
- * 06 17 2010 yuche.tsai
- * [WPD00003839][MT6620 5931][P2P] Feature migration
- * Add P2P IE ID & Vendor OUI TYPE for P2P.
- *
- * 06 07 2010 cp.wu
- * [WPD00003833][MT6620 and MT5931] Driver migration
- * merge MAC.h.
- *
- * 06 06 2010 kevin.huang
- * [WPD00003832][MT6620 5931] Create driver base
- * [MT6620 5931] Create driver base
- *
- * 01 13 2010 tehuang.liu
- * [WPD00001943]Create WiFi test driver framework on WinXP
- * Added OFFSET_BAR_SSC_SN
-**  \main\maintrunk.MT6620WiFiDriver_Prj\3 2009-12-09 14:00:24 GMT MTK02468
-**  Added offsets and masks for the BA Parameter Set filed
-**  \main\maintrunk.MT6620WiFiDriver_Prj\2 2009-03-10 20:16:26 GMT mtk01426
-**  Init for develop
-**
+* Copyright (C) 2016 MediaTek Inc.
+*
+* This program is free software; you can redistribute it and/or modify
+* it under the terms of the GNU General Public License version 2 as
+* published by the Free Software Foundation.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+* See http://www.gnu.org/licenses/gpl-2.0.html for more details.
 */
 
 #ifndef _MAC_H
@@ -782,8 +679,10 @@
 #define ELEM_ID_20_40_BSS_COEXISTENCE               72	/* 20/40 BSS Coexistence */
 #define ELEM_ID_20_40_INTOLERANT_CHNL_REPORT        73	/* 20/40 BSS Intolerant Channel Report */
 #define ELEM_ID_OBSS_SCAN_PARAMS                    74	/* Overlapping BSS Scan Parameters */
+#define ELEM_ID_BSS_MAX_IDLE_PERIOD					90	/* AP Keep-Alive parameters */
 #define ELEM_ID_INTERWORKING                        107	/* Interworking with External Network */
 #define ELEM_ID_ADVERTISEMENT_PROTOCOL              108	/* Advertisement Protocol */
+#define ELEM_ID_QOS_MAP_SET			110 /* QoS Map Set */
 #define ELEM_ID_ROAMING_CONSORTIUM                  111	/* Roaming Consortium */
 #define ELEM_ID_EXTENDED_CAP                        127	/* Extended capabilities */
 
@@ -892,6 +791,7 @@
 #define ELEM_EXT_CAP_BSS_TRANSITION_BIT             19
 #define ELEM_EXT_CAP_UTC_TSF_OFFSET_BIT             27
 #define ELEM_EXT_CAP_INTERWORKING_BIT               31
+#define ELEM_EXT_CAP_QOSMAPSET_BIT			32
 #define ELEM_EXT_CAP_WNM_NOTIFICATION_BIT           46
 
 #if CFG_SUPPORT_HOTSPOT_2_0
@@ -1055,6 +955,7 @@
 #define ACTION_ADDTS_RSP                            1	/* ADDTS response */
 #define ACTION_DELTS                                2	/* DELTS */
 #define ACTION_SCHEDULE                             3	/* Schedule */
+#define ACTION_QOS_MAP_CONFIGURE		4 /*Qos Map Configure*/
 
 #define ACTION_ADDTS_REQ_FRAME_LEN                  (24+3+63)	/* WMM TSPEC IE: 63 */
 #define ACTION_ADDTS_RSP_FRAME_LEN                  (24+4+63)	/* WMM Status Code: 1; WMM TSPEC IE: 63 */
@@ -1111,6 +1012,7 @@
 #define ACTION_HT_COMPRESSED_BEAMFORM               6	/* Compressed Beamforming */
 #define ACTION_HT_ANT_SEL_INDICES_FB                7	/* Antenna Selection Indices Feedback */
 
+#define ACTION_WNM_NOTIFICATION_REQUEST			26
 /* 802.11v Wireless Network Management */
 #define ACTION_WNM_TIMING_MEASUREMENT_REQUEST       27
 
@@ -1166,6 +1068,12 @@
 /* 7.2.1.7 BlockAckReq */
 #define CTRL_BAR_BAR_CONTROL_OFFSET                 16
 #define CTRL_BAR_BAR_INFORMATION_OFFSET             18
+
+/* 802.11-2012, 8.5.7 Radio Measurement action fields, table 8-206 */
+#if CFG_SUPPORT_802_11K
+#define RM_ACTION_NEIGHBOR_REQUEST					4
+#define RM_ACTION_REIGHBOR_RESPONSE					5
+#endif
 
 /*******************************************************************************
 *                             D A T A   T Y P E S
@@ -1849,6 +1757,41 @@ typedef struct _IE_SUP_OPERATING_CLASS_T {
 	UINT_8 ucSup[255];
 } __KAL_ATTRIB_PACKED__ IE_SUP_OPERATING_CLASS_T, *P_IE_SUP_OPERATING_CLASS_T;
 
+/* 8.4.2.30 BSS Load element */
+struct IE_BSS_LOAD {
+	UINT_8 ucId;
+	UINT_8 ucLength;
+	UINT_16 u2StaCnt;
+	UINT_8 ucChnlUtilizaion;
+	UINT_16 u2AvailabeAC;
+};
+
+/* 8.4.2.81 Bss Max Idle Period */
+struct IE_BSS_MAX_IDLE_PERIOD {
+	UINT_8 ucId;
+	UINT_8 ucLength;
+	UINT_16 u2MaxIdlePeriod; /* unit is 1000 TUs, 1024ms */
+	UINT_8 ucIdleOption; /* BIT(0) is now means Protected Keep-Alive Required, other bits are reserved */
+};
+
+/* 8.4.2.39 Neighbor Report Element */
+struct IE_NEIGHBOR_REPORT_T {
+	UINT_8 ucId;		/* Element ID */
+	UINT_8 ucLength;	/* Length */
+	UINT_8 aucBSSID[MAC_ADDR_LEN];	/* OUI */
+	UINT_8 aucBSSIDInfo[4];		/* Type */
+	UINT_8 ucOperClass; /* Hotspot Configuration */
+	UINT_8 ucChnlNumber;
+	UINT_8 ucPhyType;
+	UINT_8 aucSubElem[0];
+};
+
+struct SUB_ELEMENT_T {
+	UINT_8 ucSubID;
+	UINT_8 ucLength;
+	UINT_8 aucOptInfo[1];
+};
+
 /* 3 7.4 Action Frame. */
 /* 7.4 Action frame format */
 typedef struct _WLAN_ACTION_FRAME {
@@ -1948,6 +1891,21 @@ typedef struct _ACTION_DELTS_FRAME {
 	UINT_8 ucAction;	/* Action Value */
 	UINT_8 aucTsInfo[3];	/* TS Info */
 } __KAL_ATTRIB_PACKED__ ACTION_DELTS_FRAME, *P_ACTION_DELTS_FRAME;
+
+/* 7.4.2.3 QOSMAP frame format */
+struct _ACTION_QOS_MAP_CONFIGURE_FRAME {
+	/* QOSMAP CONFIGURE MAC header */
+	UINT_16 u2FrameCtrl;	/* Frame Control */
+	UINT_16 u2DurationID;	/* Duration */
+	UINT_8 aucDestAddr[MAC_ADDR_LEN];	/* DA */
+	UINT_8 aucSrcAddr[MAC_ADDR_LEN];	/* SA */
+	UINT_8 aucBSSID[MAC_ADDR_LEN];	/* BSSID */
+	UINT_16 u2SeqCtrl;	/* Sequence Control */
+	/* DELTS frame body */
+	UINT_8 ucCategory;	/* Category */
+	UINT_8 ucAction;	/* Action Value */
+	UINT_8 qosMapSet[1];	/* qosmapset */
+};
 
 /* 7.4.4.1 ADDBA Request frame format */
 typedef struct _ACTION_ADDBA_REQ_FRAME_T {
@@ -2134,6 +2092,22 @@ typedef struct _ACTION_UNPROTECTED_WNM_TIMING_MEAS_FRAME {
 	UINT_8 ucMaxToDErr;	/* Maximum of ToD Error [10ns] */
 	UINT_8 ucMaxToAErr;	/* Maximum of ToA Error [10ns] */
 } __KAL_ATTRIB_PACKED__ ACTION_UNPROTECTED_WNM_TIMING_MEAS_FRAME, *P_ACTION_UNPROTECTED_WNM_TIMING_MEAS_FRAME;
+
+/* 8.5.7.6/8.5.7.7 Neighbor Report Request/Response frame format */
+struct ACTION_NEIGHBOR_REPORT_FRAME {
+	/* Neighbor Report Request/Response MAC header */
+	UINT_16 u2FrameCtrl;	/* Frame Control */
+	UINT_16 u2Duration;	/* Duration */
+	UINT_8 aucDestAddr[MAC_ADDR_LEN];	/* DA */
+	UINT_8 aucSrcAddr[MAC_ADDR_LEN];	/* SA */
+	UINT_8 aucBSSID[MAC_ADDR_LEN];	/* BSSID */
+	UINT_16 u2SeqCtrl;	/* Sequence Control */
+	/* Neighbor Report Request/Response frame body */
+	UINT_8 ucCategory;	/* Category */
+	UINT_8 ucAction;	/* Action Value */
+	UINT_8 ucDialogToken;	/* Dialog Token */
+	UINT_8 aucInfoElem[1];	/* subelements */
+};
 
 /* 3 Information Elements from WFA. */
 typedef struct _IE_WFA_T {

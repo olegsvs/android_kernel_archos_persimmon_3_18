@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #include <linux/version.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
@@ -287,7 +300,7 @@ static ssize_t mtk_mdm_sw_write(struct file *file, const char __user *buf, size_
 		return -EFAULT;
 	}
 
-	if (sscanf(ptr_mtktsmdm_data->desc, "%s", ptr_mtktsmdm_data->temp) == 1) {
+	if (sscanf(ptr_mtktsmdm_data->desc, "%255s", ptr_mtktsmdm_data->temp) == 1) {
 		if (strncmp(ptr_mtktsmdm_data->temp, "on", 2) == 0 || strncmp(ptr_mtktsmdm_data->temp, "1", 1) == 0)
 			mdm_sw = true;
 		else if (strncmp(ptr_mtktsmdm_data->temp, "off", 3) == 0 ||

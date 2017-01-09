@@ -28,13 +28,37 @@
 #include <linux/of_address.h>
 #include <linux/of_irq.h>
 #include <linux/sizes.h>
+#include <linux/irqchip/arm-gic-v3.h>
 #include <linux/irqchip/mtk-gic-extend.h>
+#include <linux/io.h>
+#include <mach/mt_secure_api.h>
 
+#define IOMEM(x)        ((void __force __iomem *)(x))
 /* for cirq use */
 void __iomem *GIC_DIST_BASE;
 void __iomem *INT_POL_CTL0;
 void __iomem *INT_POL_CTL1;
 static void __iomem *GIC_REDIST_BASE;
+static u32 wdt_irq;
+static u32 reg_len_pol0;
+
+#ifndef readq
+/* for some kernel config, readq might not be defined, ex aarch32 */
+static inline u64 readq(const void __iomem *addr)
+{
+	u64 ret = readl(addr + 4);
+
+	ret <<= 32;
+	ret |= readl(addr);
+
+	return ret;
+}
+#endif
+
+static inline unsigned int gic_irq(struct irq_data *d)
+{
+	return d->hwirq;
+}
 
 static int gic_populate_rdist(void __iomem **rdist_base)
 {
@@ -45,20 +69,87 @@ static int gic_populate_rdist(void __iomem **rdist_base)
 	return 0;
 }
 
-u32 mt_irq_get_pol(u32 irq)
+bool mt_is_secure_irq(struct irq_data *d)
 {
-	u32 reg_index = 0;
+	if (gic_irq(d) == wdt_irq)
+		return true;
+	else
+		return false;
+}
 
-	reg_index = (irq - 32) >> 5;
+bool mt_get_irq_gic_targets(struct irq_data *d, cpumask_t *mask)
+{
+	void __iomem *dist_base;
+	void __iomem *routing_reg;
+	u32 cpu;
+	u32 cluster;
+	u64 routing_val;
+	u32 target_mask;
 
-	/* FIXME: need to use more flexible way to
-	 * get non-continuous POL registers */
-	if (reg_index >= 8) {
-		reg_index -= 8;
-		reg_index += 0x70/4;
+	/* for SPI/PPI, target to current cpu */
+	if (gic_irq(d) < 32) {
+		target_mask = 1<<smp_processor_id();
+		goto build_mask;
 	}
 
-	return readl(INT_POL_CTL0 + reg_index*4);
+	/* for SPI, we read routing info to build current mask */
+	dist_base = GIC_DIST_BASE;
+	routing_reg = dist_base + GICD_IROUTER + (gic_irq(d)*8);
+	routing_val = readq(routing_reg);
+
+	/* if target all, target_mask should indicate all CPU */
+	if (routing_val & GICD_IROUTER_SPI_MODE_ANY) {
+		target_mask = (1<<num_possible_cpus())-1;
+		pr_debug("%s:%d: irq(%d) targets all\n",
+				__func__, __LINE__, gic_irq(d));
+	} else {
+		/* if not target all,
+		 * it should be targted to specific cpu only */
+		cluster = (routing_val&0xff00)>>8;
+		cpu = routing_val&0xff;
+
+		/* assume 1 cluster contain 4 cpu in little,
+		 * and only the last cluster can contain less than 4 cpu */
+		target_mask = 1<<(cluster*4 + cpu);
+
+		pr_debug("%s:%d: irq(%d) target_mask(0x%x)\n",
+				__func__, __LINE__, gic_irq(d), target_mask);
+	}
+
+build_mask:
+	cpumask_clear(mask);
+	for_each_cpu(cpu, cpu_possible_mask) {
+		if (target_mask & (1<<cpu))
+			cpumask_set_cpu(cpu, mask);
+	}
+
+	return true;
+}
+
+u32 mt_irq_get_pol(u32 irq)
+{
+	u32 reg;
+	void __iomem *base = INT_POL_CTL0;
+
+	if (irq < 32) {
+		pr_err("Fail to set polarity of interrupt %d\n", irq);
+		return 0;
+	}
+
+	reg = ((irq - 32)/32);
+
+	/* if reg_len_pol0 != 0, means there is 2nd POL reg base,
+	   compute the correct offset for polarity reg in 2nd POL reg */
+	if ((reg_len_pol0 != 0) && (reg >= reg_len_pol0)) {
+		if (!INT_POL_CTL1) {
+			pr_err("MUST have 2nd INT_POL_CTRL\n");
+			BUG_ON(1);
+		}
+		reg -= reg_len_pol0;
+		base = INT_POL_CTL1;
+	}
+
+	return readl_relaxed(IOMEM(base + reg*4));
 }
 /*
  * mt_irq_mask_all: disable all interrupts
@@ -231,9 +322,126 @@ void mt_irq_mask_for_sleep(unsigned int irq)
 	mb();
 }
 
-static int __init mt_gic_ext_init(void)
+char *mt_irq_dump_status_buf(int irq, char *buf)
+{
+	int rc;
+	unsigned int result;
+	char *ptr = buf;
+
+	if (!ptr)
+		return NULL;
+
+	ptr += sprintf(ptr, "[mt gic dump] irq = %d\n", irq);
+#if defined(CONFIG_ARM_PSCI) || defined(CONFIG_MTK_PSCI)
+	rc = mt_secure_call(MTK_SIP_KERNEL_GIC_DUMP, irq, 0, 0);
+#else
+	rc = -1;
+#endif
+	if (rc < 0) {
+		ptr += sprintf(ptr, "[mt gic dump] not allowed to dump!\n");
+		return ptr;
+	}
+
+	/* get mask */
+	result = rc & 0x1;
+	ptr += sprintf(ptr, "[mt gic dump] enable = %d\n", result);
+
+	/* get group */
+	result = (rc >> 1) & 0x1;
+	ptr += sprintf(ptr, "[mt gic dump] group = %x (0x1:irq,0x0:fiq)\n",
+			result);
+
+	/* get priority */
+	result = (rc >> 2) & 0xff;
+	ptr += sprintf(ptr, "[mt gic dump] priority = %x\n", result);
+
+	/* get sensitivity */
+	result = (rc >> 10) & 0x1;
+	ptr += sprintf(ptr, "[mt gic dump] sensitivity = %x ", result);
+	ptr += sprintf(ptr, "(edge:0x1, level:0x0)\n");
+
+	/* get pending status */
+	result = (rc >> 11) & 0x1;
+	ptr += sprintf(ptr, "[mt gic dump] pending = %x\n", result);
+
+	/* get active status */
+	result = (rc >> 12) & 0x1;
+	ptr += sprintf(ptr, "[mt gic dump] active status = %x\n", result);
+
+	/* get polarity */
+	result = (rc >> 13) & 0x1;
+	ptr += sprintf(ptr,
+		"[mt gic dump] polarity = %x (0x0: high, 0x1:low)\n",
+		result);
+
+	/* get target cpu mask */
+	result = (rc >> 14) & 0xffff;
+	ptr += sprintf(ptr, "[mt gic dump] tartget cpu mask = 0x%x\n", result);
+
+	return ptr;
+}
+
+void mt_irq_dump_status(int irq)
+{
+	char *buf = kmalloc(2048, GFP_ATOMIC);
+
+	if (!buf)
+		return;
+
+	if (mt_irq_dump_status_buf(irq, buf))
+		pr_warn("%s", buf);
+
+	kfree(buf);
+}
+EXPORT_SYMBOL(mt_irq_dump_status);
+
+static void _mt_set_pol_reg(void __iomem *add, u32 val)
+{
+	writel_relaxed(val, add);
+}
+
+void _mt_irq_set_polarity(unsigned int irq, unsigned int polarity)
+{
+	u32 offset, reg, value;
+	void __iomem *base = INT_POL_CTL0;
+
+	if (irq < 32) {
+		pr_err("Fail to set polarity of interrupt %d\n", irq);
+		return;
+	}
+
+	offset = irq%32;
+	reg = ((irq - 32)/32);
+
+	/* if reg_len_pol0 != 0, means there is 2nd POL reg base,
+	   compute the correct offset for polarity reg in 2nd POL reg */
+	if ((reg_len_pol0 != 0) && (reg >= reg_len_pol0)) {
+		if (!INT_POL_CTL1) {
+			pr_err("MUST have 2nd INT_POL_CTRL\n");
+			BUG_ON(1);
+		}
+		reg -= reg_len_pol0;
+		base = INT_POL_CTL1;
+	}
+
+	value = readl_relaxed(IOMEM(base + reg*4));
+	if (polarity == 0) {
+		/* active low */
+		value |= (1 << offset);
+	} else {
+		/* active high */
+		value &= ~(0x1 << offset);
+	}
+	/* some platforms has to write POL register in secure world */
+	_mt_set_pol_reg(base + reg*4, value);
+}
+
+int __init mt_gic_ext_init(void)
 {
 	struct device_node *node;
+#ifdef CONFIG_MTK_IRQ_NEW_DESIGN
+	int i;
+#endif
 
 	node = of_find_compatible_node(NULL, NULL, "arm,gic-v3");
 	if (!node) {
@@ -258,11 +466,24 @@ static int __init mt_gic_ext_init(void)
 	 * INT_POL_CTL0 is enough */
 	INT_POL_CTL1 = of_iomap(node, 3);
 
+	if (of_property_read_u32(node, "mediatek,reg_len_pol0",
+				&reg_len_pol0))
+		reg_len_pol0 = 0;
+
+#ifdef CONFIG_MTK_IRQ_NEW_DESIGN
+	for (i = 0; i <= CONFIG_NR_CPUS-1; ++i) {
+		INIT_LIST_HEAD(&(irq_need_migrate_list[i].list));
+		spin_lock_init(&(irq_need_migrate_list[i].lock));
+	}
+
+	if (of_property_read_u32(node, "mediatek,wdt_irq", &wdt_irq))
+		wdt_irq = 0;
+#endif
+
 	pr_warn("### gic-v3 init done. ###\n");
 
 	return 0;
 }
-module_init(mt_gic_ext_init);
 
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("MediaTek gicv3 extend Driver");

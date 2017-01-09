@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #ifndef __CCCI_CHRDEV_H__
 #define __CCCI_CHRDEV_H__
 #include <linux/list.h>
@@ -5,7 +18,7 @@
 #include <linux/wait.h>
 #include <linux/atomic.h>
 #include <linux/cdev.h>
-#include <ccci_layer.h>
+#include "ccci_layer.h"
 
 #define MAX_BUFFER_MESSAGES  ((1 << 20)/sizeof(struct CCCI_BUFF_T))
 #define DEFAULT_BUFFER (CCCI_FIFO_MAX_LEN*2)

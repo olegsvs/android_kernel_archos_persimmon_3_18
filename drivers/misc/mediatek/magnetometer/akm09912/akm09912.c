@@ -29,14 +29,22 @@
 /*----------------------------------------------------------------------------*/
 #define AKM09912_DEBUG		1
 #define AKM09912_RETRY_COUNT	10
-#define AKM09912_DEFAULT_DELAY	100
+#define AKM09912_DEFAULT_DELAY	20
 
 
 #if AKM09912_DEBUG
 #define MAGN_TAG                  "[Msensor] "
 #define MAGN_FUN(f)               pr_debug(MAGN_TAG"%s\n", __func__)
 #define MAGN_ERR(fmt, args...)    pr_err(MAGN_TAG"%s %d : "fmt, __func__, __LINE__, ##args)
+
+#define MAGN_DBG 0
+
+#if ((MAGN_DBG) >= 1)
 #define MAGN_LOG(fmt, args...)    pr_debug(MAGN_TAG fmt, ##args)
+#else
+#define MAGN_LOG(fmt, args...)
+#endif
+
 #else
 #define MAGN_TAG
 #define MAGN_FUN(f)               do {} while (0)

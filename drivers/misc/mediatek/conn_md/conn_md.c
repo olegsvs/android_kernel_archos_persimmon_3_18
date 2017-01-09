@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 
 #include "conn_md.h"
 #include "conn_md_dbg.h"
@@ -455,6 +468,7 @@ static int conn_md_init(void)
 	if (NULL == g_conn_md.p_task) {
 		CONN_MD_ERR_FUNC("create conn_md_thread fail\n");
 		i_ret = -ENOMEM;
+		conn_md_dmp_deinit(g_conn_md.p_msg_dmp_sys);
 		goto conn_md_err;
 	}
 	CONN_MD_INFO_FUNC("create conn_md_thread succeed, wakeup it\n");

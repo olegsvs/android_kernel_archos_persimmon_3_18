@@ -1,256 +1,14 @@
 /*
-** Id: @(#)
-*/
-
-/*! \file   "scan.h"
-    \brief
-
-*/
-
-/*
-** Log: scan.h
- *
- * 01 16 2012 cp.wu
- * [MT6620 Wi-Fi][Driver] API and behavior modification for preferred band configuration
- * with corresponding network configuration
- * add wlanSetPreferBandByNetwork() for glue layer to invoke for setting
- * preferred band configuration corresponding to network type.
- *
- * 08 11 2011 cp.wu
- * [WCXRP00000830] [MT6620 Wi-Fi][Firmware] Use MDRDY counter to detect empty channel for shortening scan time
- * sparse channel detection:
- * driver: collect sparse channel information with scan-done event
- *
- * 07 18 2011 cp.wu
- * [WCXRP00000858] [MT5931][Driver][Firmware] Add support for scan to search for more than one SSID
- * in a single scanning request
- * add framework in driver domain for supporting new SCAN_REQ_V2 for more than 1 SSID
- * support as well as uProbeDelay in NDIS 6.x driver model
- *
- * 06 27 2011 cp.wu
- * [WCXRP00000815] [MT6620 Wi-Fi][Driver] allow single BSSID with multiple SSID settings
- * to work around some tricky AP which use space character as hidden SSID
- * allow to have a single BSSID with multiple SSID to be presented in scanning result
- *
- * 04 18 2011 terry.wu
- * [WCXRP00000660] [MT6620 Wi-Fi][Driver] Remove flag CFG_WIFI_DIRECT_MOVED
- * Remove flag CFG_WIFI_DIRECT_MOVED.
- *
- * 02 09 2011 wh.su
- * [WCXRP00000433] [MT6620 Wi-Fi][Driver] Remove WAPI structure define for avoid P2P module
- * with structure miss-align pointer issue
- * always pre-allio WAPI related structure for align p2p module.
- *
- * 01 14 2011 yuche.tsai
- * [WCXRP00000352] [Volunteer Patch][MT6620][Driver] P2P Statsion Record Client List Issue
- * Fix compile error.
- *
- * 09 08 2010 cp.wu
- * NULL
- * use static memory pool for storing IEs of scanning result.
- *
- * 09 03 2010 kevin.huang
- * NULL
- * Refine #include sequence and solve recursive/nested #include issue
- *
- * 08 31 2010 kevin.huang
- * NULL
- * Use LINK LIST operation to process SCAN result
- *
- * 08 30 2010 cp.wu
- * NULL
- * eliminate klockwork errors
- *
- * 08 16 2010 cp.wu
- * NULL
- * add interface for RLM to trigger OBSS-SCAN.
- *
- * 08 12 2010 yuche.tsai
- * NULL
- * Add a functio prototype to find p2p descriptor of a bss descriptor directly.
- *
- * 08 11 2010 yuche.tsai
- * NULL
- * Add function prototype for return channel.
- * modify data structure for scan specific device ID or TYPE. (Move from P2P Connection Settings to Scan Param)
- *
- * 08 05 2010 yuche.tsai
- * NULL
- * Check-in P2P Device Discovery Feature.
- *
- * 08 02 2010 yuche.tsai
- * NULL
- * P2P Group Negotiation Code Check in.
- *
- * 07 26 2010 yuche.tsai
- *
- * Add a option for channel time extension in scan abort command.
- *
- * 07 21 2010 yuche.tsai
- *
- * Add for P2P Scan Result Parsing & Saving.
- *
- * 07 19 2010 yuche.tsai
- *
- * Scan status "FIND" is used for P2P FSM find state.
- *
- * 07 19 2010 cp.wu
- *
- * [WPD00003833] [MT6620 and MT5931] Driver migration.
- * SCN module is now able to handle multiple concurrent scanning requests
- *
- * 07 14 2010 cp.wu
- *
- * [WPD00003833] [MT6620 and MT5931] Driver migration.
- * pass band with channel number information as scan parameter
- *
- * 07 14 2010 cp.wu
- *
- * [WPD00003833] [MT6620 and MT5931] Driver migration.
- * remove timer in DRV-SCN.
- *
- * 07 09 2010 cp.wu
- *
- * 1) separate AIS_FSM state for two kinds of scanning. (OID triggered scan, and scan-for-connection)
- * 2) eliminate PRE_BSS_DESC_T, Beacon/PrebResp is now parsed in single pass
- * 3) implment DRV-SCN module, currently only accepts single scan request, other request
- * will be directly dropped by returning BUSY
- *
- * 07 08 2010 cp.wu
- *
- * [WPD00003833] [MT6620 and MT5931] Driver migration - move to new repository.
- *
- * 07 01 2010 cp.wu
- * [WPD00003833][MT6620 and MT5931] Driver migration
- * add scan uninitialization procedure
- *
- * 07 01 2010 cp.wu
- * [WPD00003833][MT6620 and MT5931] Driver migration
- * implementation of DRV-SCN and related mailbox message handling.
- *
- * 06 25 2010 cp.wu
- * [WPD00003833][MT6620 and MT5931] Driver migration
- * modify Beacon/ProbeResp to complete parsing,
- * because host software has looser memory usage restriction
- *
- * 06 17 2010 yuche.tsai
- * [WPD00003839][MT6620 5931][P2P] Feature migration
- * Add P2P related field in SCAN_PARAM_T.
- *
- * 06 14 2010 cp.wu
- * [WPD00003833][MT6620 and MT5931] Driver migration
- * saa_fsm.c is migrated.
- *
- * 06 14 2010 cp.wu
- * [WPD00003833][MT6620 and MT5931] Driver migration
- * add management dispatching function table.
- *
- * 06 14 2010 cp.wu
- * [WPD00003833][MT6620 and MT5931] Driver migration
- * restore utility function invoking via hem_mbox to direct calls
- *
- * 06 11 2010 cp.wu
- * [WPD00003833][MT6620 and MT5931] Driver migration
- * auth.c is migrated.
- *
- * 06 10 2010 cp.wu
- * [WPD00003833][MT6620 and MT5931] Driver migration
- * add buildable & linkable ais_fsm.c
- *
- * related reference are still waiting to be resolved
- *
- * 06 07 2010 cp.wu
- * [WPD00003833][MT6620 and MT5931] Driver migration
- * add aa_fsm.h, ais_fsm.h, bss.h, mib.h and scan.h.
- *
- * 05 12 2010 kevin.huang
- * [BORA00000794][WIFISYS][New Feature]Power Management Support
- * Add Power Management - Legacy PS-POLL support.
- *
- * 04 13 2010 kevin.huang
- * [BORA00000663][WIFISYS][New Feature] AdHoc Mode Support
- *
- * Add new HW CH macro support
- *
- * 03 16 2010 kevin.huang
- * [BORA00000663][WIFISYS][New Feature] AdHoc Mode Support
- * Add AdHoc Mode
- *
- * 03 10 2010 kevin.huang
- * [BORA00000654][WIFISYS][New Feature] CNM Module - Ch Manager Support
- *
- *  *  *  *  *  * Add Channel Manager for arbitration of JOIN and SCAN Req
- *
- * 02 26 2010 kevin.huang
- * [BORA00000603][WIFISYS] [New Feature] AAA Module Support
- * Modify scanBuildProbeReqFrameCommonIEs() to support P2P SCAN
- *
- * 02 23 2010 wh.su
- * [BORA00000592][MT6620 Wi-Fi] Adding the security related code for driver
- * refine the scan procedure, reduce the WPA and WAPI IE parsing, and move the parsing to the time for join.
- *
- * 02 23 2010 kevin.huang
- * [BORA00000603][WIFISYS] [New Feature] AAA Module Support
- * Add support scan channel 1~14 and update scan result's frequency infou1rwduu`wvpghlqg|n`slk+mpdkb
- *
- * 02 04 2010 kevin.huang
- * [BORA00000603][WIFISYS] [New Feature] AAA Module Support
- * Add AAA Module Support, Revise Net Type to Net Type Index for array lookup
- *
- * 01 27 2010 wh.su
- * [BORA00000476][Wi-Fi][firmware] Add the security module initialize code
- * add and fixed some security function.
- *
- * 01 07 2010 kevin.huang
- * [BORA00000018]Integrate WIFI part into BORA for the 1st time
- * [BORA00000018] Integrate WIFI part into BORA for the 1st time
- *
- * Simplify the process of Beacon during SCAN and remove redundant variable in PRE_BSS_DESC_T
- *
- * Dec 7 2009 mtk01088
- * [BORA00000476] [Wi-Fi][firmware] Add the security module initialize code
- * adding variable for wapi ap
- *
- * Dec 4 2009 mtk01088
- * [BORA00000476] [Wi-Fi][firmware] Add the security module initialize code
- * remove non-used secuirty variavle
- *
- * Dec 3 2009 mtk01461
- * [BORA00000018] Integrate WIFI part into BORA for the 1st time
- * Refine data structure of BSS_DESC_T and PRE_BSS_DESC_T
- *
- * Nov 24 2009 mtk01461
- * [BORA00000018] Integrate WIFI part into BORA for the 1st time
- * Add eNetType to rScanParam and revise MGMT Handler with Retain Status
- *
- * Nov 23 2009 mtk01461
- * [BORA00000018] Integrate WIFI part into BORA for the 1st time
- * Add ucAvailablePhyTypeSet to BSS_DESC_T
- *
- * Nov 20 2009 mtk01461
- * [BORA00000018] Integrate WIFI part into BORA for the 1st time
- * Add aucSrcAddress to SCAN_PARAM_T for P2P's Device Address
- *
- * Nov 19 2009 mtk01088
- * [BORA00000476] [Wi-Fi][firmware] Add the security module initialize code
- * adding the security related variable
- *
- * Nov 18 2009 mtk01088
- * [BORA00000476] [Wi-Fi][firmware] Add the security module initialize code
- * adding the security ie filed for scan parsing
- *
- * Nov 16 2009 mtk01461
- * [BORA00000018] Integrate WIFI part into BORA for the 1st time
- * Add scanSearchBssDescByPolicy()
- *
- * Nov 5 2009 mtk01461
- * [BORA00000018] Integrate WIFI part into BORA for the 1st time
- * Add function declarations of scan_fsm.c
- *
- * Oct 30 2009 mtk01461
- * [BORA00000018] Integrate WIFI part into BORA for the 1st time
- * Add scan.h to source control
-**
+* Copyright (C) 2016 MediaTek Inc.
+*
+* This program is free software; you can redistribute it and/or modify
+* it under the terms of the GNU General Public License version 2 as
+* published by the Free Software Foundation.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+* See http://www.gnu.org/licenses/gpl-2.0.html for more details.
 */
 
 #ifndef _SCAN_H
@@ -278,6 +36,7 @@ extern UINT8 aucTdlsTestExtCapElm[];
 */
 /*! Maximum buffer size of SCAN list */
 #define SCN_MAX_BUFFER_SIZE                 (CFG_MAX_NUM_BSS_LIST * ALIGN_4(sizeof(BSS_DESC_T)))
+#define SCN_ROAM_MAX_BUFFER_SIZE	(CFG_MAX_NUM_ROAM_BSS_LIST * ALIGN_4(sizeof(ROAM_BSS_DESC_T)))
 
 #define SCN_RM_POLICY_EXCLUDE_CONNECTED     BIT(0)	/* Remove SCAN result except the connected one. */
 #define SCN_RM_POLICY_TIMEOUT               BIT(1)	/* Remove the timeout one */
@@ -302,9 +61,11 @@ extern UINT8 aucTdlsTestExtCapElm[];
 
 #define SCN_PROBE_DELAY_MSEC                0
 
-#define SCN_ADHOC_BSS_DESC_TIMEOUT_SEC      5	/* Second. */
+#define SCN_ADHOC_BSS_DESC_TIMEOUT_SEC      15	/* Second. */
 
 #define SCN_NLO_NETWORK_CHANNEL_NUM         (4)
+
+#define REMOVE_TIMEOUT_TWO_DAY			(60*60*24*2)
 
 /*----------------------------------------------------------------------------*/
 /* MSG_SCN_SCAN_REQ                                                           */
@@ -337,6 +98,11 @@ extern UINT8 aucTdlsTestExtCapElm[];
 #define SCAN_BATCH_REQ_RESULT               BIT(2)
 #endif
 
+#define SCAN_NLO_DEFAULT_INTERVAL           30000
+/* PNO min period 30s, max period 300s */
+#define SCAN_NLO_MIN_INTERVAL               30
+#define SCAN_NLO_MAX_INTERVAL               300
+
 /*******************************************************************************
 *                             D A T A   T Y P E S
 ********************************************************************************
@@ -368,9 +134,9 @@ typedef struct _MSG_SCN_FSM_T {
 } MSG_SCN_FSM_T, *P_MSG_SCN_FSM_T;
 
 typedef enum _ENUM_PSCAN_STATE_T {
-	PSCN_IDLE = 1,
-	PSCN_SCANNING,
+	PSCN_IDLE = 0,
 	PSCN_RESET,
+	PSCN_SCANNING,
 	PSCAN_STATE_T_NUM
 } ENUM_PSCAN_STATE_T;
 
@@ -379,6 +145,7 @@ typedef enum _ENUM_PSCAN_STATE_T {
 /*----------------------------------------------------------------------------*/
 struct _BSS_DESC_T {
 	LINK_ENTRY_T rLinkEntry;
+	LINK_ENTRY_T rLinkEntryEss;
 
 	UINT_8 aucBSSID[MAC_ADDR_LEN];
 	UINT_8 aucSrcAddr[MAC_ADDR_LEN];	/* For IBSS, the SrcAddr is different from BSSID */
@@ -483,8 +250,26 @@ struct _BSS_DESC_T {
 	ULARGE_INTEGER u8TimeStamp;	/* Place u8TimeStamp before aucIEBuf[1] to force DW align */
 	UINT_8 aucRawBuf[CFG_RAW_BUFFER_SIZE];
 	UINT_8 aucIEBuf[CFG_IE_BUFFER_SIZE];
-	UINT_8 ucJoinFailureCount;
+
 	OS_SYSTIME rJoinFailTime;
+	struct AIS_BLACKLIST_ITEM *prBlack;
+	UINT_16 u2StaCnt;
+	UINT_16 u2AvaliableAC; /* Available Admission Capacity */
+	UINT_8 ucJoinFailureCount;
+	UINT_8 ucChnlUtilization;
+	UINT_8 ucSNR;
+	BOOLEAN fgSeenProbeResp;
+	BOOLEAN fgExsitBssLoadIE;
+	BOOLEAN fgMultiAnttenaAndSTBC;
+	BOOLEAN fgDeauthLastTime;
+	UINT_32 u4UpdateIdx;
+};
+
+struct _ROAM_BSS_DESC_T {
+	LINK_ENTRY_T rLinkEntry;
+	UINT_8 ucSSIDLen;
+	UINT_8 aucSSID[ELEM_MAX_LEN_SSID];
+	OS_SYSTIME rUpdateTime;
 };
 
 typedef struct _SCAN_PARAM_T {	/* Used by SCAN FSM */
@@ -558,7 +343,7 @@ typedef struct _NLO_PARAM_T {	/* Used by SCAN FSM */
 
 typedef struct _GSCN_CHANNEL_INFO_T {
 	UINT_8 ucBand;
-	UINT_8 ucChannel;	/* frequency */
+	UINT_8 ucChannelNumber;	/* Channel Number */
 	UINT_8 ucPassive;	/* 0 => active, 1 => passive scan; ignored for DFS */
 	UINT_8 aucReserved[1];
 
@@ -566,24 +351,32 @@ typedef struct _GSCN_CHANNEL_INFO_T {
 	/* Add channel class */
 } GSCN_CHANNEL_INFO_T, *P_GSCN_CHANNEL_INFO_T;
 
-typedef struct _GSCAN_CHANNEL_BUCKET_T {
-
+typedef struct _GSCAN_BUCKET_T {
 	UINT_16 u2BucketIndex;	/* bucket index, 0 based */
 	UINT_8 ucBucketFreqMultiple;	/* desired period, in millisecond;
 					 * if this is too low, the firmware should choose to generate
 					 * results as fast as it can instead of failing the command */
-	/* report_events semantics -
-	 *  0 => report only when scan history is % full
-	 *  1 => same as 0 + report a scan completion event after scanning this bucket
-	 *  2 => same as 1 + forward scan results (beacons/probe responses + IEs) in real time to HAL
-	 *  3 => same as 2 + forward scan results (beacons/probe responses + IEs) in real time to
-	 supplicant as well (optional) . */
+	 /* report_events semantics -
+	  *  This is a bit field; which defines following bits -
+	  *  REPORT_EVENTS_EACH_SCAN	=> report a scan completion event after scan. If this is not set
+	  *				    then scan completion events should be reported if
+	  *				    report_threshold_percent or report_threshold_num_scans is
+	  *				    reached.
+	  *  REPORT_EVENTS_FULL_RESULTS => forward scan results (beacons/probe responses + IEs)
+	  *				    in real time to HAL, in addition to completion events
+	  *				    Note: To keep backward compatibility, fire completion
+	  *				    events regardless of REPORT_EVENTS_EACH_SCAN.
+	  *  REPORT_EVENTS_NO_BATCH	=> controls if scans for this bucket should be placed in the
+	  *				    history buffer
+	  */
 	UINT_8 ucReportFlag;
+	UINT_8 ucMaxBucketFreqMultiple; /* max_period / base_period */
+	UINT_8 ucStepCount;
 	UINT_8 ucNumChannels;
-	UINT_8 aucReserved[3];
+	UINT_8 aucReserved[1];
 	WIFI_BAND eBand;	/* when UNSPECIFIED, use channel list */
 	GSCN_CHANNEL_INFO_T arChannelList[GSCAN_MAX_CHANNELS];	/* channels to scan; these may include DFS channels */
-} GSCAN_CHANNEL_BUCKET_T, *P_GSCAN_CHANNEL_BUCKET_T;
+} GSCAN_BUCKET_T, *P_GSCAN_BUCKET_T;
 
 typedef struct _CMD_GSCN_REQ_T {
 	UINT_8 ucFlags;
@@ -595,15 +388,15 @@ typedef struct _CMD_GSCN_REQ_T {
 	UINT_32 u4MaxApPerScan;	/* number of APs to store in each scan in the */
 	/* BSSID/RSSI history buffer (keep the highest RSSI APs) */
 
-	GSCAN_CHANNEL_BUCKET_T arChannelBucket[GSCAN_MAX_BUCKETS];
+	GSCAN_BUCKET_T arBucket[GSCAN_MAX_BUCKETS];
 } CMD_GSCN_REQ_T, *P_CMD_GSCN_REQ_T;
 
 #endif
 
 typedef struct _CMD_GSCN_SCN_COFIG_T {
 	UINT_8 ucNumApPerScn;		/* GSCAN_ATTRIBUTE_NUM_AP_PER_SCAN */
-	UINT_32 u4NumScnToCache;	/* GSCAN_ATTRIBUTE_NUM_SCANS_TO_CACHE */
 	UINT_32 u4BufferThreshold;	/* GSCAN_ATTRIBUTE_REPORT_THRESHOLD */
+	UINT_32 u4NumScnToCache;	/* GSCAN_ATTRIBUTE_NUM_SCANS_TO_CACHE */
 } CMD_GSCN_SCN_COFIG_T, *P_CMD_GSCN_SCN_COFIG_T;
 
 typedef struct _CMD_GET_GSCAN_RESULT {
@@ -629,16 +422,16 @@ typedef struct _CMD_BATCH_REQ_T {
 	CHANNEL_INFO_T arChannelList[32];	/* channels */
 } CMD_BATCH_REQ_T, *P_CMD_BATCH_REQ_T;
 
-typedef struct _PSCN_PARAM_T {
+typedef struct _CMD_SET_PSCAN_PARAM {
 	UINT_8 ucVersion;
-	CMD_NLO_REQ rCurrentCmdNloReq;
-	CMD_BATCH_REQ_T rCurrentCmdBatchReq;
-	CMD_GSCN_REQ_T rCurrentCmdGscnReq;
+	CMD_NLO_REQ rCmdNloReq;
+	CMD_BATCH_REQ_T rCmdBatchReq;
+	CMD_GSCN_REQ_T rCmdGscnReq;
 	BOOLEAN fgNLOScnEnable;
 	BOOLEAN fgBatchScnEnable;
 	BOOLEAN fgGScnEnable;
 	UINT_32 u4BasePeriod;	/* GSCAN_ATTRIBUTE_BASE_PERIOD */
-} PSCN_PARAM_T, *P_PSCN_PARAM_T;
+} CMD_SET_PSCAN_PARAM, *P_CMD_SET_PSCAN_PARAM;
 
 typedef struct _SCAN_INFO_T {
 	ENUM_SCAN_STATE_T eCurrentState;	/* Store the STATE variable of SCAN FSM */
@@ -658,19 +451,36 @@ typedef struct _SCAN_INFO_T {
 
 	LINK_T rPendingMsgList;
 
+	UINT_8 aucScanRoamBuffer[SCN_ROAM_MAX_BUFFER_SIZE];
+	LINK_T rRoamFreeBSSDescList;
+	LINK_T rRoamBSSDescList;
+
 	/* Sparse Channel Detection */
 	BOOLEAN fgIsSparseChannelValid;
 	RF_CHANNEL_INFO_T rSparseChannel;
 
 	/* NLO scanning state tracking */
 	BOOLEAN fgNloScanning;
-	BOOLEAN fgPscnOnnning;
+#if CFG_SUPPORT_SCN_PSCN
+	BOOLEAN fgPscnOngoing;
 	BOOLEAN fgGScnConfigSet;
 	BOOLEAN fgGScnParamSet;
-	P_PSCN_PARAM_T prPscnParam;
+	BOOLEAN fgGScnAction;
+	P_CMD_SET_PSCAN_PARAM prPscnParam;
 	ENUM_PSCAN_STATE_T eCurrentPSCNState;
+#endif
+#if CFG_SUPPORT_GSCN
+	P_PARAM_WIFI_GSCAN_FULL_RESULT prGscnFullResult;
+#endif
 
+	UINT_32 u4ScanUpdateIdx;
 } SCAN_INFO_T, *P_SCAN_INFO_T;
+
+/* use to save partial scan channel information */
+typedef struct _PARTIAL_SCAN_INFO_T {
+	UINT_8 ucChannelListNum;
+	RF_CHANNEL_INFO_T arChnlInfoList[MAXIMUM_OPERATION_CHANNEL_LIST];
+} PARTIAL_SCAN_INFO, *P_PARTIAL_SCAN_INFO;
 
 /* Incoming Mailbox Messages */
 typedef struct _MSG_SCN_SCAN_REQ_T {
@@ -683,6 +493,9 @@ typedef struct _MSG_SCN_SCAN_REQ_T {
 	UINT_8 aucSSID[PARAM_MAX_LEN_SSID];
 #if CFG_ENABLE_WIFI_DIRECT
 	UINT_16 u2ChannelDwellTime;	/* In TU. 1024us. */
+#endif
+#if CFG_MULTI_SSID_SCAN
+	UINT_16 u2TimeoutValue; /* ms unit */
 #endif
 	ENUM_SCAN_CHANNEL eScanChannel;
 	UINT_8 ucChannelListNum;
@@ -701,6 +514,9 @@ typedef struct _MSG_SCN_SCAN_REQ_V2_T {
 	P_PARAM_SSID_T prSsid;
 	UINT_16 u2ProbeDelay;
 	UINT_16 u2ChannelDwellTime;	/* In TU. 1024us. */
+#if CFG_MULTI_SSID_SCAN
+	UINT_16 u2TimeoutValue; /* ms unit */
+#endif
 	ENUM_SCAN_CHANNEL eScanChannel;
 	UINT_8 ucChannelListNum;
 	RF_CHANNEL_INFO_T arChnlInfoList[MAXIMUM_OPERATION_CHANNEL_LIST];
@@ -752,17 +568,6 @@ typedef struct _AGPS_AP_LIST_T {
 	AGPS_AP_INFO_T arApInfo[32];
 } AGPS_AP_LIST_T, *P_AGPS_AP_LIST_T;
 #endif
-
-typedef struct _CMD_SET_PSCAN_PARAM {
-	UINT_8 ucVersion;
-	CMD_NLO_REQ rCmdNloReq;
-	CMD_BATCH_REQ_T rCmdBatchReq;
-	CMD_GSCN_REQ_T rCmdGscnReq;
-	BOOLEAN fgNLOScnEnable;
-	BOOLEAN fgBatchScnEnable;
-	BOOLEAN fgGScnEnable;
-	UINT_32 u4BasePeriod;
-} CMD_SET_PSCAN_PARAM, *P_CMD_SET_PSCAN_PARAM;
 
 typedef struct _CMD_SET_PSCAN_ADD_HOTLIST_BSSID {
 	UINT_8 aucMacAddr[6];
@@ -875,7 +680,15 @@ P_BSS_DESC_T scanSearchBssDescByPolicy(IN P_ADAPTER_T prAdapter, IN ENUM_NETWORK
 
 WLAN_STATUS scanAddScanResult(IN P_ADAPTER_T prAdapter, IN P_BSS_DESC_T prBssDesc, IN P_SW_RFB_T prSwRfb);
 
+BOOLEAN scanCheckBssIsLegal(IN P_ADAPTER_T prAdapter, P_BSS_DESC_T prBssDesc);
+
 VOID scanReportBss2Cfg80211(IN P_ADAPTER_T prAdapter, IN ENUM_BSS_TYPE_T eBSSType, IN P_BSS_DESC_T SpecificprBssDesc);
+
+P_ROAM_BSS_DESC_T scanSearchRoamBssDescBySsid(IN P_ADAPTER_T prAdapter, IN P_BSS_DESC_T prBssDesc);
+P_ROAM_BSS_DESC_T scanAllocateRoamBssDesc(IN P_ADAPTER_T prAdapter);
+VOID scanAddToRoamBssDesc(IN P_ADAPTER_T prAdapter, IN P_BSS_DESC_T prBssDesc);
+VOID scanSearchBssDescOfRoamSsid(IN P_ADAPTER_T prAdapter);
+VOID scanRemoveRoamBssDescsByTime(IN P_ADAPTER_T prAdapter, IN UINT_32 u4RemoveTime);
 
 /*----------------------------------------------------------------------------*/
 /* Routines in scan_fsm.c                                                     */
@@ -935,54 +748,44 @@ scnFsmSchedScanRequest(IN P_ADAPTER_T prAdapter,
 
 BOOLEAN scnFsmSchedScanStopRequest(IN P_ADAPTER_T prAdapter);
 
-BOOLEAN scnFsmPSCNAction(IN P_ADAPTER_T prAdapter, IN UINT_8 ucPscanAct);
+#if CFG_SUPPORT_SCN_PSCN
+BOOLEAN scnFsmPSCNAction(IN P_ADAPTER_T prAdapter, IN ENUM_PSCAN_ACT_T ucPscanAct);
 
 BOOLEAN scnFsmPSCNSetParam(IN P_ADAPTER_T prAdapter, IN P_CMD_SET_PSCAN_PARAM prCmdPscnParam);
 
 BOOLEAN scnFsmGSCNSetHotlist(IN P_ADAPTER_T prAdapter, IN P_CMD_SET_PSCAN_PARAM prCmdPscnParam);
 
-#if 0
-
-BOOLEAN scnFsmGSCNSetRssiSignificatn(IN P_ADAPTER_T prAdapter, IN P_CMD_SET_PSCAN_PARAM prCmdPscnParam);
-#endif
-
 BOOLEAN scnFsmPSCNAddSWCBssId(IN P_ADAPTER_T prAdapter, IN P_CMD_SET_PSCAN_ADD_SWC_BSSID prCmdPscnAddSWCBssId);
 
 BOOLEAN scnFsmPSCNSetMacAddr(IN P_ADAPTER_T prAdapter, IN P_CMD_SET_PSCAN_MAC_ADDR prCmdPscnSetMacAddr);
 
-#if 1				/* CFG_SUPPORT_GSCN_NONSYNC_BROADCOM */
-BOOLEAN scnSetGSCNParam(IN P_ADAPTER_T prAdapter, IN P_PARAM_WIFI_GSCAN_CMD_PARAMS prCmdGscnParam);
+BOOLEAN scnCombineParamsIntoPSCN(IN P_ADAPTER_T prAdapter,
+				 IN P_CMD_NLO_REQ prCmdNloReq,
+				 IN P_CMD_BATCH_REQ_T prCmdBatchReq,
+				 IN P_CMD_GSCN_REQ_T prCmdGscnReq,
+				 IN P_CMD_GSCN_SCN_COFIG_T prNewCmdGscnConfig,
+				 IN BOOLEAN fgRemoveNLOfromPSCN,
+				 IN BOOLEAN fgRemoveBatchSCNfromPSCN, IN BOOLEAN fgRemoveGSCNfromPSCN);
 
-#else
-BOOLEAN scnSetGSCNParam(IN P_ADAPTER_T prAdapter, IN P_CMD_GSCN_REQ_T prCmdGscnParam);
-
+VOID scnPSCNFsm(IN P_ADAPTER_T prAdapter, IN ENUM_PSCAN_STATE_T eNextPSCNState);
 #endif
 
-BOOLEAN
-scnCombineParamsIntoPSCN(IN P_ADAPTER_T prAdapter,
-			 IN P_CMD_NLO_REQ prCmdNloReq,
-			 IN P_CMD_BATCH_REQ_T prCmdBatchReq,
-			 IN P_CMD_GSCN_REQ_T prCmdGscnReq,
-			 IN P_CMD_GSCN_SCN_COFIG_T prNewCmdGscnConfig,
-			 IN BOOLEAN fgRemoveNLOfromPSCN,
-			 IN BOOLEAN fgRemoveBatchSCNfromPSCN, IN BOOLEAN fgRemoveGSCNfromPSCN);
+#if CFG_SUPPORT_GSCN
+BOOLEAN scnSetGSCNParam(IN P_ADAPTER_T prAdapter, IN P_PARAM_WIFI_GSCAN_CMD_PARAMS prCmdGscnParam);
 
-BOOLEAN scnFsmSetGSCNConfig(IN P_ADAPTER_T prAdapter, IN P_CMD_GSCN_SCN_COFIG_T prCmdGscnScnConfig);
+BOOLEAN scnSetGSCNConfig(IN P_ADAPTER_T prAdapter, IN P_CMD_GSCN_SCN_COFIG_T prCmdGscnScnConfig);
 
-BOOLEAN scnFsmGetGSCNResult(IN P_ADAPTER_T prAdapter, IN P_CMD_GET_GSCAN_RESULT_T prGetGscnScnResultCmd);
+BOOLEAN scnFsmGetGSCNResult(IN P_ADAPTER_T prAdapter,
+			    IN P_CMD_GET_GSCAN_RESULT_T prGetGscnResultCmd, OUT PUINT_32 pu4SetInfoLen);
 
-VOID
-scnPSCNFsm(IN P_ADAPTER_T prAdapter,
-	   ENUM_PSCAN_STATE_T eNextPSCNState,
-	   IN P_CMD_NLO_REQ prCmdNloReq,
-	   IN P_CMD_BATCH_REQ_T prCmdBatchReq,
-	   IN P_CMD_GSCN_REQ_T prCmdGscnReq,
-	   IN P_CMD_GSCN_SCN_COFIG_T prNewCmdGscnConfig,
-	   IN BOOLEAN fgRemoveNLOfromPSCN,
-	   IN BOOLEAN fgRemoveBatchSCNfromPSCN, IN BOOLEAN fgRemoveGSCNfromPSCN, IN BOOLEAN fgEnableGSCN);
-
-#endif /* _SCAN_H */
+BOOLEAN scnFsmGSCNResults(IN P_ADAPTER_T prAdapter, IN P_EVENT_GSCAN_RESULT_T prEventBuffer);
+#endif
 
 #if CFG_SUPPORT_AGPS_ASSIST
 VOID scanReportScanResultToAgps(P_ADAPTER_T prAdapter);
 #endif
+P_BSS_DESC_T scanSearchBssDescByScoreForAis(P_ADAPTER_T prAdapter);
+VOID scanGetCurrentEssChnlList(P_ADAPTER_T prAdapter);
+
+#endif /* _SCAN_H */
+

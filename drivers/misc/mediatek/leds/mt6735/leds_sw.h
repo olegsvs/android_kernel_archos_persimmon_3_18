@@ -1,3 +1,17 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
+ */
+
+
 #ifndef _LEDS_SW_H
 #define _LEDS_SW_H
 
@@ -48,10 +62,7 @@ enum mt65xx_led_pmic {
 	MT65XX_LED_PMIC_NLED_ISINK0,
 	MT65XX_LED_PMIC_NLED_ISINK1,
 	MT65XX_LED_PMIC_NLED_ISINK2,
-	MT65XX_LED_PMIC_NLED_ISINK3,
-	MT65XX_LED_PMIC_NLED_RED,   //add by major for bf168 led
-	MT65XX_LED_PMIC_NLED_GREEN, //add by major for  bf168 led
-	MT65XX_LED_PMIC_NLED_BLUE   //add by major for bf168 led
+	MT65XX_LED_PMIC_NLED_ISINK3
 };
 
 enum MT65XX_PMIC_ISINK_MODE {
@@ -172,14 +183,5 @@ struct nled_setting {
 	u32 blink_on_time;
 	u32 blink_off_time;
 };
-//add by major 
-#ifdef CONFIG_LED_AW2013 //add by major for bf168 led driver
-extern void aw2013_red_breath_mode(int on,int off );
-extern void aw2013_green_breath_mode(int on , int off);
-extern void aw2013_blue_breath_mode(int on, int off );
-extern void aw2013_red_pwm_mode(int level );
-extern void aw2013_green_pwm_mode(int level);
-extern void aw2013_blue_pwm_mode(int level);
-#endif
-//add end 
+
 #endif				/* _LEDS_SW_H */

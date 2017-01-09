@@ -1,10 +1,16 @@
 /*
-  FUSE: file io log
-  Copyright (C) 2015 Perry Hsu <perry.hsu@mediatek.com>
-
-  This program can be distributed under the terms of the GNU GPL.
-  See the file COPYING.
+* Copyright (C) 2016 MediaTek Inc.
+*
+* This program is free software; you can redistribute it and/or modify
+* it under the terms of the GNU General Public License version 2 as
+* published by the Free Software Foundation.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+* See http://www.gnu.org/licenses/gpl-2.0.html for more details.
 */
+
 #ifndef _FS_MT_FUSE_H
 #define _FS_MT_FUSE_H
 
@@ -16,7 +22,7 @@ void fuse_request_send_background_ex(struct fuse_conn *fc,
 void fuse_request_send_ex(struct fuse_conn *fc, struct fuse_req *req,
 	__u32 size);
 
-#if defined(CONFIG_FUSE_IO_LOG)  /* IO log is only enabled in eng load */
+#if defined(CONFIG_FUSE_IO_LOG)
 
 #include <linux/sched.h>
 #include <linux/kthread.h>

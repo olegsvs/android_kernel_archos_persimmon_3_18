@@ -32,20 +32,24 @@
 #define APDS9930_DEV_NAME     "APDS9930"
 /*----------------------------------------------------------------------------*/
 #define APS_TAG                  "[ALS/PS] "
+/*#define APS_DEBUG*/
 #define APS_FUN(f)               pr_debug(APS_TAG"%s\n", __func__)
 #define APS_ERR(fmt, args...)    pr_err(APS_TAG"%s %d : "fmt, __func__, __LINE__, ##args)
+#ifdef APS_DEBUG
 #define APS_LOG(fmt, args...)    pr_debug(APS_TAG fmt, ##args)
 #define APS_DBG(fmt, args...)    pr_debug(APS_TAG fmt, ##args)
+#else
+#define APS_LOG(fmt, args...)
+#define APS_DBG(fmt, args...)
+#endif
 
 #define I2C_FLAG_WRITE	0
 #define I2C_FLAG_READ	1
 
-
 int APDS9930_CMM_PPCOUNT_VALUE = 0x08;
 int APDS9930_CMM_CONTROL_VALUE = 0xE4;
 int ZOOM_TIME = 4;
-/*unsigned int alsps_int_gpio_number = 0;
-static int of_get_APDS9930_platform_data(struct device *dev);*/
+unsigned int alsps_int_gpio_number;
 struct alsps_hw alsps_cust;
 static struct alsps_hw *hw = &alsps_cust;
 struct platform_device *alspsPltFmDev;
@@ -72,6 +76,8 @@ static int APDS9930_i2c_suspend(struct i2c_client *client, pm_message_t msg);
 static int APDS9930_i2c_resume(struct i2c_client *client);
 static int APDS9930_remove(void);
 static int APDS9930_local_init(void);
+static int of_get_APDS9930_platform_data(struct device *dev);
+
 
 static int APDS9930_init_flag = -1; /* 0<==>OK -1 <==> fail*/
 static struct alsps_init_info APDS9930_init_info = {
@@ -114,8 +120,6 @@ struct APDS9930_priv {
 	struct alsps_hw *hw;
 	struct i2c_client *client;
 	struct work_struct irq_work;
-	struct device_node *irq_node;
-
 	/*i2c address group */
 	struct APDS9930_i2c_addr addr;
 
@@ -224,7 +228,6 @@ int APDS9930_get_addr(struct alsps_hw *hw, struct APDS9930_i2c_addr *addr)
 		return -EFAULT;
 
 	addr->write_addr = hw->i2c_addr[0];
-
 	return 0;
 }
 
@@ -269,6 +272,7 @@ static long APDS9930_enable_als(struct i2c_client *client, int enable)
 		res = APDS9930_i2c_master_operate(client, databuf, 0x2, I2C_FLAG_WRITE);
 		if (res <= 0)
 			goto EXIT_ERR;
+
 	}
 	return 0;
 
@@ -349,16 +353,16 @@ static long APDS9930_enable_ps(struct i2c_client *client, int enable)
 }
 
 /*----------------------------------------------------------------------------*/
-/*for interrupt work mode support -- by liaoxl.lenovo 12.08.2011*/
+/*for interrupt work mode support*/
 static int APDS9930_check_and_clear_intr(struct i2c_client *client)
 {
 	int res, intp, intl;
 	u8 buffer[2];
 
-/*	gpio_direction_input(alsps_int_gpio_number);
-	if (gpio_get_value(alsps_int_gpio_number) == 1)//skip if no interrupt
+	gpio_direction_input(alsps_int_gpio_number);
+	if (gpio_get_value(alsps_int_gpio_number) == 1)	/*skip if no interrupt */
 		return 0;
-*/
+
 	buffer[0] = APDS9930_CMM_STATUS;
 	res = APDS9930_i2c_master_operate(client, buffer, 0x101, I2C_FLAG_READ);
 	if (res <= 0)
@@ -409,10 +413,10 @@ static int APDS9930_check_intr(struct i2c_client *client)
 	int res, intp, intl;
 	u8 buffer[2];
 
-/*	gpio_direction_input(alsps_int_gpio_number);
-	if (gpio_get_value(alsps_int_gpio_number) == 1)	//skip if no interrupt
+	gpio_direction_input(alsps_int_gpio_number);
+	if (gpio_get_value(alsps_int_gpio_number) == 1)	/*skip if no interrupt */
 		return 0;
-*/
+
 	buffer[0] = APDS9930_CMM_STATUS;
 	res = APDS9930_i2c_master_operate(client, buffer, 0x101, I2C_FLAG_READ);
 	if (res <= 0)
@@ -471,68 +475,25 @@ static irqreturn_t alsps_interrupt_handler(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
-
 int APDS9930_irq_registration(struct i2c_client *client)
 {
 	int ret = -1;
-
 	struct APDS9930_priv *obj = i2c_get_clientdata(client);
-	/*struct task_struct *thread = NULL;*/
-	struct pinctrl *pinctrl;
-	struct pinctrl_state *pins_default;
-	struct pinctrl_state *pins_cfg;
-	struct platform_device *alsps_pdev = get_alsps_platformdev();
-	u32 ints[2] = {0,0};
+
 
 	g_APDS9930_ptr = obj;
 
 	/* gpio setting */
-	pinctrl = devm_pinctrl_get(&alsps_pdev->dev);
-	if (IS_ERR(pinctrl)) {
-		ret = PTR_ERR(pinctrl);
-		APS_ERR("Cannot find alsps pinctrl!\n");
-	}
-	pins_default = pinctrl_lookup_state(pinctrl, "pin_default");
-	if (IS_ERR(pins_default)) {
-		ret = PTR_ERR(pins_default);
-		APS_ERR("Cannot find alsps pinctrl default!\n");
-	}
-	pins_cfg = pinctrl_lookup_state(pinctrl, "pin_cfg");
-	if (IS_ERR(pins_cfg)) {
-		ret = PTR_ERR(pins_cfg);
-		APS_ERR("Cannot find alsps pinctrl pin_cfg!\n");
-	}
-	pinctrl_select_state(pinctrl, pins_cfg);
 
-	if (APDS9930_obj->irq_node) {
-		of_property_read_u32_array(APDS9930_obj->irq_node, "debounce", ints, ARRAY_SIZE(ints));
-		gpio_request(ints[0], "p-sensor");
-		gpio_set_debounce(ints[0], ints[1]);
-		APS_LOG("ints[0] = %d, ints[1] = %d!!\n", ints[0], ints[1]);
-
-		alsps_irq = irq_of_parse_and_map(APDS9930_obj->irq_node, 0);
-		if (alsps_irq < 0) {
-			APS_ERR("alsps request_irq IRQ LINE NOT AVAILABLE!.");
-			return -1;
-		}
-		APS_LOG("alsps_irq : %d\n", alsps_irq);
-		/*gpio_direction_input(alsps_int_gpio_number);*/
-		ret = request_irq(alsps_irq, alsps_interrupt_handler, IRQF_TRIGGER_NONE, "ALS-eint", NULL);
-		if (ret > 0) {
-			APS_ERR("alsps request_irq IRQ LINE NOT AVAILABLE!.");
-			return ret;
-		}
-	}else {
-		APS_ERR("null irq node!!\n");
-		return -EINVAL;
+	gpio_direction_input(alsps_int_gpio_number);
+	ret = request_irq(alsps_irq, alsps_interrupt_handler,
+			IRQF_TRIGGER_LOW, "als_ps", NULL);
+	if (ret > 0) {
+		APS_ERR("alsps request_irq IRQ LINE NOT AVAILABLE!.");
+		return ret;
 	}
- /*   disable_irq_nosync(alsps_irq);*/
- /*   enable_irq(alsps_irq);*/
-
 	return ret;
-
 }
-
 
 /*----------------------------------------------------------------------------*/
 
@@ -575,7 +536,7 @@ static int APDS9930_init_client(struct i2c_client *client)
 	if (res <= 0)
 		goto EXIT_ERR;
 
-	/*for interrupt work mode support -- by liaoxl.lenovo 12.08.2011 */
+	/*for interrupt work mode support*/
 	if (0 == obj->hw->polling_mode_ps) {
 		if (1 == ps_cali.valid) {
 			databuf[0] = APDS9930_CMM_INT_LOW_THD_LOW;
@@ -646,7 +607,7 @@ static int APDS9930_init_client(struct i2c_client *client)
 		goto EXIT_ERR;
 
 
-	/*Lenovo-sw chenlj2 add 2011-06-03,modified pulse 2  to 4 */
+	/*modified pulse 2  to 4 */
 	databuf[0] = APDS9930_CMM_PPCOUNT;
 	databuf[1] = APDS9930_CMM_PPCOUNT_VALUE;
 	res = APDS9930_i2c_master_operate(client, databuf, 0x2, I2C_FLAG_WRITE);
@@ -654,7 +615,7 @@ static int APDS9930_init_client(struct i2c_client *client)
 		goto EXIT_ERR;
 
 
-	/*Lenovo-sw chenlj2 add 2011-06-03,modified gain 16  to 1 */
+	/*modified gain 16  to 1 */
 	databuf[0] = APDS9930_CMM_CONTROL;
 	databuf[1] = APDS9930_CMM_CONTROL_VALUE;
 	res = APDS9930_i2c_master_operate(client, databuf, 0x2, I2C_FLAG_WRITE);
@@ -717,21 +678,21 @@ int APDS9930_read_als(struct i2c_client *client, u16 *data)
 	c1_nf = obj->als_modulus * c1_value;
 	/* APS_LOG("c1_value=%d, c1_nf=%d, als_modulus=%d\n", c1_value, c1_nf, obj->als_modulus); */
 
-	if ((c0_value > c1_value) && (c0_value < 50000)) {	/*Lenovo-sw chenlj2 add 2011-06-03,add { */
+	if ((c0_value > c1_value) && (c0_value < 50000)) {
 		atio = (c1_nf * 100) / c0_nf;
 
 		/* APS_LOG("atio = %d\n", atio); */
 		if (atio < 30) {
 			*data = (13 * c0_nf - 24 * c1_nf) / 10000;
-		} else if (atio >= 30 && atio < 38) {	/*Lenovo-sw chenlj2 add 2011-06-03,modify > to >= */
+		} else if (atio >= 30 && atio < 38) {
 			*data = (16 * c0_nf - 35 * c1_nf) / 10000;
-		} else if (atio >= 38 && atio < 45) {	/*Lenovo-sw chenlj2 add 2011-06-03,modify > to >= */
+		} else if (atio >= 38 && atio < 45) {
 			*data = (9 * c0_nf - 17 * c1_nf) / 10000;
-		} else if (atio >= 45 && atio < 54) {	/*Lenovo-sw chenlj2 add 2011-06-03,modify > to >= */
+		} else if (atio >= 45 && atio < 54) {
 			*data = (6 * c0_nf - 10 * c1_nf) / 10000;
 		} else
 			*data = 0;
-		/*Lenovo-sw chenlj2 add 2011-06-03,add } */
+
 	} else if (c0_value > 50000) {
 		*data = 65535;
 	} else if (c0_value == 0) {
@@ -932,7 +893,7 @@ static int APDS9930_get_ps_value(struct APDS9930_priv *obj, u16 ps)
 
 
 /*----------------------------------------------------------------------------*/
-/*for interrupt work mode support -- by liaoxl.lenovo 12.08.2011*/
+/*for interrupt work mode support*/
 /* #define DEBUG_APDS9930 */
 static void APDS9930_irq_work(struct work_struct *work)
 {
@@ -944,6 +905,10 @@ static void APDS9930_irq_work(struct work_struct *work)
 	u8 databuf[3];
 	int res = 0;
 
+	if (NULL == obj) {
+		APS_ERR("NULL Pointer\n");
+		return;
+	}
 	err = APDS9930_check_intr(obj->client);
 	if (err) {
 		APS_ERR("APDS9930_irq_work check intrs: %d\n", err);
@@ -1372,13 +1337,81 @@ static long APDS9930_unlocked_ioctl(struct file *file, unsigned int cmd, unsigne
  err_out:
 	return err;
 }
+/*----------------------------------------------------------------------------*/
+#ifdef CONFIG_COMPAT
+static long APDS9930_compat_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
+{
+	long err = 0;
 
+	void __user *arg32 = compat_ptr(arg);
+
+	if (!file->f_op || !file->f_op->unlocked_ioctl)
+		return -ENOTTY;
+
+	switch (cmd) {
+	case COMPAT_ALSPS_SET_PS_MODE:
+		err = file->f_op->unlocked_ioctl(file, ALSPS_SET_PS_MODE, (unsigned long)arg32);
+		break;
+	case COMPAT_ALSPS_GET_PS_MODE:
+		err = file->f_op->unlocked_ioctl(file, ALSPS_GET_PS_MODE, (unsigned long)arg32);
+		break;
+	case COMPAT_ALSPS_GET_PS_DATA:
+		err = file->f_op->unlocked_ioctl(file, ALSPS_GET_PS_DATA, (unsigned long)arg32);
+		break;
+	case COMPAT_ALSPS_GET_PS_RAW_DATA:
+		err = file->f_op->unlocked_ioctl(file, ALSPS_GET_PS_RAW_DATA, (unsigned long)arg32);
+		break;
+	case COMPAT_ALSPS_SET_ALS_MODE:
+		err = file->f_op->unlocked_ioctl(file, ALSPS_SET_ALS_MODE, (unsigned long)arg32);
+		break;
+	case COMPAT_ALSPS_GET_ALS_MODE:
+		err = file->f_op->unlocked_ioctl(file, ALSPS_GET_ALS_MODE, (unsigned long)arg32);
+		break;
+	case COMPAT_ALSPS_GET_ALS_DATA:
+		err = file->f_op->unlocked_ioctl(file, ALSPS_GET_ALS_DATA, (unsigned long)arg32);
+		break;
+	case COMPAT_ALSPS_GET_ALS_RAW_DATA:
+		err = file->f_op->unlocked_ioctl(file, ALSPS_GET_ALS_RAW_DATA, (unsigned long)arg32);
+		break;
+	case COMPAT_ALSPS_GET_PS_TEST_RESULT:
+		err = file->f_op->unlocked_ioctl(file, ALSPS_GET_PS_TEST_RESULT, (unsigned long)arg32);
+		break;
+	case COMPAT_ALSPS_IOCTL_CLR_CALI:
+		err = file->f_op->unlocked_ioctl(file, ALSPS_IOCTL_CLR_CALI, (unsigned long)arg32);
+		break;
+	case COMPAT_ALSPS_IOCTL_GET_CALI:
+		err = file->f_op->unlocked_ioctl(file, ALSPS_IOCTL_GET_CALI, (unsigned long)arg32);
+		break;
+	case COMPAT_ALSPS_IOCTL_SET_CALI:
+		err = file->f_op->unlocked_ioctl(file, ALSPS_IOCTL_SET_CALI, (unsigned long)arg32);
+		break;
+	case COMPAT_ALSPS_SET_PS_THRESHOLD:
+		err = file->f_op->unlocked_ioctl(file, ALSPS_SET_PS_THRESHOLD, (unsigned long)arg32);
+		break;
+	case COMPAT_ALSPS_GET_PS_THRESHOLD_HIGH:
+		err = file->f_op->unlocked_ioctl(file, ALSPS_GET_PS_THRESHOLD_HIGH, (unsigned long)arg32);
+		break;
+	case COMPAT_ALSPS_GET_PS_THRESHOLD_LOW:
+		err = file->f_op->unlocked_ioctl(file, ALSPS_GET_PS_THRESHOLD_LOW, (unsigned long)arg32);
+		break;
+	default:
+		APS_ERR("%s not supported = 0x%04x", __func__, cmd);
+		err = -ENOIOCTLCMD;
+		break;
+	}
+
+	return err;
+}
+#endif
 /*----------------------------------------------------------------------------*/
 static const struct file_operations APDS9930_fops = {
 	.owner = THIS_MODULE,
 	.open = APDS9930_open,
 	.release = APDS9930_release,
 	.unlocked_ioctl = APDS9930_unlocked_ioctl,
+#ifdef CONFIG_COMPAT
+	.compat_ioctl = APDS9930_compat_ioctl,
+#endif
 };
 
 /*----------------------------------------------------------------------------*/
@@ -1913,15 +1946,13 @@ static int APDS9930_i2c_probe(struct i2c_client *client, const struct i2c_device
 	int err = 0;
 
 	APS_FUN();
-/*	of_get_APDS9930_platform_data(&client->dev);*/
-	/* configure the gpio pins */
-/*	err = gpio_request_one(alsps_int_gpio_number, GPIOF_IN,
-				 "alsps_int");
+
+	err = of_get_APDS9930_platform_data(&client->dev);
 	if (err < 0) {
-		APS_ERR("Unable to request gpio int_pin\n");
-		return -1;
+		APS_ERR("get_APDS9930_platform_data fail\n");
+		goto exit;
 	}
-*/
+
 	obj = kzalloc(sizeof(*obj), GFP_KERNEL);
 	if (!(obj)) {
 		err = -ENOMEM;
@@ -1932,9 +1963,8 @@ static int APDS9930_i2c_probe(struct i2c_client *client, const struct i2c_device
 	obj->hw = hw;
 	APDS9930_get_addr(obj->hw, &obj->addr);
 
-	/*for interrupt work mode support -- by liaoxl.lenovo 12.08.2011 */
+	/*for interrupt work mode support*/
 	INIT_WORK(&obj->irq_work, APDS9930_irq_work);
-
 	obj->client = client;
 	i2c_set_clientdata(client, obj);
 	atomic_set(&obj->als_debounce, 50);
@@ -1949,13 +1979,11 @@ static int APDS9930_i2c_probe(struct i2c_client *client, const struct i2c_device
 	atomic_set(&obj->ps_cmd_val, 0xC1);
 	atomic_set(&obj->ps_thd_val_high, obj->hw->ps_threshold_high);
 	atomic_set(&obj->ps_thd_val_low, obj->hw->ps_threshold_low);
-	obj->irq_node = of_find_compatible_node(NULL, NULL, "mediatek, als-eint");
-
 	obj->enable = 0;
 	obj->pending_intr = 0;
 	obj->als_level_num = sizeof(obj->hw->als_level) / sizeof(obj->hw->als_level[0]);
 	obj->als_value_num = sizeof(obj->hw->als_value) / sizeof(obj->hw->als_value[0]);
-	/*Lenovo-sw chenlj2 add 2011-06-03,modified gain 16 to 1/5 according to actual thing */
+	/*modified gain 16 to 1/5 according to actual thing */
 	/* (1/Gain)*(400/Tine), this value is fix after init ATIME and CONTROL register value */
 	obj->als_modulus = (400 * 100 * ZOOM_TIME) / (1 * 150);
 	/* (400)/16*2.72 here is amplify *100 / *16 */
@@ -1970,6 +1998,7 @@ static int APDS9930_i2c_probe(struct i2c_client *client, const struct i2c_device
 	obj->ps_cali = 0;
 
 	APDS9930_i2c_client = client;
+
 
 	/*if (1 == obj->hw->polling_mode_ps)
 	{
@@ -2081,7 +2110,7 @@ exit_init_failed:
 	/* exit_kfree: */
 	kfree(obj);
 exit:
-	/*gpio_free(alsps_int_gpio_number);*/
+	gpio_free(alsps_int_gpio_number);
 	APDS9930_i2c_client = NULL;
 	APS_ERR("%s: err = %d\n", __func__, err);
 	APDS9930_init_flag = -1;
@@ -2100,8 +2129,7 @@ static int APDS9930_i2c_remove(struct i2c_client *client)
 	err = misc_deregister(&APDS9930_device);
 	if (err)
 		APS_ERR("misc_deregister fail: %d\n", err);
-
-	/*gpio_free(alsps_int_gpio_number);*/
+	gpio_free(alsps_int_gpio_number);
 	APDS9930_i2c_client = NULL;
 	i2c_unregister_device(client);
 	kfree(i2c_get_clientdata(client));
@@ -2132,18 +2160,31 @@ static int APDS9930_remove(void)
 	return 0;
 }
 /*----------------------------------------------------------------------------*/
-
-/*static int of_get_APDS9930_platform_data(struct device *dev)
+static int of_get_APDS9930_platform_data(struct device *dev)
 {
 	struct device_node *node = NULL;
+	int err = 0;
 
 	node = of_find_compatible_node(NULL, NULL, "mediatek,alsps");
 	if (node) {
 		alsps_int_gpio_number = of_get_named_gpio(node, "int-gpio", 0);
-		APS_ERR("alsps_int_gpio_number %d; \n", alsps_int_gpio_number);
+		err = gpio_request_one(alsps_int_gpio_number, GPIOF_IN, "alsps_int");
+		if (err < 0) {
+			APS_ERR("Unable to request gpio int_pin\n");
+			return -1;
+		}
+		alsps_irq = irq_of_parse_and_map(node, 0);
+		if (alsps_irq < 0) {
+			APS_ERR("alsps request_irq IRQ LINE NOT AVAILABLE!.");
+			return -1;
+		}
+		APS_ERR("alsps_int_gpio_number %d; alsps_irq : %d\n", alsps_int_gpio_number, alsps_irq);
+	} else {
+		APS_ERR("get dts gpio node fail!\n");
+		return -1;
 	}
 	return 0;
-}*/
+}
 /*----------------------------------------------------------------------------*/
 static int __init APDS9930_init(void)
 {

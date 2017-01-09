@@ -229,7 +229,7 @@ int cm36652_enable_ps(struct i2c_client *client, int enable)
 			APS_ERR("i2c_master_send function err\n");
 			goto ENABLE_PS_EXIT_ERR;
 		}
-		APS_LOG("CM36652_REG_PS_CONF1_2 value value_low = %x, value_high = %x\n", databuf[0], databuf[1]);
+		/* APS_LOG("CM36652_REG_PS_CONF1_2 value value_low = %x, value_high = %x\n", databuf[0], databuf[1]); */
 		databuf[2] = databuf[1];
 		databuf[1] = databuf[0]&0xFE;
 		databuf[0] = CM36652_REG_PS_CONF1_2;
@@ -249,7 +249,7 @@ int cm36652_enable_ps(struct i2c_client *client, int enable)
 			APS_ERR("i2c_master_send function err\n");
 			goto ENABLE_PS_EXIT_ERR;
 		}
-		APS_LOG("CM36652_REG_PS_CONF1_2 value value_low = %x, value_high = %x\n", databuf[0], databuf[1]);
+		/* APS_LOG("CM36652_REG_PS_CONF1_2 value value_low = %x, value_high = %x\n", databuf[0], databuf[1]); */
 
 		databuf[2] = databuf[1];
 		databuf[1] = databuf[0]|0x01;
@@ -275,14 +275,14 @@ int cm36652_enable_als(struct i2c_client *client, int enable)
 	u8 databuf[3];
 
 	if (enable == 1) {
-		APS_LOG("cm36652_enable_als enable_als\n");
+		/* APS_LOG("cm36652_enable_als enable_als\n"); */
 		databuf[0] = CM36652_REG_CS_CONF;
 		res = CM36652_i2c_master_operate(client, databuf, 0x201, I2C_FLAG_READ);
 		if (res < 0) {
 			APS_ERR("i2c_master_send function err\n");
 			goto ENABLE_ALS_EXIT_ERR;
 		}
-		APS_LOG("CM36652_REG_CS_CONF value value_low = %x, value_high = %x\n", databuf[0], databuf[1]);
+		/* APS_LOG("CM36652_REG_CS_CONF value value_low = %x, value_high = %x\n", databuf[0], databuf[1]); */
 
 		databuf[2] = databuf[1];
 		databuf[1] = databuf[0]&0xFE;
@@ -295,14 +295,14 @@ int cm36652_enable_als(struct i2c_client *client, int enable)
 		atomic_set(&obj->als_deb_on, 1);
 		atomic_set(&obj->als_deb_end, jiffies+atomic_read(&obj->als_debounce)/(1000/HZ));
 	} else {
-		APS_LOG("cm36652_enable_als disable_als\n");
+		/* APS_LOG("cm36652_enable_als disable_als\n"); */
 		databuf[0] = CM36652_REG_CS_CONF;
 		res = CM36652_i2c_master_operate(client, databuf, 0x201, I2C_FLAG_READ);
 		if (res < 0) {
 			APS_ERR("i2c_master_send function err\n");
 			goto ENABLE_ALS_EXIT_ERR;
 		}
-		APS_LOG("CM36652_REG_CS_CONF value value_low = %x, value_high = %x\n", databuf[0], databuf[1]);
+		/* APS_LOG("CM36652_REG_CS_CONF value value_low = %x, value_high = %x\n", databuf[0], databuf[1]); */
 
 		databuf[2] = databuf[1];
 		databuf[1] = databuf[0]|0x01;
@@ -582,6 +582,7 @@ static ssize_t cm36652_show_reg(struct device_driver *ddri, char *buf)
 	u8  _bIndex = 0;
 	u8 databuf[2] = {0};
 	ssize_t  _tLength  = 0;
+	int res = 0;
 
 	if (!cm36652_obj) {
 		APS_ERR("cm3623_obj is null!!\n");
@@ -590,7 +591,10 @@ static ssize_t cm36652_show_reg(struct device_driver *ddri, char *buf)
 
 	for (_bIndex = 0; _bIndex < 0x0D; _bIndex++) {
 		databuf[0] = _bIndex;
-		CM36652_i2c_master_operate(cm36652_obj->client, databuf, 0x201, I2C_FLAG_READ);
+		res = CM36652_i2c_master_operate(cm36652_obj->client, databuf, 0x201, I2C_FLAG_READ);
+		if (res < 0) {
+			APS_ERR("i2c_master_send function err res = %d\n", res);
+		}
 		_tLength += snprintf((buf + _tLength), (PAGE_SIZE - _tLength),
 			"Reg[0x%02X]: 0x%02X\n", _bIndex, databuf[0]);
 	}
@@ -1062,7 +1066,9 @@ int cm36652_setup_eint(struct i2c_client *client)
 	}
 /* eint request */
 	if (cm36652_obj->irq_node) {
-		of_property_read_u32_array(cm36652_obj->irq_node, "debounce", ints, ARRAY_SIZE(ints));
+		ret = of_property_read_u32_array(cm36652_obj->irq_node, "debounce", ints, ARRAY_SIZE(ints));
+		if (!ret)
+			APS_LOG("of_property_read_u32_array fail!!\n");
 		gpio_request(ints[0], "p-sensor");
 		gpio_set_debounce(ints[0], ints[1]);
 		pinctrl_select_state(pinctrl, pins_cfg);
@@ -1079,6 +1085,7 @@ int cm36652_setup_eint(struct i2c_client *client)
 			return -EINVAL;
 		}
 		enable_irq(cm36652_obj->irq);
+		enable_irq_wake(cm36652_obj->irq);
 	} else {
 		APS_ERR("null irq node!!\n");
 		return -EINVAL;
@@ -1376,12 +1383,80 @@ static long cm36652_unlocked_ioctl(struct file *file, unsigned int cmd, unsigned
 err_out:
 	return err;
 }
+#ifdef CONFIG_COMPAT
+static long cm36652_compat_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
+{
+	long err = 0;
+
+	void __user *arg32 = compat_ptr(arg);
+
+	if (!file->f_op || !file->f_op->unlocked_ioctl)
+		return -ENOTTY;
+
+	switch (cmd) {
+	case COMPAT_ALSPS_SET_PS_MODE:
+		err = file->f_op->unlocked_ioctl(file, ALSPS_SET_PS_MODE, (unsigned long)arg32);
+		break;
+	case COMPAT_ALSPS_GET_PS_MODE:
+		err = file->f_op->unlocked_ioctl(file, ALSPS_GET_PS_MODE, (unsigned long)arg32);
+		break;
+	case COMPAT_ALSPS_GET_PS_DATA:
+		err = file->f_op->unlocked_ioctl(file, ALSPS_GET_PS_DATA, (unsigned long)arg32);
+		break;
+	case COMPAT_ALSPS_GET_PS_RAW_DATA:
+		err = file->f_op->unlocked_ioctl(file, ALSPS_GET_PS_RAW_DATA, (unsigned long)arg32);
+		break;
+	case COMPAT_ALSPS_SET_ALS_MODE:
+		err = file->f_op->unlocked_ioctl(file, ALSPS_SET_ALS_MODE, (unsigned long)arg32);
+		break;
+	case COMPAT_ALSPS_GET_ALS_MODE:
+		err = file->f_op->unlocked_ioctl(file, ALSPS_GET_ALS_MODE, (unsigned long)arg32);
+		break;
+	case COMPAT_ALSPS_GET_ALS_DATA:
+		err = file->f_op->unlocked_ioctl(file, ALSPS_GET_ALS_DATA, (unsigned long)arg32);
+		break;
+	case COMPAT_ALSPS_GET_ALS_RAW_DATA:
+		err = file->f_op->unlocked_ioctl(file, ALSPS_GET_ALS_RAW_DATA, (unsigned long)arg32);
+		break;
+	case COMPAT_ALSPS_GET_PS_TEST_RESULT:
+		err = file->f_op->unlocked_ioctl(file, ALSPS_GET_PS_TEST_RESULT, (unsigned long)arg32);
+		break;
+	case COMPAT_ALSPS_IOCTL_CLR_CALI:
+		err = file->f_op->unlocked_ioctl(file, ALSPS_IOCTL_CLR_CALI, (unsigned long)arg32);
+		break;
+	case COMPAT_ALSPS_IOCTL_GET_CALI:
+		err = file->f_op->unlocked_ioctl(file, ALSPS_IOCTL_GET_CALI, (unsigned long)arg32);
+		break;
+	case COMPAT_ALSPS_IOCTL_SET_CALI:
+		err = file->f_op->unlocked_ioctl(file, ALSPS_IOCTL_SET_CALI, (unsigned long)arg32);
+		break;
+	case COMPAT_ALSPS_SET_PS_THRESHOLD:
+		err = file->f_op->unlocked_ioctl(file, ALSPS_SET_PS_THRESHOLD, (unsigned long)arg32);
+		break;
+	case COMPAT_ALSPS_GET_PS_THRESHOLD_HIGH:
+		err = file->f_op->unlocked_ioctl(file, ALSPS_GET_PS_THRESHOLD_HIGH, (unsigned long)arg32);
+		break;
+	case COMPAT_ALSPS_GET_PS_THRESHOLD_LOW:
+		err = file->f_op->unlocked_ioctl(file, ALSPS_GET_PS_THRESHOLD_LOW, (unsigned long)arg32);
+		break;
+	default:
+		APS_ERR("%s not supported = 0x%04x", __func__, cmd);
+		err = -ENOIOCTLCMD;
+		break;
+	}
+
+	return err;
+}
+#endif
 /*------------------------------misc device related operation functions------------------------------------*/
 static const struct file_operations cm36652_fops = {
 	.owner = THIS_MODULE,
 	.open = cm36652_open,
 	.release = cm36652_release,
 	.unlocked_ioctl = cm36652_unlocked_ioctl,
+#ifdef CONFIG_COMPAT
+	.compat_ioctl = cm36652_compat_ioctl,
+#endif
 };
 
 static struct miscdevice cm36652_device = {
@@ -1409,7 +1484,7 @@ static int cm36652_init_client(struct i2c_client *client)
 		APS_ERR("i2c_master_send function err\n");
 		goto EXIT_ERR;
 	}
-	APS_LOG("cm36652 ps CM36652_REG_CS_CONF command!\n");
+	/* APS_LOG("cm36652 ps CM36652_REG_CS_CONF command!\n"); */
 
 	databuf[0] = CM36652_REG_PS_CONF1_2;
 	databuf[1] = 0x19;
@@ -1423,7 +1498,7 @@ static int cm36652_init_client(struct i2c_client *client)
 		APS_ERR("i2c_master_send function err\n");
 		goto EXIT_ERR;
 	}
-	APS_LOG("cm36652 ps CM36652_REG_PS_CONF1_2 command!\n");
+	/* APS_LOG("cm36652 ps CM36652_REG_PS_CONF1_2 command!\n"); */
 
 	databuf[0] = CM36652_REG_PS_CANC;/* value need to confirm */
 	databuf[1] = 0x00;
@@ -1434,7 +1509,7 @@ static int cm36652_init_client(struct i2c_client *client)
 		goto EXIT_ERR;
 	}
 
-	APS_LOG("cm36652 ps CM36652_REG_PS_CANC command!\n");
+	/* APS_LOG("cm36652 ps CM36652_REG_PS_CANC command!\n"); */
 
 	if (0 == obj->hw->polling_mode_als) {
 			databuf[0] = CM36652_REG_ALS_THDH;
@@ -1495,7 +1570,7 @@ static int als_enable_nodata(int en)
 	int len;
 #endif /* #ifdef CUSTOM_KERNEL_SENSORHUB */
 
-	APS_LOG("cm36652_obj als enable value = %d\n", en);
+	/* APS_LOG("cm36652_obj als enable value = %d\n", en); */
 
 #ifdef CUSTOM_KERNEL_SENSORHUB
 	if (atomic_read(&cm36652_obj->init_done)) {
@@ -1604,7 +1679,7 @@ static int ps_enable_nodata(int en)
 	int len;
 #endif /* #ifdef CUSTOM_KERNEL_SENSORHUB */
 
-	APS_LOG("cm36652_obj als enable value = %d\n", en);
+	/* APS_LOG("cm36652_obj als enable value = %d\n", en); */
 
 #ifdef CUSTOM_KERNEL_SENSORHUB
 	if (atomic_read(&cm36652_obj->init_done)) {
@@ -1879,7 +1954,7 @@ static int cm36652_i2c_remove(struct i2c_client *client)
 
 static int cm36652_i2c_detect(struct i2c_client *client, struct i2c_board_info *info)
 {
-	strcpy(info->type, CM36652_DEV_NAME);
+	strncpy(info->type, CM36652_DEV_NAME, strlen(CM36652_DEV_NAME));
 	return 0;
 
 }
@@ -1889,7 +1964,7 @@ static int cm36652_i2c_suspend(struct i2c_client *client, pm_message_t msg)
 	struct cm36652_priv *obj = i2c_get_clientdata(client);
 	int err;
 
-	APS_LOG("cm36652_i2c_suspend\n");
+	/* APS_LOG("cm36652_i2c_suspend\n"); */
 
 	if (!obj) {
 		APS_ERR("null pointer!!\n");
@@ -1911,7 +1986,7 @@ static int cm36652_i2c_resume(struct i2c_client *client)
 	struct hwm_sensor_data sensor_data;
 
 	memset(&sensor_data, 0, sizeof(sensor_data));
-	APS_LOG("cm36652_i2c_resume\n");
+	/* APS_LOG("cm36652_i2c_resume\n"); */
 	if (!obj) {
 		APS_ERR("null pointer!!\n");
 		return 0;
@@ -1968,6 +2043,9 @@ static int __init cm36652_init(void)
 /*----------------------------------------------------------------------------*/
 static void __exit cm36652_exit(void)
 {
+#ifdef CONFIG_CUSTOM_KERNEL_ALSPS_MODULE
+	alsps_success_Flag = false;
+#endif
 }
 /*----------------------------------------------------------------------------*/
 module_init(cm36652_init);

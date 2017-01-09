@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #if !defined(AEE_COMMON_H)
 #define AEE_COMMON_H
 
@@ -35,4 +48,7 @@ extern void dump_log_idle(void);
 extern void irq_raise_softirq(const struct cpumask *mask, unsigned int irq);
 #endif
 /* extern void mt_fiq_printf(const char *fmt, ...); */
+extern int no_zap_locks;
+extern void mtk_uart_dump_reg(char *s);
+
 #endif				/* AEE_COMMON_H */

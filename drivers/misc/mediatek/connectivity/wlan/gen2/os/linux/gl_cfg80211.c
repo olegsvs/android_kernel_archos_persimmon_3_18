@@ -1,39 +1,14 @@
 /*
-** Id: @(#) gl_cfg80211.c@@
-*/
-
-/*! \file   gl_cfg80211.c
-    \brief  Main routines for supporintg MT6620 cfg80211 control interface
-
-    This file contains the support routines of Linux driver for MediaTek Inc. 802.11
-    Wireless LAN Adapters.
-*/
-
-/*
-** Log: gl_cfg80211.c
-**
-** 09 05 2013 cp.wu
-** correct length to pass to wlanoidSetBssid()
-**
-** 09 04 2013 cp.wu
-** fix typo
-**
-** 09 03 2013 cp.wu
-** add path for reassociation
-**
-** 11 23 2012 yuche.tsai
-** [ALPS00398671] [Acer-Tablet] Remove Wi-Fi Direct completely
-** Fix bug of WiFi may reboot under user load, when WiFi Direct is removed..
-**
-** 09 12 2012 wcpadmin
-** [ALPS00276400] Remove MTK copyright and legal header on GPL/LGPL related packages
-** .
-**
-** 08 30 2012 chinglan.wang
-** [ALPS00349664] [6577JB][WIFI] Phone can not connect to AP secured with AES via WPS in 802.11n Only
-** .
- *
-**
+* Copyright (C) 2016 MediaTek Inc.
+*
+* This program is free software; you can redistribute it and/or modify
+* it under the terms of the GNU General Public License version 2 as
+* published by the Free Software Foundation.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+* See http://www.gnu.org/licenses/gpl-2.0.html for more details.
 */
 
 /*******************************************************************************
@@ -54,7 +29,6 @@
 #include <net/netlink.h>
 #include <net/cfg80211.h>
 #include "gl_cfg80211.h"
-#include "gl_vendor.h"
 
 /*******************************************************************************
 *                              C O N S T A N T S
@@ -77,13 +51,6 @@ is that there is no resource in TC4, so del key command was not able to set, and
 timeout was happed. if we found the root cause why fw couldn't release TC resouce, we will remove this
 workaround */
 static UINT_8 gucKeyIndex = 255;
-
-P_SW_RFB_T g_arGscnResultsTempBuffer[MAX_BUFFERED_GSCN_RESULTS];
-UINT_8 g_GscanResultsTempBufferIndex = 0;
-UINT_8 g_arGscanResultsIndicateNumber[MAX_BUFFERED_GSCN_RESULTS] = { 0, 0, 0, 0, 0 };
-
-UINT_8 g_GetResultsBufferedCnt = 0;
-UINT_8 g_GetResultsCmdCnt = 0;
 
 /*******************************************************************************
 *                           P R I V A T E   D A T A
@@ -125,6 +92,8 @@ mtk_cfg80211_change_iface(struct wiphy *wiphy,
 	WLAN_STATUS rStatus = WLAN_STATUS_SUCCESS;
 	ENUM_PARAM_OP_MODE_T eOpMode;
 	UINT_32 u4BufLen;
+
+	DBGLOG(REQ, INFO, "--> %s()\n", __func__);
 
 	prGlueInfo = (P_GLUE_INFO_T) wiphy_priv(wiphy);
 	ASSERT(prGlueInfo);
@@ -178,6 +147,8 @@ mtk_cfg80211_add_key(struct wiphy *wiphy,
 	UINT_32 u4BufLen = 0;
 	UINT_8 tmp1[8];
 	UINT_8 tmp2[8];
+
+	DBGLOG(REQ, INFO, "--> %s()\n", __func__);
 
 	prGlueInfo = (P_GLUE_INFO_T) wiphy_priv(wiphy);
 	ASSERT(prGlueInfo);
@@ -282,6 +253,8 @@ int mtk_cfg80211_del_key(struct wiphy *wiphy, struct net_device *ndev, u8 key_in
 	UINT_32 u4BufLen = 0;
 	INT_32 i4Rslt = -EINVAL;
 
+	DBGLOG(REQ, INFO, "--> %s()\n", __func__);
+
 	prGlueInfo = (P_GLUE_INFO_T) wiphy_priv(wiphy);
 	ASSERT(prGlueInfo);
 
@@ -375,6 +348,8 @@ int mtk_cfg80211_get_station(struct wiphy *wiphy, struct net_device *ndev, const
 	UINT_32 u8diffTxBad, u8diffRetry;
 	INT_32 i4Rssi = 0;
 	PARAM_802_11_STATISTICS_STRUCT_T rStatistics;
+
+	DBGLOG(REQ, TRACE, "--> %s()\n", __func__);
 
 	prGlueInfo = (P_GLUE_INFO_T) wiphy_priv(wiphy);
 	ASSERT(prGlueInfo);
@@ -738,18 +713,54 @@ int mtk_cfg80211_del_station(struct wiphy *wiphy, struct net_device *ndev, const
  *         others:  failure
  */
 /*----------------------------------------------------------------------------*/
+#if CFG_MULTI_SSID_SCAN
+static PARAM_SCAN_REQUEST_ADV_T rScanRequest;
+#else
 static PARAM_SCAN_REQUEST_EXT_T rScanRequest;
+#endif
 int mtk_cfg80211_scan(struct wiphy *wiphy, struct cfg80211_scan_request *request)
 {
 	P_GLUE_INFO_T prGlueInfo = NULL;
 	WLAN_STATUS rStatus;
 	UINT_32 u4BufLen;
+#if CFG_MULTI_SSID_SCAN
+	UINT_32 i;
+#endif
 /* PARAM_SCAN_REQUEST_EXT_T rScanRequest; */
 
 	prGlueInfo = (P_GLUE_INFO_T) wiphy_priv(wiphy);
 	ASSERT(prGlueInfo);
 
-	DBGLOG(REQ, TRACE, "mtk_cfg80211_scan\n");
+	DBGLOG(REQ, TRACE, "mtk_cfg80211_scan(), original n_ssids=%d\n", request->n_ssids);
+
+#if CFG_MULTI_SSID_SCAN
+	kalMemZero(&rScanRequest, sizeof(PARAM_SCAN_REQUEST_ADV_T));
+	/* check if there is any pending scan/sched_scan not yet finished */
+	if (prGlueInfo->prScanRequest != NULL || prGlueInfo->prSchedScanRequest != NULL) {
+		DBGLOG(REQ, ERROR, "prGlueInfo->prScanRequest || prGlueInfo->prSchedScanRequest != NULL\n");
+		return -EBUSY;
+	}
+
+	if (request->n_ssids == 0)
+		rScanRequest.u4SsidNum = 0;
+	else if (request->n_ssids <= (SCN_SSID_MAX_NUM + 1)) {
+		if ((request->ssids[request->n_ssids - 1].ssid == NULL)
+			|| (request->ssids[request->n_ssids - 1].ssid_len == 0))
+			request->n_ssids--; /* remove the rear NULL SSID if this is a wildcard scan*/
+
+		if (request->n_ssids == (SCN_SSID_MAX_NUM + 1)) /* remove the rear SSID if this is a specific scan */
+			request->n_ssids--;
+		rScanRequest.u4SsidNum = request->n_ssids;
+
+		for (i = 0 ; i < request->n_ssids; i++) {
+			COPY_SSID(rScanRequest.rSsid[i].aucSsid, rScanRequest.rSsid[i].u4SsidLen,
+				request->ssids[i].ssid, request->ssids[i].ssid_len);
+		}
+	} else {
+		DBGLOG(REQ, ERROR, "request->n_ssids:%d\n", request->n_ssids);
+		return -EINVAL;
+	}
+#else
 	kalMemZero(&rScanRequest, sizeof(PARAM_SCAN_REQUEST_EXT_T));
 
 	/* check if there is any pending scan not yet finished */
@@ -761,12 +772,26 @@ int mtk_cfg80211_scan(struct wiphy *wiphy, struct cfg80211_scan_request *request
 	if (request->n_ssids == 0) {
 		rScanRequest.rSsid.u4SsidLen = 0;
 	} else if (request->n_ssids == 1) {
+		/*wildcard ssid*/
+		COPY_SSID(rScanRequest.rSsid.aucSsid, rScanRequest.rSsid.u4SsidLen, request->ssids[0].ssid,
+			  request->ssids[0].ssid_len);
+	} else if (request->n_ssids == 2) {
+		DBGLOG(REQ, INFO, "mtk_cfg80211_scan,[0]ssid:%s, [0]ssid_len:%d [1]ssid:%s, [1]ssid_len:%d"
+		, request->ssids[0].ssid, request->ssids[0].ssid_len
+		, request->ssids[1].ssid, request->ssids[1].ssid_len);
+		/*ssids[0]: specific ssid*/
+		/*ssids[1]: wildcard ssid*/
+
+		request->n_ssids--;
 		COPY_SSID(rScanRequest.rSsid.aucSsid, rScanRequest.rSsid.u4SsidLen, request->ssids[0].ssid,
 			  request->ssids[0].ssid_len);
 	} else {
-		DBGLOG(REQ, ERROR, "request->n_ssids:%d\n", request->n_ssids);
+		DBGLOG(REQ, ERROR, "request to find %d SSIDs, but only support %d\n"
+			, request->n_ssids, GL_CFG80211_SCAN_SSID_MAX_NUM);
 		return -EINVAL;
 	}
+#endif
+	DBGLOG(REQ, INFO, "mtk_cfg80211_scan(), n_ssids=%d\n", request->n_ssids);
 
 	if (request->ie_len > 0) {
 		rScanRequest.u4IELength = request->ie_len;
@@ -774,15 +799,39 @@ int mtk_cfg80211_scan(struct wiphy *wiphy, struct cfg80211_scan_request *request
 	} else {
 		rScanRequest.u4IELength = 0;
 	}
-
+#if 0
 	prGlueInfo->prScanRequest = request;
-
 	rStatus = kalIoctl(prGlueInfo,
 			   wlanoidSetBssidListScanExt,
 			   &rScanRequest, sizeof(PARAM_SCAN_REQUEST_EXT_T), FALSE, FALSE, FALSE, FALSE, &u4BufLen);
 
 	if (rStatus != WLAN_STATUS_SUCCESS) {
+		DBGLOG(REQ, ERROR, "scan error:%x\n", rStatus);
 		prGlueInfo->prScanRequest = NULL;
+		return -EINVAL;
+	}
+
+	/*prGlueInfo->prScanRequest = request;*/
+#endif
+	/* temp save request ieee80211_channel info */
+	rScanRequest.puPartialScanReq = (PUINT_8)request;
+	DBGLOG(REQ, TRACE, "mtk_cfg80211_scan request=%p\n", rScanRequest.puPartialScanReq);
+
+	prGlueInfo->prScanRequest = request;
+
+#if CFG_MULTI_SSID_SCAN
+	rStatus = kalIoctl(prGlueInfo,
+			   wlanoidSetBssidListScanAdv,
+			   &rScanRequest, sizeof(PARAM_SCAN_REQUEST_ADV_T), FALSE, FALSE, FALSE, FALSE, &u4BufLen);
+#else
+	rStatus = kalIoctl(prGlueInfo,
+			   wlanoidSetBssidListScanExt,
+			   &rScanRequest, sizeof(PARAM_SCAN_REQUEST_EXT_T), FALSE, FALSE, FALSE, FALSE, &u4BufLen);
+#endif
+
+	if (rStatus != WLAN_STATUS_SUCCESS) {
+		prGlueInfo->prScanRequest = NULL;
+		rScanRequest.puPartialScanReq = NULL;
 		DBGLOG(REQ, ERROR, "scan error:%x\n", rStatus);
 		return -EINVAL;
 	}
@@ -814,11 +863,13 @@ int mtk_cfg80211_connect(struct wiphy *wiphy, struct net_device *ndev, struct cf
 	PARAM_CONNECT_T rNewSsid;
 	BOOLEAN fgCarryWPSIE = FALSE;
 	ENUM_PARAM_OP_MODE_T eOpMode;
+	P_CONNECTION_SETTINGS_T prConnSettings = NULL;
 
 	prGlueInfo = (P_GLUE_INFO_T) wiphy_priv(wiphy);
 	ASSERT(prGlueInfo);
 
-	DBGLOG(REQ, TRACE, "[wlan] mtk_cfg80211_connect %p %zu\n", sme->ie, sme->ie_len);
+	DBGLOG(REQ, INFO, "[wlan] mtk_cfg80211_connect %p %zu\n", sme->ie, sme->ie_len);
+	prConnSettings = &prGlueInfo->prAdapter->rWifiVar.rConnSettings;
 
 	if (prGlueInfo->prAdapter->rWifiVar.rConnSettings.eOPMode > NET_TYPE_AUTO_SWITCH)
 		eOpMode = NET_TYPE_AUTO_SWITCH;
@@ -955,7 +1006,10 @@ int mtk_cfg80211_connect(struct wiphy *wiphy, struct net_device *ndev, struct cf
 #if CFG_SUPPORT_HOTSPOT_2_0
 	prGlueInfo->fgConnectHS20AP = FALSE;
 #endif
-
+#if CFG_SUPPORT_OKC
+	prConnSettings->fgUseOkc = FALSE;
+	prConnSettings->fgOkcPmkIdValid = FALSE;
+#endif
 	if (sme->ie && sme->ie_len > 0) {
 		WLAN_STATUS rStatus;
 		UINT_32 u4BufLen;
@@ -1018,6 +1072,26 @@ int mtk_cfg80211_connect(struct wiphy *wiphy, struct net_device *ndev, struct cf
 			}
 		}
 #endif
+#if CFG_SUPPORT_OKC
+		if (wextSrchOkcAndPMKID(pucIEStart, sme->ie_len, (PUINT_8 *) &prDesiredIE, &prConnSettings->fgUseOkc)) {
+			UINT_16 u2PmkIdCnt = 0;
+
+			if (prDesiredIE)
+				u2PmkIdCnt = *(PUINT_16)prDesiredIE;
+			DBGLOG(REQ, TRACE, "u2PmkIdCnt %d\n", u2PmkIdCnt);
+			if (u2PmkIdCnt != 0) {
+				prConnSettings->fgOkcPmkIdValid = TRUE;
+				kalMemCopy(prConnSettings->aucOkcPmkId, prDesiredIE+2, 16);
+			} else {
+				rStatus = kalIoctl(prGlueInfo,
+					   wlanoidAddPMKID,
+					   (PVOID)sme->bssid_hint, MAC_ADDR_LEN, FALSE, FALSE, TRUE, FALSE, &u4BufLen);
+				if (rStatus != WLAN_STATUS_SUCCESS)
+					DBGLOG(REQ, WARN, "failed to add OKC PMKID\n");
+			}
+		}
+#endif
+
 	}
 
 	/* clear WSC Assoc IE buffer in case WPS IE is not detected */
@@ -1117,6 +1191,8 @@ int mtk_cfg80211_disconnect(struct wiphy *wiphy, struct net_device *ndev, u16 re
 	WLAN_STATUS rStatus;
 	UINT_32 u4BufLen;
 
+	DBGLOG(REQ, INFO, "--> %s()\n", __func__);
+
 	prGlueInfo = (P_GLUE_INFO_T) wiphy_priv(wiphy);
 	ASSERT(prGlueInfo);
 
@@ -1148,6 +1224,8 @@ int mtk_cfg80211_join_ibss(struct wiphy *wiphy, struct net_device *ndev, struct 
 	UINT_32 u4BufLen = 0;
 	WLAN_STATUS rStatus;
 	struct ieee80211_channel *channel = NULL;
+
+	DBGLOG(REQ, INFO, "--> %s()\n", __func__);
 
 	prGlueInfo = (P_GLUE_INFO_T) wiphy_priv(wiphy);
 	ASSERT(prGlueInfo);
@@ -1196,6 +1274,8 @@ int mtk_cfg80211_leave_ibss(struct wiphy *wiphy, struct net_device *ndev)
 	WLAN_STATUS rStatus;
 	UINT_32 u4BufLen;
 
+	DBGLOG(REQ, INFO, "--> %s()\n", __func__);
+
 	prGlueInfo = (P_GLUE_INFO_T) wiphy_priv(wiphy);
 	ASSERT(prGlueInfo);
 
@@ -1226,6 +1306,8 @@ int mtk_cfg80211_set_power_mgmt(struct wiphy *wiphy, struct net_device *ndev, bo
 	WLAN_STATUS rStatus;
 	UINT_32 u4BufLen;
 	PARAM_POWER_MODE ePowerMode;
+
+	DBGLOG(REQ, INFO, "--> %s()\n", __func__);
 
 	prGlueInfo = (P_GLUE_INFO_T) wiphy_priv(wiphy);
 	ASSERT(prGlueInfo);
@@ -1268,6 +1350,8 @@ int mtk_cfg80211_set_pmksa(struct wiphy *wiphy, struct net_device *ndev, struct 
 	WLAN_STATUS rStatus;
 	UINT_32 u4BufLen;
 	P_PARAM_PMKID_T prPmkid;
+
+	DBGLOG(REQ, INFO, "--> %s()\n", __func__);
 
 	prGlueInfo = (P_GLUE_INFO_T) wiphy_priv(wiphy);
 	ASSERT(prGlueInfo);
@@ -1327,6 +1411,8 @@ int mtk_cfg80211_flush_pmksa(struct wiphy *wiphy, struct net_device *ndev)
 	WLAN_STATUS rStatus;
 	UINT_32 u4BufLen;
 	P_PARAM_PMKID_T prPmkid;
+
+	DBGLOG(REQ, INFO, "--> %s()\n", __func__);
 
 	prGlueInfo = (P_GLUE_INFO_T) wiphy_priv(wiphy);
 	ASSERT(prGlueInfo);
@@ -1452,7 +1538,7 @@ int mtk_cfg80211_remain_on_channel(struct wiphy *wiphy,
 		ASSERT(prGlueInfo);
 
 #if 1
-		DBGLOG(REQ, TRACE, "--> %s()\n", __func__);
+		DBGLOG(REQ, INFO, "--> %s()\n", __func__);
 #endif
 
 		*cookie = prGlueInfo->u8Cookie++;
@@ -1464,6 +1550,7 @@ int mtk_cfg80211_remain_on_channel(struct wiphy *wiphy,
 			i4Rslt = -ENOMEM;
 			break;
 		}
+		kalMemZero(prMsgChnlReq, sizeof(MSG_REMAIN_ON_CHANNEL_T));
 
 		prMsgChnlReq->rMsgHdr.eMsgId = MID_MNY_AIS_REMAIN_ON_CHANNEL;
 		prMsgChnlReq->u8Cookie = *cookie;
@@ -1518,7 +1605,7 @@ int mtk_cfg80211_cancel_remain_on_channel(struct wiphy *wiphy,
 		ASSERT(prGlueInfo);
 
 #if 1
-		DBGLOG(REQ, TRACE, "--> %s()\n", __func__);
+		DBGLOG(REQ, INFO, "--> %s()\n", __func__);
 #endif
 
 		prMsgChnlAbort =
@@ -1565,7 +1652,7 @@ mtk_cfg80211_mgmt_tx(struct wiphy *wiphy,
 
 	do {
 #if 1
-		DBGLOG(REQ, TRACE, "--> %s()\n", __func__);
+		DBGLOG(REQ, INFO, "--> %s()\n", __func__);
 #endif
 
 		if ((wiphy == NULL) || (wdev == NULL) || (params == 0) || (cookie == NULL))
@@ -1667,6 +1754,8 @@ mtk_cfg80211_sched_scan_start(IN struct wiphy *wiphy,
 	UINT_32 i, u4BufLen;
 	P_PARAM_SCHED_SCAN_REQUEST prSchedScanRequest;
 
+	DBGLOG(REQ, INFO, "--> %s()\n", __func__);
+
 	prGlueInfo = (P_GLUE_INFO_T) wiphy_priv(wiphy);
 
 	ASSERT(prGlueInfo);
@@ -1731,6 +1820,8 @@ int mtk_cfg80211_sched_scan_stop(IN struct wiphy *wiphy, IN struct net_device *n
 	WLAN_STATUS rStatus;
 	UINT_32 u4BufLen;
 
+	DBGLOG(REQ, INFO, "--> %s()\n", __func__);
+
 	prGlueInfo = (P_GLUE_INFO_T) wiphy_priv(wiphy);
 	ASSERT(prGlueInfo);
 
@@ -1752,10 +1843,6 @@ int mtk_cfg80211_sched_scan_stop(IN struct wiphy *wiphy, IN struct net_device *n
 	if (prGlueInfo->prSchedScanRequest != NULL)
 		prGlueInfo->prSchedScanRequest = NULL;
 	/* GLUE_RELEASE_SPIN_LOCK(prGlueInfo, SPIN_LOCK_NET_DEV); */
-
-	DBGLOG(SCN, TRACE, "start work queue to send event\n");
-	schedule_delayed_work(&sched_workq, 0);
-	DBGLOG(SCN, TRACE, "tx_thread return from kalSchedScanStoppped\n");
 
 	return 0;
 }
@@ -1779,6 +1866,8 @@ int mtk_cfg80211_assoc(struct wiphy *wiphy, struct net_device *ndev, struct cfg8
 #endif
 	WLAN_STATUS rStatus;
 	UINT_32 u4BufLen;
+
+	DBGLOG(REQ, INFO, "--> %s()\n", __func__);
 
 	prGlueInfo = (P_GLUE_INFO_T) wiphy_priv(wiphy);
 	ASSERT(prGlueInfo);
@@ -1884,7 +1973,7 @@ int mtk_cfg80211_testmode_set_key_ext(IN struct wiphy *wiphy, IN void *data, IN 
 
 	prGlueInfo = (P_GLUE_INFO_T) wiphy_priv(wiphy);
 
-	DBGLOG(REQ, TRACE, "--> %s()\n", __func__);
+	DBGLOG(REQ, INFO, "--> %s()\n", __func__);
 
 	if (data && len) {
 		prParams = (P_NL80211_DRIVER_SET_KEY_EXTS) data;
@@ -1969,6 +2058,8 @@ mtk_cfg80211_testmode_get_sta_statistics(IN struct wiphy *wiphy, IN void *data, 
 	ASSERT(wiphy);
 	ASSERT(prGlueInfo);
 
+	DBGLOG(QM, INFO, "--> %s()\n", __func__);
+
 	if (data && len) {
 		prParams = (P_NL80211_DRIVER_GET_STA_STATISTICS_PARAMS) data;
 	} else {
@@ -2043,12 +2134,12 @@ mtk_cfg80211_testmode_get_sta_statistics(IN struct wiphy *wiphy, IN void *data, 
 			goto nla_put_failure;
 	}
 
-	/* NLA_PUT_U8(skb, NL80211_TESTMODE_STA_STATISTICS_LINK_SCORE, u4LinkScore); */
+	/* NLA_PUT_U32(skb, NL80211_TESTMODE_STA_STATISTICS_LINK_SCORE, u4LinkScore); */
 	{
-		unsigned char __tmp = u4LinkScore;
+		unsigned int __tmp = u4LinkScore;
 
 		if (unlikely(nla_put(skb, NL80211_TESTMODE_STA_STATISTICS_LINK_SCORE,
-			sizeof(unsigned char), &__tmp) < 0))
+			sizeof(unsigned int), &__tmp) < 0))
 			goto nla_put_failure;
 	}
 
@@ -2156,7 +2247,143 @@ mtk_cfg80211_testmode_get_sta_statistics(IN struct wiphy *wiphy, IN void *data, 
 			goto nla_put_failure;
 	}
 
+	{
+		unsigned int __tmp = rQueryStaStatistics.u4TxMaxTime;
 
+		if (unlikely(nla_put(skb, NL80211_TESTMODE_STA_STATISTICS_MAX_PROCESS_TIME,
+			sizeof(unsigned int), &__tmp) < 0))
+			goto nla_put_failure;
+	}
+
+
+	{
+		unsigned int __tmp = rQueryStaStatistics.u4TxAverageHifTime;
+
+		if (unlikely(nla_put(skb, NL80211_TESTMODE_STA_STATISTICS_AVG_HIF_PROCESS_TIME,
+			sizeof(unsigned int), &__tmp) < 0))
+			goto nla_put_failure;
+	}
+
+	{
+		unsigned int __tmp = rQueryStaStatistics.u4TxMaxHifTime;
+
+		if (unlikely(nla_put(skb, NL80211_TESTMODE_STA_STATISTICS_MAX_HIF_PROCESS_TIME,
+			sizeof(unsigned int), &__tmp) < 0))
+			goto nla_put_failure;
+	}
+
+	/*
+	 * NLA_PUT_U32(skb, NL80211_TESTMODE_STA_STATISTICS_ENQUEUE, rQueryStaStatistics.u4EnqueueCounter);
+	 */
+	{
+		unsigned int __tmp = rQueryStaStatistics.u4EnqueueCounter;
+
+		if (unlikely(nla_put(skb, NL80211_TESTMODE_STA_STATISTICS_ENQUEUE,
+			sizeof(unsigned int), &__tmp) < 0))
+			goto nla_put_failure;
+	}
+	/*
+	 * NLA_PUT_U32(skb, NL80211_TESTMODE_STA_STATISTICS_DEQUEUE, rQueryStaStatistics.u4DequeueCounter);
+	 */
+	{
+		unsigned int __tmp = rQueryStaStatistics.u4DequeueCounter;
+
+		if (unlikely(nla_put(skb, NL80211_TESTMODE_STA_STATISTICS_DEQUEUE,
+			sizeof(unsigned int), &__tmp) < 0))
+			goto nla_put_failure;
+	}
+	/*
+	 * NLA_PUT_U32(skb, NL80211_TESTMODE_STA_STATISTICS_STA_ENQUEUE, rQueryStaStatistics.u4EnqueueStaCounter);
+	 */
+	{
+		unsigned int __tmp = rQueryStaStatistics.u4EnqueueStaCounter;
+
+		if (unlikely(nla_put(skb, NL80211_TESTMODE_STA_STATISTICS_STA_ENQUEUE,
+			sizeof(unsigned int), &__tmp) < 0))
+			goto nla_put_failure;
+	}
+	/*
+	 * NLA_PUT_U32(skb, NL80211_TESTMODE_STA_STATISTICS_STA_DEQUEUE, rQueryStaStatistics.u4DequeueStaCounter);
+	 */
+	{
+		unsigned int __tmp = rQueryStaStatistics.u4DequeueStaCounter;
+
+		if (unlikely(nla_put(skb, NL80211_TESTMODE_STA_STATISTICS_STA_DEQUEUE,
+			sizeof(unsigned int), &__tmp) < 0))
+			goto nla_put_failure;
+	}
+
+	/*
+	 * NLA_PUT_U32(skb, NL80211_TESTMODE_STA_STATISTICS_IRQ_ISR_CNT, rQueryStaStatistics.IsrCnt);
+	 */
+	{
+		unsigned int __tmp = rQueryStaStatistics.IsrCnt;
+
+		if (unlikely(nla_put(skb, NL80211_TESTMODE_STA_STATISTICS_IRQ_ISR_CNT,
+			sizeof(unsigned int), &__tmp) < 0))
+			goto nla_put_failure;
+	}
+	/*
+	 * NLA_PUT_U32(skb, NL80211_TESTMODE_STA_STATISTICS_IRQ_ISR_PASS_CNT, rQueryStaStatistics.IsrPassCnt);
+	 */
+	{
+		unsigned int __tmp = rQueryStaStatistics.IsrPassCnt;
+
+		if (unlikely(nla_put(skb, NL80211_TESTMODE_STA_STATISTICS_IRQ_ISR_PASS_CNT,
+			sizeof(unsigned int), &__tmp) < 0))
+			goto nla_put_failure;
+	}
+	/*
+	 * NLA_PUT_U32(skb, NL80211_TESTMODE_STA_STATISTICS_IRQ_TASK_CNT, rQueryStaStatistics.TaskIsrCnt);
+	 */
+	{
+		unsigned int __tmp = rQueryStaStatistics.TaskIsrCnt;
+
+		if (unlikely(nla_put(skb, NL80211_TESTMODE_STA_STATISTICS_IRQ_TASK_CNT,
+			sizeof(unsigned int), &__tmp) < 0))
+			goto nla_put_failure;
+	}
+
+	/*
+	 * NLA_PUT_U32(skb, NL80211_TESTMODE_STA_STATISTICS_IRQ_AB_CNT, rQueryStaStatistics.IsrAbnormalCnt);
+	 */
+	{
+		unsigned int __tmp = rQueryStaStatistics.IsrAbnormalCnt;
+
+		if (unlikely(nla_put(skb, NL80211_TESTMODE_STA_STATISTICS_IRQ_AB_CNT,
+			sizeof(unsigned int), &__tmp) < 0))
+			goto nla_put_failure;
+	}
+	/*
+	 * NLA_PUT_U32(skb, NL80211_TESTMODE_STA_STATISTICS_IRQ_SW_CNT, rQueryStaStatistics.IsrSoftWareCnt);
+	 */
+	{
+		unsigned int __tmp = rQueryStaStatistics.IsrSoftWareCnt;
+
+		if (unlikely(nla_put(skb, NL80211_TESTMODE_STA_STATISTICS_IRQ_SW_CNT,
+			sizeof(unsigned int), &__tmp) < 0))
+			goto nla_put_failure;
+	}
+	/*
+	 * NLA_PUT_U32(skb, NL80211_TESTMODE_STA_STATISTICS_IRQ_TX_CNT, rQueryStaStatistics.IsrTxCnt);
+	 */
+	{
+		unsigned int __tmp = rQueryStaStatistics.IsrTxCnt;
+
+		if (unlikely(nla_put(skb, NL80211_TESTMODE_STA_STATISTICS_IRQ_TX_CNT,
+			sizeof(unsigned int), &__tmp) < 0))
+			goto nla_put_failure;
+	}
+	/*
+	 *NLA_PUT_U32(skb, NL80211_TESTMODE_STA_STATISTICS_IRQ_RX_CNT, rQueryStaStatistics.IsrRxCnt);
+	 */
+	{
+		unsigned int __tmp = rQueryStaStatistics.IsrRxCnt;
+
+		if (unlikely(nla_put(skb, NL80211_TESTMODE_STA_STATISTICS_IRQ_RX_CNT,
+			sizeof(unsigned int), &__tmp) < 0))
+			goto nla_put_failure;
+	}
 	/* Network counter */
 	/*NLA_PUT(skb,
 		NL80211_TESTMODE_STA_STATISTICS_TC_EMPTY_CNT_ARRAY,
@@ -2164,7 +2391,31 @@ mtk_cfg80211_testmode_get_sta_statistics(IN struct wiphy *wiphy, IN void *data, 
 	if (unlikely(nla_put(skb, NL80211_TESTMODE_STA_STATISTICS_TC_EMPTY_CNT_ARRAY,
 		sizeof(rQueryStaStatistics.au4TcResourceEmptyCount), &rQueryStaStatistics.au4TcResourceEmptyCount) < 0))
 		goto nla_put_failure;
+	/*
+	NLA_PUT(skb,
+		NL80211_TESTMODE_STA_STATISTICS_NO_TC_ARRAY,
+		sizeof(rQueryStaStatistics.au4DequeueNoTcResource), rQueryStaStatistics.au4DequeueNoTcResource);
+	 */
+	if (unlikely(nla_put(skb, NL80211_TESTMODE_STA_STATISTICS_NO_TC_ARRAY,
+		sizeof(rQueryStaStatistics.au4DequeueNoTcResource), &rQueryStaStatistics.au4DequeueNoTcResource) < 0))
+		goto nla_put_failure;
+	/*
+	NLA_PUT(skb,
+		NL80211_TESTMODE_STA_STATISTICS_RB_ARRAY,
+		sizeof(rQueryStaStatistics.au4TcResourceBackCount), rQueryStaStatistics.au4TcResourceBackCount);
+	 */
+	if (unlikely(nla_put(skb, NL80211_TESTMODE_STA_STATISTICS_RB_ARRAY,
+		sizeof(rQueryStaStatistics.au4TcResourceBackCount), &rQueryStaStatistics.au4TcResourceBackCount) < 0))
+		goto nla_put_failure;
 
+	if (unlikely(nla_put(skb, NL80211_TESTMODE_STA_STATISTICS_USED_BFCT_ARRAY,
+		sizeof(rQueryStaStatistics.au4TcResourceUsedCount), &rQueryStaStatistics.au4TcResourceUsedCount) < 0))
+		goto nla_put_failure;
+
+	if (unlikely(nla_put(skb, NL80211_TESTMODE_STA_STATISTICS_WANTED_BFCT_ARRAY,
+		sizeof(rQueryStaStatistics.au4TcResourceWantedCount),
+		&rQueryStaStatistics.au4TcResourceWantedCount) < 0))
+		goto nla_put_failure;
 
 	/* Sta queue length */
 	/*NLA_PUT(skb,
@@ -2199,41 +2450,110 @@ mtk_cfg80211_testmode_get_sta_statistics(IN struct wiphy *wiphy, IN void *data, 
 		sizeof(rQueryStaStatistics.au4Reserved), &rQueryStaStatistics.au4Reserved) < 0))
 		goto nla_put_failure;
 
-	DBGLOG(QM, INFO, "%02x:%02x:%02x:%02x:%02x:%02x TxExTC %d TxTC %d TxFC %d TxLT %d LINKSCORE %d Per %d Rcpi %d ",
-			prParams->aucMacAddr[0],
-			prParams->aucMacAddr[1],
-			prParams->aucMacAddr[2],
-			prParams->aucMacAddr[3],
-			prParams->aucMacAddr[4],
-			prParams->aucMacAddr[5],
-			rQueryStaStatistics.u4TxExceedThresholdCount,
-			rQueryStaStatistics.u4TxTotalCount,
-			rQueryStaStatistics.u4TxFailCount,
-			rQueryStaStatistics.u4TxLifeTimeoutCount,
-			u4LinkScore,
-			rQueryStaStatistics.ucPer,
-			rQueryStaStatistics.ucRcpi);
-	DBGLOG(QM, INFO, "PhyMode %d LinkSpeed %d Flag %d TxAvgPT %d TCReEC0 %d TCReEC1 %d TCReEC2 %d TCReEC3 %d ",
-			rQueryStaStatistics.u4PhyMode,
-			rQueryStaStatistics.u2LinkSpeed,
-			rQueryStaStatistics.u4Flag,
-			rQueryStaStatistics.u4TxAverageProcessTime,
-			rQueryStaStatistics.au4TcResourceEmptyCount[0],
-			rQueryStaStatistics.au4TcResourceEmptyCount[1],
-			rQueryStaStatistics.au4TcResourceEmptyCount[2],
-			rQueryStaStatistics.au4TcResourceEmptyCount[3]);
-	DBGLOG(QM, INFO, "TcQlen0 %d TcQlen1 %d TcQlen2 %d TcQlen3 %d CQlen0 %d CQlen1 %d CQlen2 %d CQlen3 %d\n",
-			rQueryStaStatistics.au4TcQueLen[0],
-			rQueryStaStatistics.au4TcQueLen[1],
-			rQueryStaStatistics.au4TcQueLen[2],
-			rQueryStaStatistics.au4TcQueLen[3],
-			rQueryStaStatistics.au4TcCurrentQueLen[0],
-			rQueryStaStatistics.au4TcCurrentQueLen[1],
-			rQueryStaStatistics.au4TcCurrentQueLen[2],
-			rQueryStaStatistics.au4TcCurrentQueLen[3]);
 	i4Status = cfg80211_testmode_reply(skb);
+	skb = NULL;
 
 nla_put_failure:
+	if (skb != NULL)
+		kfree_skb(skb);
+	return i4Status;
+}
+
+int
+mtk_cfg80211_testmode_set_packet_filter(IN struct wiphy *wiphy, IN void *data, IN int len, IN P_GLUE_INFO_T prGlueInfo)
+{
+	WLAN_STATUS rStatus = WLAN_STATUS_SUCCESS;
+	INT_32 i4Status = rStatus;
+	UINT_32 u4BufLen = 0;
+	P_NL80211_DRIVER_RXFILTER_PARAMS prParams = NULL;
+
+	PACKET_DROP_T cmdBuf;
+	P_PACKET_DROP_T pCmdHeader = NULL;
+	P_PACKET_DROP_SETTING_V1_T pCmdData = NULL;
+	UINT_64 u64Filter = 0;
+
+	ASSERT(wiphy);
+	ASSERT(prGlueInfo);
+
+	if (data && len)
+		prParams = (P_NL80211_DRIVER_RXFILTER_PARAMS)data;
+
+	kalMemZero(&cmdBuf, sizeof(cmdBuf));
+
+	pCmdHeader = &cmdBuf;
+	pCmdHeader->cmdVersion = 0;
+	pCmdHeader->cmdType = 0;
+	pCmdHeader->magicCode = 0x72;
+	pCmdHeader->cmdBufferLen = MAX_PACKET_DROP_LENGTH;
+
+	pCmdData = (P_PACKET_DROP_SETTING_V1_T)&(pCmdHeader->buffer[0]);
+
+	u64Filter = prParams->Ipv4FilterHigh;
+	u64Filter = u64Filter<<32;
+	u64Filter &= 0xffffffff00000000;
+	pCmdData->Drop_IPv4.bytes = u64Filter|prParams->Ipv4FilterLow;
+
+	/*bit0~bit8
+
+	pCmdData->Drop_IPv4.bytes |= 0xFE;
+	struct {
+				UINT_64    all:1;
+				UINT_64    MDNS:1;
+				UINT_64    LLMNR:1;
+				UINT_64    BROWSER:1;
+				UINT_64    CAPWAP:1;
+				UINT_64    DNS:1;
+				UINT_64    NBNS:1;
+				UINT_64    SSDP:1;
+				UINT_64    others:1;
+			} UDPbits;
+	*/
+
+	u64Filter = prParams->Ipv6FilterHigh;
+	u64Filter = u64Filter<<32;
+	u64Filter &= 0xffffffff00000000;
+	pCmdData->Drop_IPv6.bytes = u64Filter|prParams->Ipv6FilterLow;
+
+	/* bit0 only
+	pCmdData->Drop_IPv6.bytes |= 0x01;
+	struct {
+			UINT_64    all:1;
+			} bits;
+	*/
+
+	u64Filter = prParams->SnapFilterHigh;
+	u64Filter = u64Filter<<32;
+	u64Filter &= 0xffffffff00000000;
+	pCmdData->Drop_SNAP.bytes = u64Filter|prParams->SnapFilterLow;
+
+	/*bit0~bit4
+	pCmdData->Drop_SNAP.bytes |= 0x0E;
+	 struct {
+				UINT_64    all:1;
+				UINT_64    CDP:1;
+				UINT_64    STP:1;
+				UINT_64    XID:1;
+				UINT_64    others:1;
+			} bits;
+	*/
+	pr_info("wlan_gen2: mtk_cfg80211_testmode_set_packet_filter\n Drop_IPv4(%02llx)\nDrop_IPv6(%02llx)\nDrop_SNAP(%02llx)\n",
+		pCmdData->Drop_IPv4.bytes, pCmdData->Drop_IPv6.bytes, pCmdData->Drop_SNAP.bytes);
+
+	rStatus = kalIoctl(prGlueInfo,
+					wlanoidSetRxPacketFilterPriv,
+					&cmdBuf,
+					sizeof(PACKET_DROP_T),
+					FALSE,
+					FALSE,
+					TRUE,
+					FALSE,
+					&u4BufLen);
+
+	/*printk("rStatus = %08x\n",rStatus);*/
+
+	if (rStatus != WLAN_STATUS_SUCCESS)
+		i4Status = -EFAULT;
+
 	return i4Status;
 }
 
@@ -2250,6 +2570,8 @@ mtk_cfg80211_testmode_get_link_detection(IN struct wiphy *wiphy, IN void *data, 
 
 	ASSERT(wiphy);
 	ASSERT(prGlueInfo);
+
+	DBGLOG(QM, INFO, "--> %s()\n", __func__);
 
 	skb = cfg80211_testmode_alloc_reply_skb(wiphy, sizeof(PARAM_GET_STA_STA_STATISTICS) + 1);
 
@@ -2371,7 +2693,7 @@ int mtk_cfg80211_testmode_hs20_cmd(IN struct wiphy *wiphy, IN void *data, IN int
 
 	prGlueInfo = (P_GLUE_INFO_T) wiphy_priv(wiphy);
 
-	DBGLOG(REQ, TRACE, "--> %s()\n", __func__);
+	DBGLOG(REQ, INFO, "--> %s()\n", __func__);
 
 	if (data && len) {
 		prParams = (struct wpa_driver_hs20_data_s *)data;
@@ -2410,16 +2732,18 @@ int mtk_cfg80211_testmode_hs20_cmd(IN struct wiphy *wiphy, IN void *data, IN int
 
 	return fgIsValid;
 }
-
 #endif
-int
-mtk_cfg80211_testmode_set_poorlink_param(IN struct wiphy *wiphy, IN void *data, IN int len, IN P_GLUE_INFO_T prGlueInfo)
+
+int mtk_cfg80211_testmode_set_poorlink_param(IN struct wiphy *wiphy, IN void *data, IN int len,
+					      IN P_GLUE_INFO_T prGlueInfo)
 {
 	int fgIsValid = 0;
 	P_NL80211_DRIVER_POORLINK_PARAMS prParams = NULL;
 
 	ASSERT(wiphy);
 	ASSERT(prGlueInfo);
+
+	DBGLOG(REQ, INFO, "--> %s()\n", __func__);
 
 	if (data && len) {
 		prParams = (P_NL80211_DRIVER_POORLINK_PARAMS) data;
@@ -2445,75 +2769,80 @@ mtk_cfg80211_testmode_set_poorlink_param(IN struct wiphy *wiphy, IN void *data, 
 int mtk_cfg80211_testmode_cmd(IN struct wiphy *wiphy, IN struct wireless_dev *wdev, IN void *data, IN int len)
 {
 	P_GLUE_INFO_T prGlueInfo = NULL;
-	P_NL80211_DRIVER_TEST_MODE_PARAMS prParams = (P_NL80211_DRIVER_TEST_MODE_PARAMS) NULL;
+	P_NL80211_DRIVER_TEST_MODE_PARAMS prParams = NULL;
 	INT_32 i4Status = -EINVAL;
-#if CFG_SUPPORT_HOTSPOT_2_0
-	BOOLEAN fgIsValid = 0;
-#endif
+
 
 	ASSERT(wiphy);
-	ASSERT(wdev);
 
 	prGlueInfo = (P_GLUE_INFO_T) wiphy_priv(wiphy);
 
 	if (data && len) {
 		prParams = (P_NL80211_DRIVER_TEST_MODE_PARAMS) data;
 	} else {
-		DBGLOG(REQ, ERROR, "mtk_cfg80211_testmode_cmd, data is NULL\n");
+		DBGLOG(REQ, ERROR, "data is NULL\n");
 		return i4Status;
 	}
 
 	/* Clear the version byte */
 	prParams->index = prParams->index & ~BITS(24, 31);
 
-	if (prParams) {
-		switch (prParams->index) {
-		case TESTMODE_CMD_ID_SW_CMD:	/* SW cmd */
-			i4Status = mtk_cfg80211_testmode_sw_cmd(wiphy, data, len);
-			break;
-		case TESTMODE_CMD_ID_WAPI:	/* WAPI */
+	switch (prParams->index) {
+	case TESTMODE_CMD_ID_SW_CMD: /* SW cmd */
+		i4Status = mtk_cfg80211_testmode_sw_cmd(wiphy, data, len);
+		break;
 #if CFG_SUPPORT_WAPI
-			i4Status = mtk_cfg80211_testmode_set_key_ext(wiphy, data, len);
+	case TESTMODE_CMD_ID_WAPI: /* WAPI */
+		i4Status = mtk_cfg80211_testmode_set_key_ext(wiphy, data, len);
+		break;
 #endif
-			break;
-		case TESTMODE_CMD_ID_SUSPEND:
-			{
-				P_NL80211_DRIVER_SUSPEND_PARAMS prParams = (P_NL80211_DRIVER_SUSPEND_PARAMS) data;
+	case TESTMODE_CMD_ID_SUSPEND:
+		{
+			P_NL80211_DRIVER_SUSPEND_PARAMS prParams = (P_NL80211_DRIVER_SUSPEND_PARAMS) data;
 
-				if (prParams->suspend == 1) {
-					wlanHandleSystemSuspend();
-					if (prGlueInfo->prAdapter->fgIsP2PRegistered)
-						p2pHandleSystemSuspend();
-					i4Status = 0;
-				} else if (prParams->suspend == 0) {
-					wlanHandleSystemResume();
-					if (prGlueInfo->prAdapter->fgIsP2PRegistered)
-						p2pHandleSystemResume();
-					i4Status = 0;
-				}
-				break;
+			if (prParams->suspend == 1) {
+				wlanHandleSystemSuspend();
+				if (prGlueInfo->prAdapter->fgIsP2PRegistered)
+					p2pHandleSystemSuspend();
+				i4Status = 0;
+			} else if (prParams->suspend == 0) {
+				wlanHandleSystemResume();
+				if (prGlueInfo->prAdapter->fgIsP2PRegistered)
+					p2pHandleSystemResume();
+				i4Status = 0;
 			}
-		case TESTMODE_CMD_ID_STATISTICS:
-			i4Status = mtk_cfg80211_testmode_get_sta_statistics(wiphy, data, len, prGlueInfo);
-			break;
-		case TESTMODE_CMD_ID_LINK_DETECT:
-			i4Status = mtk_cfg80211_testmode_get_link_detection(wiphy, data, len, prGlueInfo);
-			break;
-		case TESTMODE_CMD_ID_POORLINK:
-			i4Status = mtk_cfg80211_testmode_set_poorlink_param(wiphy, data, len, prGlueInfo);
-			break;
-
-#if CFG_SUPPORT_HOTSPOT_2_0
-		case TESTMODE_CMD_ID_HS20:
-			if (mtk_cfg80211_testmode_hs20_cmd(wiphy, data, len))
-				fgIsValid = TRUE;
-			break;
-#endif
-		default:
-			i4Status = -EINVAL;
 			break;
 		}
+	case TESTMODE_CMD_ID_RXFILTER:
+		i4Status = mtk_cfg80211_testmode_set_packet_filter(wiphy, data, len, prGlueInfo);
+		break;
+	case TESTMODE_CMD_ID_STATISTICS:
+		i4Status = mtk_cfg80211_testmode_get_sta_statistics(wiphy, data, len, prGlueInfo);
+		break;
+	case TESTMODE_CMD_ID_LINK_DETECT:
+		i4Status = mtk_cfg80211_testmode_get_link_detection(wiphy, data, len, prGlueInfo);
+		break;
+	case TESTMODE_CMD_ID_POORLINK:
+		i4Status = mtk_cfg80211_testmode_set_poorlink_param(wiphy, data, len, prGlueInfo);
+		break;
+
+#if CFG_SUPPORT_HOTSPOT_2_0
+	case TESTMODE_CMD_ID_HS20:
+		i4Status = mtk_cfg80211_testmode_hs20_cmd(wiphy, data, len);
+		break;
+#endif
+	case TESTMODE_CMD_ID_STR_CMD:
+		i4Status = mtk_cfg80211_process_str_cmd(prGlueInfo,
+				(PUINT_8)(prParams+1), len - sizeof(*prParams));
+		break;
+
+	default:
+		i4Status = -EINVAL;
+		break;
 	}
+
+	DBGLOG(REQ, INFO, "--> %s() prParams->index=%d, status=%d\n"
+		, __func__, prParams->index, i4Status);
 
 	return i4Status;
 }
@@ -2530,6 +2859,8 @@ int mtk_cfg80211_testmode_get_scan_done(IN struct wiphy *wiphy, IN void *data, I
 
 	ASSERT(wiphy);
 	ASSERT(prGlueInfo);
+
+	DBGLOG(QM, INFO, "--> %s()\n", __func__);
 
 	skb = cfg80211_testmode_alloc_reply_skb(wiphy, sizeof(UINT_32));
 	READY_TO_BEAM =
@@ -2571,318 +2902,6 @@ nla_put_failure:
 	return i4Status;
 }
 
-#if CFG_AUTO_CHANNEL_SEL_SUPPORT
-int
-mtk_cfg80211_testmode_get_lte_channel(IN struct wiphy *wiphy, IN void *data, IN int len, IN P_GLUE_INFO_T prGlueInfo)
-{
-#define MAXMUN_2_4G_CHA_NUM 14
-#define CHN_DIRTY_WEIGHT_UPPERBOUND 4
-
-	BOOLEAN fgIsReady = FALSE, fgIsFistRecord = TRUE;
-	BOOLEAN fgIsPureAP, fgIsLteSafeChn = FALSE;
-
-	WLAN_STATUS rStatus = WLAN_STATUS_SUCCESS;
-	UINT_8 ucIdx = 0, ucMax_24G_Chn_List = 11, ucDefaultIdx = 0, ucArrayIdx = 0;
-	UINT_16 u2APNumScore = 0, u2UpThreshold = 0, u2LowThreshold = 0, ucInnerIdx = 0;
-	INT_32 i4Status = -EINVAL;
-	UINT_32 u4BufLen, u4LteSafeChnBitMask_2_4G = 0;
-	UINT32 AcsChnReport[4];
-	/*RF_CHANNEL_INFO_T aucChannelList[MAXMUN_2_4G_CHA_NUM];*/
-
-	struct sk_buff *skb;
-
-	/*PARAM_GET_CHN_LOAD rQueryLTEChn;*/
-	P_PARAM_GET_CHN_LOAD prQueryLTEChn;
-	PARAM_PREFER_CHN_INFO rPreferChannels[2], ar2_4G_ChannelLoadingWeightScore[MAXMUN_2_4G_CHA_NUM];
-	P_PARAM_CHN_LOAD_INFO prChnLoad;
-	P_PARAM_GET_CHN_LOAD prGetChnLoad;
-
-	P_DOMAIN_INFO_ENTRY prDomainInfo;
-
-/*
-	 P_PARAM_GET_CHN_LOAD prParams = NULL;
-*/
-	ASSERT(wiphy);
-	ASSERT(prGlueInfo);
-
-	kalMemZero(rPreferChannels, sizeof(rPreferChannels));
-	fgIsPureAP = prGlueInfo->prAdapter->rWifiVar.prP2pFsmInfo->fgIsApMode;
-#if 0
-	if (data && len)
-		prParams = (P_NL80211_DRIVER_GET_LTE_PARAMS) data;
-#endif
-	skb = cfg80211_testmode_alloc_reply_skb(wiphy, sizeof(AcsChnReport) + sizeof(UINT8) + 1);
-	if (!skb) {
-		DBGLOG(QM, TRACE, "%s allocate skb failed:%x\n", __func__, rStatus);
-		return -ENOMEM;
-	}
-
-	DBGLOG(P2P, INFO, "[Auto Channel]Get LTE Channels\n");
-	prQueryLTEChn = kalMemAlloc(sizeof(PARAM_GET_CHN_LOAD), VIR_MEM_TYPE);
-	if (prQueryLTEChn == NULL) {
-		DBGLOG(QM, TRACE, "alloc QueryLTEChn fail\n");
-		kalMemFree(skb, VIR_MEM_TYPE, sizeof(struct sk_buff));
-		return -ENOMEM;
-	}
-	kalMemZero(prQueryLTEChn, sizeof(PARAM_GET_CHN_LOAD));
-
-	/* Query LTE Safe Channels */
-	prQueryLTEChn->rLteSafeChnList.au4SafeChannelBitmask[NL80211_TESTMODE_AVAILABLE_CHAN_2G_BASE_1 - 1]
-			= 0xFFFFFFFF;
-
-	prQueryLTEChn->rLteSafeChnList.au4SafeChannelBitmask[NL80211_TESTMODE_AVAILABLE_CHAN_5G_BASE_34 - 1]
-			= 0xFFFFFFFF;
-
-	prQueryLTEChn->rLteSafeChnList.au4SafeChannelBitmask[NL80211_TESTMODE_AVAILABLE_CHAN_5G_BASE_149 - 1]
-			= 0xFFFFFFFF;
-
-	prQueryLTEChn->rLteSafeChnList.au4SafeChannelBitmask[NL80211_TESTMODE_AVAILABLE_CHAN_5G_BASE_184 - 1] =
-	    0xFFFFFFFF;
-
-	rStatus = kalIoctl(prGlueInfo, wlanoidQueryACSChannelList, prQueryLTEChn, sizeof(PARAM_GET_CHN_LOAD),
-			TRUE, FALSE, TRUE, TRUE, &u4BufLen);
-#if 0
-	if (fgIsPureAP) {
-
-		AcsChnRepot[NL80211_TESTMODE_AVAILABLE_CHAN_2G_BASE_1 - 1] = 0x20;	/* Channel 6 */
-	} else
-#endif
-	{
-		fgIsReady = prGlueInfo->prAdapter->rWifiVar.rChnLoadInfo.fgDataReadyBit;
-		rPreferChannels[0].u2APNum = 0xFFFF;
-		rPreferChannels[1].u2APNum = 0xFFFF;
-
-		/* 4 In LTE Mode, Hotspot pick up channels from ch4. */
-		ucDefaultIdx = 0;
-		/*
-		   if (fgIsPureAP) {
-		   ucDefaultIdx=3; //SKIP LTE Channels 1~3
-		   }
-		 */
-
-		/* 4 Get the Maximun channel List in 2.4G Bands */
-
-		prDomainInfo = rlmDomainGetDomainInfo(prGlueInfo->prAdapter);
-		ASSERT(prDomainInfo);
-
-		/* 4 ToDo: Enable Step 2 only if we could get Country Code from framework */
-		/* 4 2. Get current domain channel list */
-
-#if 0
-		rlmDomainGetChnlList(prGlueInfo->prAdapter,
-				     BAND_2G4, MAXMUN_2_4G_CHA_NUM, &ucMax_24G_Chn_List, aucChannelList);
-#endif
-
-		prGetChnLoad = (P_PARAM_GET_CHN_LOAD) &(prGlueInfo->prAdapter->rWifiVar.rChnLoadInfo);
-		for (ucIdx = 0; ucIdx < ucMax_24G_Chn_List; ucIdx++) {
-			DBGLOG(P2P, INFO,
-			       "[Auto Channel] ch[%d]=%d\n", ucIdx,
-				prGetChnLoad->rEachChnLoad[ucIdx + ucInnerIdx].u2APNum);
-		}
-
-		/*Calculate Each Channel Direty Score */
-		for (ucIdx = ucDefaultIdx; ucIdx < ucMax_24G_Chn_List; ucIdx++) {
-
-#if 1
-			u2APNumScore = prGetChnLoad->rEachChnLoad[ucIdx].u2APNum * CHN_DIRTY_WEIGHT_UPPERBOUND;
-			u2UpThreshold = u2LowThreshold = 3;
-
-			if (ucIdx < 3) {
-				u2UpThreshold = ucIdx;
-				u2LowThreshold = 3;
-			} else if (ucIdx >= (ucMax_24G_Chn_List - 3)) {
-				u2UpThreshold = 3;
-				u2LowThreshold = ucMax_24G_Chn_List - (ucIdx + 1);
-
-			}
-
-			/*Calculate Lower Channel Dirty Score */
-			for (ucInnerIdx = 0; ucInnerIdx < u2LowThreshold; ucInnerIdx++) {
-				ucArrayIdx = ucIdx + ucInnerIdx + 1;
-				if (ucArrayIdx < MAX_AUTO_CHAL_NUM) {
-					u2APNumScore +=
-					    (prGetChnLoad->rEachChnLoad[ucArrayIdx].u2APNum *
-					     (CHN_DIRTY_WEIGHT_UPPERBOUND - 1 - ucInnerIdx));
-				}
-			}
-
-			/*Calculate Upper Channel Dirty Score */
-			for (ucInnerIdx = 0; ucInnerIdx < u2UpThreshold; ucInnerIdx++) {
-				ucArrayIdx = ucIdx - ucInnerIdx - 1;
-				if (ucArrayIdx < MAX_AUTO_CHAL_NUM) {
-					u2APNumScore +=
-					    (prGetChnLoad->rEachChnLoad[ucArrayIdx].u2APNum *
-					     (CHN_DIRTY_WEIGHT_UPPERBOUND - 1 - ucInnerIdx));
-				}
-			}
-
-			ar2_4G_ChannelLoadingWeightScore[ucIdx].u2APNum = u2APNumScore;
-
-			DBGLOG(P2P, INFO, "[Auto Channel]chn=%d score=%d\n", ucIdx, u2APNumScore);
-#else
-			if (ucIdx == 0) {
-				/* ar2_4G_ChannelLoadingWeightScore[ucIdx].u2APNum =
-				(prGetChnLoad->rEachChnLoad[ucIdx].u2APNum +
-				prGetChnLoad->rEachChnLoad[ucIdx+1].u2APNum*0.75); */
-				u2APNumScore = (prGetChnLoad->rEachChnLoad[ucIdx].u2APNum + ((UINT_16)
-											     ((3 *
-											       (prGetChnLoad->
-												rEachChnLoad[ucIdx +
-													     1].
-												u2APNum +
-												prGetChnLoad->
-												rEachChnLoad[ucIdx +
-													     2].
-												u2APNum)) / 4)));
-
-				ar2_4G_ChannelLoadingWeightScore[ucIdx].u2APNum = u2APNumScore;
-				DBGLOG(P2P, INFO,
-				       "[Auto Channel]ucIdx=%d score=%d=%d+0.75*%d\n", ucIdx,
-					ar2_4G_ChannelLoadingWeightScore[ucIdx].u2APNum,
-					prGetChnLoad->rEachChnLoad[ucIdx].u2APNum,
-					prGetChnLoad->rEachChnLoad[ucIdx + 1].u2APNum));
-			}
-			if ((ucIdx > 0) && (ucIdx < (MAXMUN_2_4G_CHA_NUM - 1))) {
-				u2APNumScore = (prGetChnLoad->rEachChnLoad[ucIdx].u2APNum + ((UINT_16)
-											     ((3 *
-											       (prGetChnLoad->
-												rEachChnLoad[ucIdx +
-													     1].
-												u2APNum +
-												prGetChnLoad->
-												rEachChnLoad[ucIdx -
-													     1].
-												u2APNum)) / 4)));
-
-				ar2_4G_ChannelLoadingWeightScore[ucIdx].u2APNum = u2APNumScore;
-				DBGLOG(P2P, INFO,
-				       "[Auto Channel]ucIdx=%d score=%d=%d+0.75*%d+0.75*%d\n", ucIdx,
-					ar2_4G_ChannelLoadingWeightScore[ucIdx].u2APNum,
-					prGetChnLoad->rEachChnLoad[ucIdx].u2APNum,
-					prGetChnLoad->rEachChnLoad[ucIdx + 1].u2APNum,
-					prGetChnLoad->rEachChnLoad[ucIdx - 1].u2APNum));
-			}
-
-			if (ucIdx == (MAXMUN_2_4G_CHA_NUM - 1)) {
-				u2APNumScore = (prGetChnLoad->rEachChnLoad[ucIdx].u2APNum +
-						((UINT_16) ((3 * prGetChnLoad->rEachChnLoad[ucIdx - 1].u2APNum) / 4)));
-
-				ar2_4G_ChannelLoadingWeightScore[ucIdx].u2APNum = u2APNumScore;
-				DBGLOG(P2P, INFO,
-				       "[Auto Channel]ucIdx=%d score=%d=%d+0.75*%d\n", ucIdx,
-					ar2_4G_ChannelLoadingWeightScore[ucIdx].u2APNum,
-					prGetChnLoad->rEachChnLoad[ucIdx].u2APNum,
-					prGetChnLoad->rEachChnLoad[ucIdx - 1].u2APNum));
-			}
-#endif
-
-		}
-
-		u4LteSafeChnBitMask_2_4G =
-		    prQueryLTEChn->rLteSafeChnList.au4SafeChannelBitmask[NL80211_TESTMODE_AVAILABLE_CHAN_2G_BASE_1 - 1];
-
-		/*Find out the best channel */
-		for (ucIdx = ucDefaultIdx; ucIdx < ucMax_24G_Chn_List; ucIdx++) {
-			/* 4 Skip LTE Unsafe Channel */
-			fgIsLteSafeChn = ((u4LteSafeChnBitMask_2_4G & BIT(ucIdx + 1)) >> ucIdx);
-			if (!fgIsLteSafeChn)
-				continue;
-
-			prChnLoad =
-			    (P_PARAM_CHN_LOAD_INFO) &(prGlueInfo->prAdapter->rWifiVar.
-						       rChnLoadInfo.rEachChnLoad[ucIdx]);
-			if (rPreferChannels[0].u2APNum >= ar2_4G_ChannelLoadingWeightScore[ucIdx].u2APNum) {
-				rPreferChannels[1].ucChannel = rPreferChannels[0].ucChannel;
-				rPreferChannels[1].u2APNum = rPreferChannels[0].u2APNum;
-
-				rPreferChannels[0].ucChannel = ucIdx;
-				rPreferChannels[0].u2APNum = ar2_4G_ChannelLoadingWeightScore[ucIdx].u2APNum;
-			} else {
-				if (rPreferChannels[1].u2APNum >= ar2_4G_ChannelLoadingWeightScore[ucIdx].u2APNum
-				    || fgIsFistRecord == 1) {
-					fgIsFistRecord = FALSE;
-					rPreferChannels[1].ucChannel = ucIdx;
-					rPreferChannels[1].u2APNum = ar2_4G_ChannelLoadingWeightScore[ucIdx].u2APNum;
-				}
-			}
-		}
-		/* AcsChnRepot[NL80211_TESTMODE_AVAILABLE_CHAN_2G_BASE_1-1] =
-		BITS((rQueryLTEChn.rLteSafeChnList.ucChannelLow-1),(rQueryLTEChn.rLteSafeChnList.ucChannelHigh-1)); */
-		AcsChnReport[NL80211_TESTMODE_AVAILABLE_CHAN_2G_BASE_1 - 1] = fgIsReady ? BIT(31) : 0;
-		AcsChnReport[NL80211_TESTMODE_AVAILABLE_CHAN_2G_BASE_1 - 1] |= BIT(rPreferChannels[0].ucChannel);
-	}
-
-	/* ToDo: Support 5G Channel Selection */
-	AcsChnReport[NL80211_TESTMODE_AVAILABLE_CHAN_5G_BASE_34 - 1] = 0x11223344;
-	AcsChnReport[NL80211_TESTMODE_AVAILABLE_CHAN_5G_BASE_149 - 1] = 0x55667788;
-	AcsChnReport[NL80211_TESTMODE_AVAILABLE_CHAN_5G_BASE_184 - 1] = 0x99AABBCC;
-
-	/*NLA_PUT_U8(skb, NL80211_TESTMODE_AVAILABLE_CHAN_INVALID, 0);*/
-	{
-		unsigned char __tmp = 0;
-
-		if (unlikely(nla_put(skb, NL80211_TESTMODE_AVAILABLE_CHAN_INVALID, sizeof(unsigned char), &__tmp) < 0))
-			goto nla_put_failure;
-	}
-
-	/*NLA_PUT_U32(skb, NL80211_TESTMODE_AVAILABLE_CHAN_2G_BASE_1,
-		    AcsChnReport[NL80211_TESTMODE_AVAILABLE_CHAN_2G_BASE_1 - 1]);*/
-	{
-		unsigned int __tmp = AcsChnReport[NL80211_TESTMODE_AVAILABLE_CHAN_2G_BASE_1 - 1];
-
-		if (unlikely(nla_put(skb, NL80211_TESTMODE_AVAILABLE_CHAN_2G_BASE_1,
-			sizeof(unsigned int), &__tmp) < 0))
-			goto nla_put_failure;
-	}
-
-	/*NLA_PUT_U32(skb, NL80211_TESTMODE_AVAILABLE_CHAN_5G_BASE_34,
-		    AcsChnReport[NL80211_TESTMODE_AVAILABLE_CHAN_5G_BASE_34 - 1]);*/
-	{
-		unsigned int __tmp = AcsChnReport[NL80211_TESTMODE_AVAILABLE_CHAN_5G_BASE_34 - 1];
-
-		if (unlikely(nla_put(skb, NL80211_TESTMODE_AVAILABLE_CHAN_5G_BASE_34,
-			sizeof(unsigned int), &__tmp) < 0))
-			goto nla_put_failure;
-	}
-
-	/*NLA_PUT_U32(skb, NL80211_TESTMODE_AVAILABLE_CHAN_5G_BASE_149,
-		    AcsChnReport[NL80211_TESTMODE_AVAILABLE_CHAN_5G_BASE_149 - 1]);*/
-	{
-		unsigned int __tmp = AcsChnReport[NL80211_TESTMODE_AVAILABLE_CHAN_5G_BASE_149 - 1];
-
-		if (unlikely(nla_put(skb, NL80211_TESTMODE_AVAILABLE_CHAN_5G_BASE_149,
-			sizeof(unsigned int), &__tmp) < 0))
-			goto nla_put_failure;
-	}
-
-
-	/*NLA_PUT_U32(skb, NL80211_TESTMODE_AVAILABLE_CHAN_5G_BASE_184,
-		    AcsChnReport[NL80211_TESTMODE_AVAILABLE_CHAN_5G_BASE_184 - 1]);*/
-	{
-		unsigned int __tmp = AcsChnReport[NL80211_TESTMODE_AVAILABLE_CHAN_5G_BASE_184 - 1];
-
-		if (unlikely(nla_put(skb, NL80211_TESTMODE_AVAILABLE_CHAN_5G_BASE_184,
-			sizeof(unsigned int), &__tmp) < 0))
-			goto nla_put_failure;
-	}
-
-	DBGLOG(P2P, INFO,
-	       "[Auto Channel]Relpy AcsChanInfo[%x:%x:%x:%x]\n", AcsChnReport[0], AcsChnReport[1], AcsChnReport[2],
-		AcsChnReport[3]);
-
-	i4Status = cfg80211_testmode_reply(skb);
-	/*need confirm cfg80211_testmode_reply will free skb*/
-	skb = NULL;
-	/*kalMemFree(prQueryLTEChn, VIR_MEM_TYPE, sizeof(PARAM_GET_CHN_LOAD));*/
-
-nla_put_failure:
-	kalMemFree(prQueryLTEChn, VIR_MEM_TYPE, sizeof(PARAM_GET_CHN_LOAD));
-	if (skb != NULL)
-		kfree_skb(skb);
-	return i4Status;
-
-}
-#endif
 #endif
 
 /*----------------------------------------------------------------------------*/
@@ -2900,15 +2919,20 @@ int	mtk_cfg80211_suspend(struct wiphy *wiphy, struct cfg80211_wowlan *wow)
 {
 	P_GLUE_INFO_T prGlueInfo = NULL;
 
-	down(&g_halt_sem);
-	if (g_u4HaltFlag || !wiphy)
+	DBGLOG(REQ, INFO, "--> %s()\n", __func__);
+
+	if (kalHaltTryLock())
+		return 0;
+
+	if (kalIsHalted() || !wiphy)
 		goto end;
 
 	prGlueInfo = (P_GLUE_INFO_T) wiphy_priv(wiphy);
+
 	set_bit(SUSPEND_FLAG_FOR_WAKEUP_REASON, &prGlueInfo->prAdapter->ulSuspendFlag);
 	set_bit(SUSPEND_FLAG_CLEAR_WHEN_RESUME, &prGlueInfo->prAdapter->ulSuspendFlag);
 end:
-	up(&g_halt_sem);
+	kalHaltUnlock();
 	return 0;
 }
 
@@ -2929,8 +2953,12 @@ int mtk_cfg80211_resume(struct wiphy *wiphy)
 	P_ADAPTER_T prAdapter = NULL;
 	UINT_8 i = 0;
 
-	down(&g_halt_sem);
-	if (g_u4HaltFlag || !wiphy)
+	DBGLOG(SCN, INFO, "--> %s()\n", __func__);
+
+	if (kalHaltTryLock())
+		return 0;
+
+	if (kalIsHalted() || !wiphy)
 		goto end;
 
 	prGlueInfo = (P_GLUE_INFO_T) wiphy_priv(wiphy);
@@ -2952,7 +2980,33 @@ int mtk_cfg80211_resume(struct wiphy *wiphy)
 	if (i > 0)
 		kalMemZero(&pprBssDesc[0], i * sizeof(P_BSS_DESC_T));
 end:
-	up(&g_halt_sem);
+	kalHaltUnlock();
 	return 0;
+}
+
+INT_32 mtk_cfg80211_process_str_cmd(P_GLUE_INFO_T prGlueInfo, PUINT_8 cmd, INT_32 len)
+{
+	WLAN_STATUS rStatus = WLAN_STATUS_SUCCESS;
+	UINT_32 u4SetInfoLen = 0;
+
+	DBGLOG(REQ, INFO, "--> %s()\n", __func__);
+
+	if (strnicmp(cmd, "tdls-ps ", 8) == 0) {
+#if CFG_SUPPORT_TDLS
+		DBGLOG(TDLS, INFO, "disable tdls-ps\n");
+		rStatus = kalIoctl(prGlueInfo,
+					   wlanoidDisableTdlsPs,
+					   (PVOID)(cmd+8), 1, FALSE, FALSE, TRUE, FALSE, &u4SetInfoLen);
+#else
+		DBGLOG(REQ, WARN, "not support tdls\n");
+		return -EOPNOTSUPP;
+#endif
+	} else
+		return -EOPNOTSUPP;
+
+	if (rStatus == WLAN_STATUS_SUCCESS)
+		return 0;
+
+	return -EINVAL;
 }
 

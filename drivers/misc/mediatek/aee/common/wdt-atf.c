@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #include <linux/module.h>
 #include <linux/slab.h>
 #include <mt-plat/aee.h>
@@ -23,13 +36,16 @@
 #include <linux/compiler.h>
 /* #include <mach/fiq_smp_call.h> */
 #include <mach/wd_api.h>
+#include <ext_wd_drv.h>
 #include <smp.h>
 #ifndef CONFIG_ARM64
 #include <mach/irqs.h>
 #endif
 #include "aee-common.h"
 #include <mach/mt_secure_api.h>
-
+#ifdef CONFIG_MTK_EIC_HISTORY_DUMP
+#include <linux/irqchip/mt-eic.h>
+#endif
 
 #define THREAD_INFO(sp) ((struct thread_info *) \
 				((unsigned long)(sp) & ~(THREAD_SIZE - 1)))
@@ -53,6 +69,9 @@ static char str_buf[NR_CPUS][PRINTK_BUFFER_SIZE];
 
 #define ATF_AEE_DEBUG_BUF_LENGTH	0x4000
 static void *atf_aee_debug_virt_addr;
+
+static atomic_t aee_wdt_zap_lock;
+int no_zap_locks;
 
 struct atf_aee_regs {
 	__u64 regs[31];
@@ -161,7 +180,10 @@ void aee_wdt_dump_info(void)
 			LOGE("\n");
 		}
 	}
-
+#ifdef CONFIG_MTK_EIC_HISTORY_DUMP
+	aee_rr_rec_fiq_step(AEE_FIQ_STEP_KE_EINT_DEBUG);
+	dump_eint_trigger_history();
+#endif
 	aee_rr_rec_fiq_step(AEE_FIQ_STEP_KE_WDT_DONE);
 }
 
@@ -259,7 +281,7 @@ static void aee_wdt_dump_stack_bin(unsigned int cpu, unsigned long bottom, unsig
 #endif
 
 	for (first = bottom & ~31; first < top; first += 32) {
-		memset_io(str, ' ', sizeof(str));
+		memset(str, ' ', sizeof(str));
 		str[sizeof(str) - 1] = '\0';
 
 		for (p = first, i = 0; i < 8 && p < top; i++, p += 4) {
@@ -291,7 +313,7 @@ static void aee_wdt_dump_backtrace(unsigned int cpu, struct pt_regs *regs)
 	cur_frame.fp = regs->reg_fp;
 	cur_frame.pc = regs->reg_pc;
 	cur_frame.sp = regs->reg_sp;
-	wdt_percpu_stackframe[cpu][0] = regs->reg_lr;
+	wdt_percpu_stackframe[cpu][0] = regs->reg_pc;
 	for (i = 1; i < MAX_EXCEPTION_FRAME; i++) {
 		fp = cur_frame.fp;
 		if ((fp < bottom) || (fp >= (high + THREAD_SIZE))) {
@@ -328,6 +350,7 @@ static void aee_save_reg_stack_sram(int cpu)
 	int len = 0;
 
 	if (regs_buffer_bin[cpu].real_len != 0) {
+		memset(str_buf[cpu], 0, sizeof(str_buf[cpu]));
 		snprintf(str_buf[cpu], sizeof(str_buf[cpu]),
 			 "\n\ncpu %d preempt=%lx, softirq=%lx, hardirq=%lx ", cpu,
 			 ((wdt_percpu_preempt_cnt[cpu] & PREEMPT_MASK) >> PREEMPT_SHIFT),
@@ -335,7 +358,7 @@ static void aee_save_reg_stack_sram(int cpu)
 			 ((wdt_percpu_preempt_cnt[cpu] & HARDIRQ_MASK) >> HARDIRQ_SHIFT));
 		aee_sram_fiq_log(str_buf[cpu]);
 
-		memset_io(str_buf[cpu], 0, sizeof(str_buf[cpu]));
+		memset(str_buf[cpu], 0, sizeof(str_buf[cpu]));
 #ifdef CONFIG_ARM64
 		snprintf(str_buf[cpu], sizeof(str_buf[cpu]), "\ncpu %d x0->x30 sp pc pstate\n", cpu);
 #else
@@ -344,31 +367,34 @@ static void aee_save_reg_stack_sram(int cpu)
 #endif
 		aee_sram_fiq_log(str_buf[cpu]);
 		aee_sram_fiq_save_bin((char *)&(regs_buffer_bin[cpu].regs),
-				      regs_buffer_bin[cpu].real_len);
+						regs_buffer_bin[cpu].real_len);
 	}
 
 	if (stacks_buffer_bin[cpu].real_len > 0) {
-		memset_io(str_buf[cpu], 0, sizeof(str_buf[cpu]));
+		memset(str_buf[cpu], 0, sizeof(str_buf[cpu]));
 #ifdef CONFIG_ARM64
-		snprintf(str_buf[cpu], sizeof(str_buf[cpu]), "\ncpu %d stack [%016lx %016lx]\n",
+		snprintf(str_buf[cpu], sizeof(str_buf[cpu]), "cpu %d stack [%016lx %016lx]\n",
 			 cpu, stacks_buffer_bin[cpu].bottom, stacks_buffer_bin[cpu].top);
 #else
-		snprintf(str_buf[cpu], sizeof(str_buf[cpu]), "\ncpu %d stack [%08lx %08lx]\n",
+		snprintf(str_buf[cpu], sizeof(str_buf[cpu]), "cpu %d stack [%08lx %08lx]\n",
 			 cpu, stacks_buffer_bin[cpu].bottom, stacks_buffer_bin[cpu].top);
 #endif
 		aee_sram_fiq_log(str_buf[cpu]);
 		aee_sram_fiq_save_bin(stacks_buffer_bin[cpu].bin_buf,
 				      stacks_buffer_bin[cpu].real_len);
 
-		memset_io(str_buf[cpu], 0, sizeof(str_buf[cpu]));
-		len = snprintf(str_buf[cpu], sizeof(str_buf[cpu]), "\ncpu %d backtrace : ", cpu);
+		memset(str_buf[cpu], 0, sizeof(str_buf[cpu]));
+		len = snprintf(str_buf[cpu], sizeof(str_buf[cpu]), "cpu %d backtrace : ", cpu);
+
 		for (i = 0; i < MAX_EXCEPTION_FRAME; i++) {
 			if (wdt_percpu_stackframe[cpu][i] == 0)
 				break;
 			len += snprintf((str_buf[cpu] + len), (sizeof(str_buf[cpu]) - len),
 					"%08lx, ", wdt_percpu_stackframe[cpu][i]);
+
 		}
 		aee_sram_fiq_log(str_buf[cpu]);
+		memset(str_buf[cpu], 0, sizeof(str_buf[cpu]));
 	}
 
 	mrdump_mini_per_cpu_regs(cpu, &regs_buffer_bin[cpu].regs);
@@ -386,8 +412,8 @@ void aee_wdt_atf_info(unsigned int cpu, struct pt_regs *regs)
 	unsigned long nanosec_rem;
 	int res = 0;
 	struct wd_api *wd_api = NULL;
-
-	/* LOGD("\n ===> aee_wdt_atf_info : cpu %d\n", cpu); */
+	char uart_buf[64];
+	aee_wdt_percpu_printf(cpu, "===> aee_wdt_atf_info : cpu %d\n", cpu);
 	if (!cpu_possible(cpu)) {
 		aee_wdt_printf("FIQ: Watchdog time out at incorrect CPU %d ?\n", cpu);
 		cpu = 0;
@@ -408,8 +434,7 @@ void aee_wdt_atf_info(unsigned int cpu, struct pt_regs *regs)
 	}
 	if (atomic_xchg(&wdt_enter_fiq, 1) != 0) {
 		aee_rr_rec_fiq_step(AEE_FIQ_STEP_WDT_FIQ_LOOP);
-		/* aee_wdt_percpu_printf(cpu, "Other CPU already enter WDT FIQ handler\n"); */
-		set_cpu_online(cpu, false);
+		aee_wdt_percpu_printf(cpu, "Other CPU already enter WDT FIQ handler\n");
 		local_fiq_disable();
 		local_irq_disable();
 
@@ -417,8 +442,44 @@ void aee_wdt_atf_info(unsigned int cpu, struct pt_regs *regs)
 			cpu_relax();
 	}
 
+
 	/* Wait for other cpu dump */
 	mdelay(1000);
+
+	/* printk lock: exec aee_wdt_zap_lock() only one time */
+	if (atomic_xchg(&aee_wdt_zap_lock, 0)) {
+		if (!no_zap_locks) {
+			aee_wdt_zap_locks();
+			uart_buf[0] = 0;
+			mtk_uart_dump_reg(uart_buf);
+			snprintf(str_buf[cpu], sizeof(str_buf[cpu]),
+				"\nCPU%d: zap printk locks uart register=%s\n",
+				cpu, uart_buf);
+			aee_sram_fiq_log(str_buf[cpu]);
+			memset(str_buf[cpu], 0, sizeof(str_buf[cpu]));
+		}
+	}
+
+	aee_rr_rec_fiq_step(AEE_FIQ_STEP_WDT_IRQ_KICK);
+	res = get_wd_api(&wd_api);
+	if (res) {
+		aee_wdt_printf("\naee_wdt_irq_info, get wd api error\n");
+	} else {
+		wd_api->wd_restart(WD_TYPE_NOLOCK);
+		aee_wdt_printf("\nkick=0x%08x,check=0x%08x", wd_api->wd_get_kick_bit(),
+			       wd_api->wd_get_check_bit());
+	}
+
+	aee_rr_rec_fiq_step(AEE_FIQ_STEP_WDT_IRQ_TIME);
+	t = cpu_clock(smp_processor_id());
+	nanosec_rem = do_div(t, 1000000000);
+	aee_wdt_printf("\nQwdt at [%5lu.%06lu]\n", (unsigned long)t, nanosec_rem / 1000);
+	aee_sram_fiq_log(wdt_log_buf);
+
+#ifdef CONFIG_MTK_WD_KICKER
+	/* dump bind info */
+	dump_wdk_bind_info();
+#endif
 
 	if (regs) {
 		aee_rr_rec_fiq_step(AEE_FIQ_STEP_WDT_IRQ_STACK);
@@ -429,31 +490,14 @@ void aee_wdt_atf_info(unsigned int cpu, struct pt_regs *regs)
 		aee_wdt_printf("Invalid atf_aee_debug_virt_addr, no register dump\n");
 	}
 
-	aee_rr_rec_fiq_step(AEE_FIQ_STEP_WDT_IRQ_KICK);
-	res = get_wd_api(&wd_api);
-	if (res) {
-		aee_wdt_printf("aee_wdt_irq_info, get wd api error\n");
-	} else {
-		wd_api->wd_restart(WD_TYPE_NOLOCK);
-		aee_wdt_printf("kick=0x%08x,check=0x%08x", wd_api->wd_get_kick_bit(),
-			       wd_api->wd_get_check_bit());
-	}
-
-	aee_rr_rec_fiq_step(AEE_FIQ_STEP_WDT_IRQ_TIME);
-	t = cpu_clock(smp_processor_id());
-	nanosec_rem = do_div(t, 1000000000);
-	aee_wdt_printf("\nQwdt at [%5lu.%06lu]\n", (unsigned long)t, nanosec_rem / 1000);
-
 #ifdef CONFIG_MT_SCHED_MONITOR
 	aee_rr_rec_fiq_step(AEE_FIQ_STEP_WDT_IRQ_SCHED);
 	mt_aee_dump_sched_traces();
 #endif
-	aee_sram_fiq_log(wdt_log_buf);
 
 	/* avoid lock prove to dump_stack in __debug_locks_off() */
 	xchg(&debug_locks, 0);
 	aee_rr_rec_fiq_step(AEE_FIQ_STEP_WDT_IRQ_DONE);
-	aee_rr_rec_exp_type(1);
 	BUG();
 }
 
@@ -466,6 +510,8 @@ void notrace aee_wdt_atf_entry(void)
 	struct pt_regs pregs;
 	int cpu = get_HW_cpuid();
 
+	aee_rr_rec_exp_type(1);
+
 	if (atf_aee_debug_virt_addr) {
 		regs = (void *)(atf_aee_debug_virt_addr + (cpu * sizeof(struct atf_aee_regs)));
 
@@ -475,6 +521,13 @@ void notrace aee_wdt_atf_entry(void)
 		pregs.sp = ((struct atf_aee_regs *)regs)->sp;
 		for (i = 0; i < 31; i++)
 			pregs.regs[i] = ((struct atf_aee_regs *)regs)->regs[i];
+
+		snprintf(str_buf[cpu], sizeof(str_buf[cpu]),
+			"WDT_CPU%d: PState=%llx, PC=%llx, SP=%llx, LR=%llx\n",
+			cpu, pregs.pstate, pregs.pc, pregs.sp, pregs.regs[30]);
+		aee_sram_fiq_log(str_buf[cpu]);
+		memset(str_buf[cpu], 0, sizeof(str_buf[cpu]));
+
 #else
 		pregs.ARM_cpsr = (unsigned long)((struct atf_aee_regs *)regs)->pstate;
 		pregs.ARM_pc = (unsigned long)((struct atf_aee_regs *)regs)->pc;
@@ -493,6 +546,13 @@ void notrace aee_wdt_atf_entry(void)
 		pregs.ARM_r2 = (unsigned long)((struct atf_aee_regs *)regs)->regs[2];
 		pregs.ARM_r1 = (unsigned long)((struct atf_aee_regs *)regs)->regs[1];
 		pregs.ARM_r0 = (unsigned long)((struct atf_aee_regs *)regs)->regs[0];
+
+		snprintf(str_buf[cpu], sizeof(str_buf[cpu]),
+			"WDT_CPU%d: PState=%lx, PC=%lx, SP=%lx, LR=%lx\n",
+			cpu, pregs.ARM_cpsr, pregs.ARM_pc, pregs.ARM_sp, pregs.ARM_lr);
+		aee_sram_fiq_log(str_buf[cpu]);
+		memset(str_buf[cpu], 0, sizeof(str_buf[cpu]));
+
 #endif
 		aee_wdt_atf_info(cpu, &pregs);
 	} else {
@@ -506,6 +566,8 @@ static int __init aee_wdt_init(void)
 	phys_addr_t atf_aee_debug_phy_addr;
 
 	atomic_set(&wdt_enter_fiq, 0);
+	atomic_set(&aee_wdt_zap_lock, 1);
+
 	for (i = 0; i < NR_CPUS; i++) {
 		wdt_percpu_log_buf[i] = kzalloc(WDT_PERCPU_LOG_SIZE, GFP_KERNEL);
 		if (wdt_percpu_log_buf[i] == NULL)
@@ -513,19 +575,23 @@ static int __init aee_wdt_init(void)
 		wdt_percpu_log_length[i] = 0;
 		wdt_percpu_preempt_cnt[i] = 0;
 	}
-	memset_io(wdt_log_buf, 0, sizeof(wdt_log_buf));
-	memset_io(regs_buffer_bin, 0, sizeof(regs_buffer_bin));
-	memset_io(stacks_buffer_bin, 0, sizeof(stacks_buffer_bin));
-	memset_io(wdt_percpu_stackframe, 0, sizeof(wdt_percpu_stackframe));
+	memset(wdt_log_buf, 0, sizeof(wdt_log_buf));
+	memset(regs_buffer_bin, 0, sizeof(regs_buffer_bin));
+	memset(stacks_buffer_bin, 0, sizeof(stacks_buffer_bin));
+	memset(wdt_percpu_stackframe, 0, sizeof(wdt_percpu_stackframe));
+	memset(str_buf, 0, sizeof(str_buf));
 
-	/* send SMC to ATF to register call back function */
+	/* send SMC to ATF to register call back function
+	   Notes: return phys_addr of mt_secure_call() from atf will always < 4G
+	 */
 #ifdef CONFIG_ARM64
-	atf_aee_debug_phy_addr = (phys_addr_t) (0x00000000FFFFFFFF &
+	atf_aee_debug_phy_addr = (phys_addr_t) (0x00000000FFFFFFFFULL &
 						mt_secure_call(MTK_SIP_KERNEL_WDT,
-							       (u64) &aee_wdt_atf_entry, 0, 0));
+							(u64) &aee_wdt_atf_entry, 0, 0));
 #else
-	atf_aee_debug_phy_addr = (phys_addr_t)
-	    mt_secure_call(MTK_SIP_KERNEL_WDT, (u32) &aee_wdt_atf_entry, 0, 0);
+	atf_aee_debug_phy_addr = (phys_addr_t) (0x00000000FFFFFFFFULL &
+						mt_secure_call(MTK_SIP_KERNEL_WDT,
+							(u32) &aee_wdt_atf_entry, 0, 0));
 #endif
 	LOGD("\n MTK_SIP_KERNEL_WDT - 0x%p\n", &aee_wdt_atf_entry);
 
@@ -541,4 +607,4 @@ static int __init aee_wdt_init(void)
 	return 0;
 }
 
-module_init(aee_wdt_init);
+arch_initcall(aee_wdt_init);

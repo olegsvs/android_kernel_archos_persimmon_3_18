@@ -1,3 +1,17 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
+
 #include <accdet.h>
 
 static struct platform_driver accdet_driver;
@@ -67,10 +81,13 @@ static int accdet_pm_restore_noirq(struct device *device)
 struct of_device_id accdet_of_match[] = {
 	{ .compatible = "mediatek,mt6735-accdet", },
 	{ .compatible = "mediatek,mt6755-accdet", },
+	{ .compatible = "mediatek,mt6757-accdet", },
 	{ .compatible = "mediatek,mt6580-accdet", },
 	{ .compatible = "mediatek,mt8173-accdet", },
 	{ .compatible = "mediatek,mt8163-accdet", },
+	{ .compatible = "mediatek,mt8127-accdet", },
 	{ .compatible = "mediatek,mt6797-accdet", },
+	{ .compatible = "mediatek,elbrus-accdet", },
 	{},
 };
 

@@ -34,6 +34,13 @@
 #include <linux/sched.h>
 #include <net/flow_keys.h>
 
+/* net device ftrace debug define */
+#undef NETDEV_TRACE
+#ifdef NETDEV_TRACE
+#define NETDEV_DL_TRACE 1
+#define NETDEV_UL_TRACE 1
+#endif
+
 /* A. Checksumming of received packets by device.
  *
  * CHECKSUM_NONE:
@@ -341,7 +348,6 @@ enum {
 	SKB_FCLONE_UNAVAILABLE,	/* skb has no fclone (from head_cache) */
 	SKB_FCLONE_ORIG,	/* orig skb (from fclone_cache) */
 	SKB_FCLONE_CLONE,	/* companion fclone skb (from fclone_cache) */
-	SKB_FCLONE_FREE,	/* this companion fclone skb is available */
 };
 
 enum {
@@ -655,6 +661,10 @@ struct sk_buff {
 				*data;
 	unsigned int		truesize;
 	atomic_t		users;
+
+#ifdef NETDEV_TRACE
+	unsigned int		dbg_flag;
+#endif
 };
 
 #ifdef __KERNEL__
@@ -811,7 +821,7 @@ static inline bool skb_fclone_busy(const struct sock *sk,
 	fclones = container_of(skb, struct sk_buff_fclones, skb1);
 
 	return skb->fclone == SKB_FCLONE_ORIG &&
-	       fclones->skb2.fclone == SKB_FCLONE_CLONE &&
+	       atomic_read(&fclones->fclone_ref) > 1 &&
 	       fclones->skb2.sk == sk;
 }
 
@@ -2119,11 +2129,7 @@ static inline void __skb_queue_purge(struct sk_buff_head *list)
 		kfree_skb(skb);
 }
 
-#if 0  /* memory fragement issue */
 #define NETDEV_FRAG_PAGE_MAX_ORDER get_order(32768)
-#else
-#define NETDEV_FRAG_PAGE_MAX_ORDER get_order(8192)
-#endif
 #define NETDEV_FRAG_PAGE_MAX_SIZE  (PAGE_SIZE << NETDEV_FRAG_PAGE_MAX_ORDER)
 #define NETDEV_PAGECNT_MAX_BIAS	   NETDEV_FRAG_PAGE_MAX_SIZE
 
@@ -2553,6 +2559,9 @@ static inline void skb_postpull_rcsum(struct sk_buff *skb,
 {
 	if (skb->ip_summed == CHECKSUM_COMPLETE)
 		skb->csum = csum_sub(skb->csum, csum_partial(start, len, 0));
+	else if (skb->ip_summed == CHECKSUM_PARTIAL &&
+		 skb_checksum_start_offset(skb) < 0)
+		skb->ip_summed = CHECKSUM_NONE;
 }
 
 unsigned char *skb_pull_rcsum(struct sk_buff *skb, unsigned int len);

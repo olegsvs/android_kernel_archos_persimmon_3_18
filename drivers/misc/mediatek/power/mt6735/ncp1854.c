@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #include <linux/types.h>
 #include <linux/init.h>		/* For init/exit macros */
 #include <linux/module.h>	/* For MODULE_ marcros  */
@@ -28,7 +41,7 @@ static int ncp1854_driver_probe(struct i2c_client *client, const struct i2c_devi
 
 #ifdef CONFIG_OF
 static const struct of_device_id ncp1854_of_match[] = {
-	{.compatible = "mediatek,swithing_charger",}, //modify by darren
+	{.compatible = "ncp1854",},
 	{},
 };
 
@@ -584,7 +597,9 @@ static void ncp1854_parse_customer_setting(void)
 
 	pinctrl_select_state(pinctrl, pinctrl_drvvbus_init);
 	pinctrl_select_state(pinctrl, pinctrl_drvvbus_low);
+
 	devm_pinctrl_put(pinctrl);
+
 	battery_log(BAT_LOG_FULL, "[%s]pinctrl_select_state success\n", __func__);
 #endif
 }

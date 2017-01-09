@@ -133,7 +133,15 @@ struct bmp_i2c_data {
 #define BAR_FUN(f)               pr_err(BAR_TAG"%s\n", __func__)
 #define BAR_ERR(fmt, args...) \
 	pr_err(BAR_TAG"%s %d : "fmt, __func__, __LINE__, ##args)
+
+#define BAR_LOGLEVEL 0
+
+#if ((BAR_LOGLEVEL) >= 1)
 #define BAR_LOG(fmt, args...)    pr_debug(BAR_TAG fmt, ##args)
+#else
+#define BAR_LOG(fmt, args...)
+#endif
+
 
 static struct i2c_driver bmp_i2c_driver;
 static struct bmp_i2c_data *obj_i2c_data;
@@ -1170,12 +1178,10 @@ static int bmp_suspend(struct i2c_client *client, pm_message_t msg)
 	int err = 0;
 
 	BAR_FUN();
-	mutex_lock(&obj->lock);
 
 	if (msg.event == PM_EVENT_SUSPEND) {
 		if (NULL == obj) {
 			BAR_ERR("null pointer\n");
-			mutex_unlock(&obj->lock);
 			return -EINVAL;
 		}
 
@@ -1183,11 +1189,9 @@ static int bmp_suspend(struct i2c_client *client, pm_message_t msg)
 		err = bmp_set_powermode(obj->client, BMP_SUSPEND_MODE);
 		if (err) {
 			BAR_ERR("bmp set suspend mode failed, err = %d\n", err);
-			mutex_unlock(&obj->lock);
 			return err;
 		}
 	}
-	mutex_unlock(&obj->lock);
 	return err;
 }
 
@@ -1197,18 +1201,15 @@ static int bmp_resume(struct i2c_client *client)
 	int err = 0;
 
 	BAR_FUN();
-	mutex_lock(&obj->lock);
 
 	if (NULL == obj) {
 		BAR_ERR("null pointer\n");
-		mutex_unlock(&obj->lock);
 		return -EINVAL;
 	}
 
 	err = bmp_init_client(obj->client);
 	if (err) {
 		BAR_ERR("initialize client fail\n");
-		mutex_unlock(&obj->lock);
 		return err;
 	}
 
@@ -1217,7 +1218,6 @@ static int bmp_resume(struct i2c_client *client)
 #endif
 
 	atomic_set(&obj->suspend, 0);
-	mutex_unlock(&obj->lock);
 
 	return 0;
 }

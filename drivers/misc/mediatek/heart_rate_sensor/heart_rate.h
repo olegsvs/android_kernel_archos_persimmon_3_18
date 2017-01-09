@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 
 #ifndef __HEART_RATE_H__
 #define __HEART_RATE_H__
@@ -17,10 +30,10 @@
 
 
 #define HRM_TAG					"<HEART_RATE> "
-#define HRM_FUN(f)				printk(HRM_TAG"%s\n", __func__)
-#define HRM_ERR(fmt, args...)	printk(HRM_TAG"%s %d : "fmt, __func__, __LINE__, ##args)
-#define HRM_LOG(fmt, args...)	printk(HRM_TAG fmt, ##args)
-#define HRM_VER(fmt, args...)   printk(HRM_TAG"%s: "fmt, __func__, ##args)	/* ((void)0) */
+#define HRM_FUN(f)				pr_debug(HRM_TAG"%s\n", __func__)
+#define HRM_ERR(fmt, args...)	pr_err(HRM_TAG"%s %d : "fmt, __func__, __LINE__, ##args)
+#define HRM_LOG(fmt, args...)	pr_debug(HRM_TAG fmt, ##args)
+#define HRM_VER(fmt, args...)   pr_debug(HRM_TAG"%s: "fmt, __func__, ##args)	/* ((void)0) */
 
 #define OP_HRM_DELAY	0X01
 #define	OP_HRM_ENABLE	0X02

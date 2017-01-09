@@ -69,7 +69,7 @@
 #include <mt-plat/mt_boot_common.h>
 #endif
 /* #include <linux/printk.h> */
-#include <mt_reboot.h>
+#include <linux/reboot.h>
 #include <mt-plat/charging.h>
 
 #define RTC_NAME	"mt-rtc"
@@ -264,6 +264,8 @@ void rtc_gpio_enable_32k(rtc_gpio_user_t user)
 {
 	unsigned long flags;
 
+	rtc_xinfo("rtc_gpio_enable_32k, user = %d\n", user);
+
 	if (user < RTC_GPIO_USER_WIFI || user > RTC_GPIO_USER_PMIC)
 		return;
 
@@ -276,6 +278,8 @@ EXPORT_SYMBOL(rtc_gpio_enable_32k);
 void rtc_gpio_disable_32k(rtc_gpio_user_t user)
 {
 	unsigned long flags;
+
+	rtc_xinfo("rtc_gpio_disable_32k, user = %d\n", user);
 
 	if (user < RTC_GPIO_USER_WIFI || user > RTC_GPIO_USER_PMIC)
 		return;
@@ -408,7 +412,7 @@ void mt_power_off(void)
 		mdelay(100);
 		rtc_xinfo("Phone with charger\n");
 		if (pmic_chrdet_status() == KAL_TRUE || count > 10)
-			arch_reset(0, "charger");
+			machine_restart("charger");
 		count++;
 #endif
 	}
@@ -475,7 +479,7 @@ static void rtc_handler(void)
 				/* tm.tm_sec += 1; */
 				hal_rtc_set_alarm(&tm);
 				spin_unlock(&rtc_lock);
-				arch_reset(0, "kpoc");
+				machine_restart("kpoc");
 			} else {
 				hal_rtc_save_pwron_alarm();
 				pwron_alm = true;
@@ -622,34 +626,42 @@ static void rtc_save_pwron_time(bool enable, struct rtc_time *tm, bool logo)
 static int rtc_ops_set_alarm(struct device *dev, struct rtc_wkalrm *alm)
 {
 	unsigned long time, flags;
-	struct rtc_time *tm = &alm->time;
+	struct rtc_time tm = alm->time;
+	ktime_t target;
 
-	rtc_tm_to_time(tm, &time);
+	rtc_tm_to_time(&tm, &time);
 	if (time > (unsigned long)LONG_MAX)
 		return -EINVAL;
 
-	tm->tm_year -= RTC_MIN_YEAR_OFFSET;
-	tm->tm_mon++;
+	if (alm->enabled == 1) {
+		/* Add one more second to postpone wake time. */
+		target = rtc_tm_to_ktime(tm);
+		target = ktime_add_ns(target, NSEC_PER_SEC);
+		tm = rtc_ktime_to_tm(target);
+	}
+
+	tm.tm_year -= RTC_MIN_YEAR_OFFSET;
+	tm.tm_mon++;
 
 	rtc_xinfo("set al time = %04d/%02d/%02d %02d:%02d:%02d (%d)\n",
-		  tm->tm_year + RTC_MIN_YEAR, tm->tm_mon, tm->tm_mday,
-		  tm->tm_hour, tm->tm_min, tm->tm_sec, alm->enabled);
+		  tm.tm_year + RTC_MIN_YEAR, tm.tm_mon, tm.tm_mday,
+		  tm.tm_hour, tm.tm_min, tm.tm_sec, alm->enabled);
 
 	spin_lock_irqsave(&rtc_lock, flags);
 	if (alm->enabled == 2) {	/* enable power-on alarm */
-		rtc_save_pwron_time(true, tm, false);
+		rtc_save_pwron_time(true, &tm, false);
 	} else if (alm->enabled == 3) {	/* enable power-on alarm with logo */
-		rtc_save_pwron_time(true, tm, true);
+		rtc_save_pwron_time(true, &tm, true);
 	} else if (alm->enabled == 4) {	/* disable power-on alarm */
 		/* alm->enabled = 0; */
-		rtc_save_pwron_time(false, tm, false);
+		rtc_save_pwron_time(false, &tm, false);
 	}
 
 	/* disable alarm and clear Power-On Alarm bit */
-	hal_rtc_clear_alarm(tm);
+	hal_rtc_clear_alarm(&tm);
 
 	if (alm->enabled)
-		hal_rtc_set_alarm(tm);
+		hal_rtc_set_alarm(&tm);
 	spin_unlock_irqrestore(&rtc_lock, flags);
 
 	return 0;
@@ -724,7 +736,7 @@ static int rtc_pdrv_probe(struct platform_device *pdev)
 		rtc_xerror("register rtc device failed (%ld)\n", PTR_ERR(rtc));
 		return PTR_ERR(rtc);
 	}
-#ifdef PMIC_REGISTER_INTERRUPT_ENABLE
+#if defined(PMIC_REGISTER_INTERRUPT_ENABLE) && !defined(CONFIG_FPGA_EARLY_PORTING)
 	pmic_register_interrupt_callback(RTC_INTERRUPT_NUM, rtc_irq_handler);
 	pmic_enable_interrupt(RTC_INTERRUPT_NUM, 1, "RTC");
 #endif

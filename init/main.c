@@ -52,6 +52,7 @@
 #include <linux/key.h>
 #include <linux/buffer_head.h>
 #include <linux/page_cgroup.h>
+#include <linux/page_ext.h>
 #include <linux/debug_locks.h>
 #include <linux/debugobjects.h>
 #include <linux/lockdep.h>
@@ -85,9 +86,6 @@
 #include <asm/setup.h>
 #include <asm/sections.h>
 #include <asm/cacheflush.h>
-#ifdef CONFIG_MTPROF
-#include "bootprof.h"
-#endif
 
 #ifdef CONFIG_X86_LOCAL_APIC
 #include <asm/smp.h>
@@ -496,6 +494,7 @@ static void __init mm_init(void)
 	 * bigger than MAX_ORDER unless SPARSEMEM.
 	 */
 	page_cgroup_init_flatmem();
+	page_ext_init_flatmem();
 	mem_init();
 	kmem_cache_init();
 	percpu_init_late();
@@ -634,6 +633,7 @@ asmlinkage __visible void __init start_kernel(void)
 	}
 #endif
 	page_cgroup_init();
+	page_ext_init();
 	debug_objects_mem_init();
 	kmemleak_init();
 	setup_per_cpu_pageset();
@@ -673,6 +673,7 @@ asmlinkage __visible void __init start_kernel(void)
 
 	check_bugs();
 
+	acpi_subsystem_init();
 	sfi_init_late();
 
 	if (efi_enabled(EFI_RUNTIME_SERVICES)) {
@@ -782,16 +783,26 @@ static int __init_or_module do_one_initcall_debug(initcall_t fn)
 	return ret;
 }
 
+#ifdef CONFIG_MTPROF
+#include "bootprof.h"
+#else
+#define TIME_LOG_START()
+#define TIME_LOG_END()
+#define bootprof_initcall(fn, ts)
+#endif
+
 int __init_or_module do_one_initcall(initcall_t fn)
 {
-	unsigned long long ts = 0;
 	int count = preempt_count();
 	int ret;
 	char msgbuf[64];
+#ifdef CONFIG_MTPROF
+	unsigned long long ts = 0;
+#endif
 
 	if (initcall_blacklisted(fn))
 		return -EPERM;
-	ts = sched_clock();
+	TIME_LOG_START();
 #if defined(CONFIG_MT_ENG_BUILD)
 	ret = do_one_initcall_debug(fn);
 #else
@@ -800,7 +811,7 @@ int __init_or_module do_one_initcall(initcall_t fn)
 	else
 		ret = fn();
 #endif
-	ts = sched_clock() - ts;
+	TIME_LOG_END();
 	msgbuf[0] = 0;
 
 	if (preempt_count() != count) {
@@ -812,13 +823,7 @@ int __init_or_module do_one_initcall(initcall_t fn)
 		local_irq_enable();
 	}
 	WARN(msgbuf[0], "initcall %pF returned with %s\n", fn, msgbuf);
-	if (ts > 15000000) {
-		/* log more than 15ms initcalls */
-		snprintf(msgbuf, 64, "%pf %10llu ns", fn, ts);
-#ifdef CONFIG_MTPROF
-		log_boot(msgbuf);
-#endif
-	}
+	bootprof_initcall(fn, ts);
 
 	return ret;
 }

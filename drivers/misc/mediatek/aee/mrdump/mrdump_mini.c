@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2016 MediaTek Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
+ */
+
 #include <linux/init.h>
 #include <linux/mm.h>
 #include <linux/slab.h>
@@ -75,9 +88,41 @@ __weak struct vm_struct *find_vm_area(const void *addr)
 }
 
 #undef virt_addr_valid
+#ifdef CONFIG_MODULES
+#define virt_addr_valid(kaddr) (((void *)(kaddr) >= (void *)PAGE_OFFSET && \
+				(void *)(kaddr) < (void *)high_memory && \
+				pfn_valid(__pa(kaddr) >> PAGE_SHIFT)) || \
+				is_module_address((unsigned long)kaddr))
+#else
 #define virt_addr_valid(kaddr) ((void *)(kaddr) >= (void *)PAGE_OFFSET && \
 				(void *)(kaddr) < (void *)high_memory && \
 				pfn_valid(__pa(kaddr) >> PAGE_SHIFT))
+#endif
+
+void check_addr_valid(unsigned long addr, unsigned long *low, unsigned long *high)
+{
+	unsigned long l = *low;
+	unsigned long h = *high;
+
+	while (l < addr) {
+		if (!virt_addr_valid(l)) {
+			*low += PAGE_SIZE;
+			LOGE("address(0x%lx), low is invalid(0x%lx), new low is 0x%lx\n", addr, l, *low);
+		}
+		l += PAGE_SIZE;
+	}
+	if (*low > addr)
+		*low = addr;
+	while (h > addr) {
+		if (!virt_addr_valid(h)) {
+			*high -= PAGE_SIZE;
+			LOGE("address(0x%lx), high is invalid(0x%lx), new high is 0x%lx\n", addr, l, *high);
+		}
+		h -= PAGE_SIZE;
+	}
+	if (*high < addr)
+		*high = addr;
+}
 
 /* copy from fs/binfmt_elf.c */
 static void fill_elf_header(struct elfhdr *elf, int segs)
@@ -234,6 +279,138 @@ int kernel_addr_valid(unsigned long addr)
 	return pfn_valid(pte_pfn(*pte));
 }
 
+#ifdef CONFIG_MODULES
+void mrdump_mini_add_entry_module(unsigned long addr, unsigned long size)
+{
+	struct module *mod = NULL;
+	unsigned long init_start = 0;
+	unsigned long init_end = 0;
+	unsigned long core_start = 0;
+	unsigned long core_end = 0;
+	struct elf_phdr *phdr;
+	/* struct vm_area_struct *vma; */
+	struct vm_struct *vm;
+	unsigned long laddr, haddr, lnew, hnew;
+	unsigned long hnewtmp, lcheckaddr;
+	unsigned long paddr, pcheckaddr;
+	int i, checkloop;
+	bool flag;
+
+	mod = __module_address(addr);
+	if (NULL == mod) {
+		pr_err("mrdump: find module failed for address:%lx\n", addr);
+		return;
+	}
+	init_start = (unsigned long)mod->module_init;
+	init_end = ALIGN((init_start + mod->init_size), PAGE_SIZE);
+	core_start = (unsigned long)mod->module_core;
+	core_end = ALIGN((core_start + mod->core_size), PAGE_SIZE);
+
+	if ((init_start % PAGE_SIZE) || (core_start % PAGE_SIZE)) {
+		pr_err("mrdump: unaligned init_start:%lx or core_start:%lx\n", init_start, core_start);
+		return;
+	}
+
+	hnew = ALIGN(addr + size / 2, PAGE_SIZE);
+	lnew = hnew - ALIGN(size, PAGE_SIZE);
+	if (!virt_addr_valid(addr)) {
+		pr_err("mrdump: never unexpected(module) case for address:%lx\n", addr);
+		/* vma = find_vma(&init_mm, addr); */
+		/* pr_err("mirdump: add: %p, vma: %x", addr, vma); */
+		/* if (!vma) */
+		/*      return; */
+		/* pr_err("mirdump: (%p, %p), (%p, %p)", vma->vm_start, vma->vm_end, lnew, hnew);                */
+		/* hnew = min(vma->vm_end, hnew); */
+		/* lnew = max(vma->vm_start, lnew); */
+		vm = find_vm_area((void *)addr);
+		if (!vm)
+			return;
+		/* lnew = max((unsigned long)vm->addr, lnew); */
+		/* hnew = min((unsigned long)vm->addr + vm->size - PAGE_SIZE, hnew); */
+		/* only dump 1 page */
+		lnew = max((unsigned long)vm->addr, PAGE_ALIGN(addr) - PAGE_SIZE);
+		hnew = lnew + PAGE_SIZE;
+		paddr = __pfn_to_phys(vmalloc_to_pfn((void *)lnew));
+	} else {
+		/* check_addr_valid(addr, &lnew, &hnew); */
+		if (addr >= init_start && addr < init_end) {
+			lnew = init_start < lnew ? lnew : init_start;
+			hnew = init_end > hnew ? hnew : init_end;
+			/* lnew = init_start; */
+			/* hnew = init_end; */
+		} else if (addr >= core_start && addr < core_end) {
+			lnew = core_start < lnew ? lnew : core_start;
+			hnew = core_end > hnew ? hnew : core_end;
+			/* lnew = core_start; */
+			/* hnew = core_end; */
+		} else {
+			pr_err("mrdump: unexpected case for address:%lx\n", addr);
+			return;
+		}
+
+		if ((lnew % PAGE_SIZE) || (hnew % PAGE_SIZE)) {
+			pr_err("mrdump: unaligned low:%lx or high:%lx\n", lnew, hnew);
+			return;
+		}
+
+		paddr = __pfn_to_phys(vmalloc_to_pfn((void *)lnew));
+		flag = true;
+		while (flag) {
+			for (checkloop = 1; checkloop < (hnew - lnew) / PAGE_SIZE; checkloop++) {
+				lcheckaddr = lnew + checkloop * PAGE_SIZE;
+				pcheckaddr = __pfn_to_phys(vmalloc_to_pfn((void *)lcheckaddr));
+				if (pcheckaddr != (paddr + checkloop * PAGE_SIZE)) {
+					/* pr_err("mrdump: non-continuous PA for address:%lx, lnew:%lx(%lx),
+						lcheckaddr:%lx(%lx)\n", addr, lnew, paddr, lcheckaddr, pcheckaddr); */
+					flag = false;
+					break;
+				}
+			}
+
+			hnewtmp = flag ? hnew : lcheckaddr;
+			for (i = 0; i < MRDUMP_MINI_NR_SECTION; i++) {
+				phdr = &mrdump_mini_ehdr->phdrs[i];
+				if (phdr->p_type == PT_NULL)
+					break;
+				if (phdr->p_type != PT_LOAD)
+					continue;
+				laddr = phdr->p_vaddr;
+				haddr = laddr + phdr->p_filesz;
+				/* full overlap with exist */
+				if (lnew >= laddr && hnewtmp <= haddr)
+					goto skip_fill_load;
+				/* no overlap, new */
+				if (lnew >= haddr || hnewtmp <= laddr)
+					continue;
+				/* partial overlap with exist, joining */
+				lnew = lnew < laddr ? lnew : laddr;
+				hnewtmp = hnewtmp > haddr ? hnewtmp : haddr;
+				paddr = __pfn_to_phys(vmalloc_to_pfn((void *)lnew));
+				break;
+			}
+			if (i < MRDUMP_MINI_NR_SECTION) {
+				fill_elf_load_phdr(phdr, hnewtmp - lnew, lnew, paddr);
+			} else {
+				/* break while loop when section is full */
+				pr_err("mrdump: unexpected section full:%d\n", MRDUMP_MINI_NR_SECTION);
+				break;
+			}
+
+skip_fill_load:
+			if (!flag) {
+				lnew = lcheckaddr;
+				paddr = pcheckaddr;
+				/* continue loop */
+				flag = true;
+			} else {
+				/* finish loop */
+				flag = false;
+			}
+		}
+	}
+}
+#endif
+
 void mrdump_mini_add_entry(unsigned long addr, unsigned long size)
 {
 	struct elf_phdr *phdr;
@@ -243,6 +420,12 @@ void mrdump_mini_add_entry(unsigned long addr, unsigned long size)
 	unsigned long paddr;
 	int i;
 
+#ifdef CONFIG_MODULES
+	if (is_module_address(addr)) {
+		mrdump_mini_add_entry_module(addr, size);
+		return;
+	}
+#endif
 	if (addr < PAGE_OFFSET)
 		return;
 	hnew = ALIGN(addr + size / 2, PAGE_SIZE);
@@ -265,6 +448,7 @@ void mrdump_mini_add_entry(unsigned long addr, unsigned long size)
 		hnew = lnew + PAGE_SIZE;
 		paddr = __pfn_to_phys(vmalloc_to_pfn((void *)lnew));
 	} else {
+		check_addr_valid(addr, &lnew, &hnew);
 		lnew = max(lnew, PAGE_OFFSET);
 		hnew = min_t(unsigned long, hnew, (unsigned long)high_memory);
 		paddr = __pa(lnew);
@@ -291,6 +475,8 @@ void mrdump_mini_add_entry(unsigned long addr, unsigned long size)
 	}
 	if (i < MRDUMP_MINI_NR_SECTION)
 		fill_elf_load_phdr(phdr, hnew - lnew, lnew, paddr);
+	else
+		LOGE("mrdump: MINI_NR_SECTION overflow!\n");
 }
 
 static void mrdump_mini_add_tsk_ti(int cpu, struct pt_regs *regs, int stack)
@@ -299,7 +485,7 @@ static void mrdump_mini_add_tsk_ti(int cpu, struct pt_regs *regs, int stack)
 	struct thread_info *ti = NULL;
 	unsigned long *bottom = NULL;
 	unsigned long *top = NULL;
-	/*unsigned long *p;*/
+	unsigned long *p;
 
 	if (virt_addr_valid(regs->reg_sp)) {
 		ti = (struct thread_info *)(regs->reg_sp & ~(THREAD_SIZE - 1));
@@ -330,7 +516,7 @@ static void mrdump_mini_add_tsk_ti(int cpu, struct pt_regs *regs, int stack)
 	if (!virt_addr_valid(ti) || !virt_addr_valid(top) || bottom < (unsigned long *)ti
 	    || bottom > top)
 		return;
-/*
+
 	for (p = (unsigned long *)ALIGN((unsigned long)bottom, sizeof(unsigned long)); p < top; p++) {
 		if (!virt_addr_valid(*p))
 			continue;
@@ -340,7 +526,6 @@ static void mrdump_mini_add_tsk_ti(int cpu, struct pt_regs *regs, int stack)
 			continue;
 		mrdump_mini_add_entry(*p, MRDUMP_MINI_SECTION_SIZE);
 	}
-*/
 }
 
 static int mrdump_mini_cpu_regs(int cpu, struct pt_regs *regs, int main)
@@ -568,9 +753,13 @@ static void mrdump_mini_add_loads(void)
 			cpu = prstatus->pr_pid - 100;
 			mrdump_mini_add_tsk_ti(cpu, &regs, 1);
 			mrdump_mini_add_entry((unsigned long)cpu_rq(cpu), MRDUMP_MINI_SECTION_SIZE);
-		} else if (prstatus->pr_pid < NR_CPUS) {
+		} else if (prstatus->pr_pid <= NR_CPUS) {
 			cpu = prstatus->pr_pid - 1;
 			mrdump_mini_add_tsk_ti(cpu, &regs, 0);
+			for (i = 0; i < ELF_NGREG; i++) {
+				mrdump_mini_add_entry(((unsigned long *)&regs)[i],
+					MRDUMP_MINI_SECTION_SIZE);
+			}
 		} else {
 			LOGE("mrdump: wrong pr_pid: %d\n", prstatus->pr_pid);
 		}
@@ -733,7 +922,7 @@ int mrdump_mini_init(void)
 	return 0;
 }
 
-module_init(mrdump_mini_init);
+arch_initcall(mrdump_mini_init);
 
 void mrdump_mini_reserve_memory(void)
 {

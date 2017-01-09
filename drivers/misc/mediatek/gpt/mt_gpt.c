@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
@@ -16,6 +29,7 @@
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/of_irq.h>
+#include <linux/clk.h>
 
 #include <linux/slab.h>
 #include <linux/sched_clock.h>
@@ -314,8 +328,7 @@ static void gpt_devs_init(void)
 
 	for (i = 0; i < NR_GPTS; i++) {
 		gpt_devs[i].id = i;
-			gpt_devs[i].base_addr = GPT1_BASE + 0x10 * i;
-		pr_alert("gpt_devs_init: base_addr=0x%lx\n", (unsigned long)gpt_devs[i].base_addr);
+		gpt_devs[i].base_addr = GPT1_BASE + 0x10 * i;
 	}
 
 	gpt_devs[GPT6].features |= GPT_FEAT_64_BIT;
@@ -422,7 +435,7 @@ static void clkevt_handler(unsigned long data)
 
 static inline void setup_clkevt(u32 freq)
 {
-	unsigned int cmp;
+	unsigned int cmp[2];
 	struct clock_event_device *evt = &gpt_clockevent;
 	struct gpt_device *dev = id_to_dev(GPT_CLKEVT_ID);
 
@@ -434,8 +447,8 @@ static inline void setup_clkevt(u32 freq)
 	setup_gpt_dev_locked(dev, GPT_REPEAT, GPT_CLK_SRC_SYS, GPT_CLK_DIV_1,
 			     freq / HZ, clkevt_handler, GPT_ISR);
 
-	__gpt_get_cmp(dev, &cmp);
-	pr_alert("GPT1_CMP = %d, HZ = %d\n", cmp, HZ);
+	__gpt_get_cmp(dev, cmp);
+	pr_debug("GPT1_CMP = %d, HZ = %d\n", cmp[0], HZ);
 
 	clockevents_register_device(evt);
 }
@@ -457,8 +470,6 @@ static inline void setup_clksrc(u32 freq)
 	struct timecounter *mt_timecounter;
 	u64 start_count;
 
-	pr_alert("setup_clksrc1: dev->base_addr=0x%lx GPT2_CON=0x%x\n",
-		(unsigned long)dev->base_addr, __raw_readl(dev->base_addr));
 	cs->mult = clocksource_hz2mult(freq, cs->shift);
 	sched_clock_register(mt_read_sched_clock, 32, freq);
 
@@ -474,8 +485,6 @@ static inline void setup_clksrc(u32 freq)
 	timecounter_init(mt_timecounter, &mt_cyclecounter, start_count);
 	pr_alert("setup_clksrc1: mt_cyclecounter.mult=0x%x mt_cyclecounter.shift=0x%x\n",
 		mt_cyclecounter.mult, mt_cyclecounter.shift);
-	pr_alert("setup_clksrc2: dev->base_addr=0x%lx GPT2_CON=0x%x\n",
-		(unsigned long)dev->base_addr, __raw_readl(dev->base_addr));
 }
 
 static void setup_syscnt(void)
@@ -488,8 +497,6 @@ static void setup_syscnt(void)
 		/*set_cpuxgpt_clk(CLK_DIV2);*/
 		/* enable cpuxgpt */
 		/*enable_cpuxgpt();*/
-
-	pr_alert("fwq sysc count\n");
 }
 
 static ssize_t gpt_stat_read(struct file *file, char __user *buf, size_t size, loff_t *ppos)
@@ -545,8 +552,6 @@ static int __init gpt_mod_init(void)
 	xgpt_dir = proc_mkdir("mt_xgpt", NULL);
 	proc_create("gpt_stat", S_IRUGO, xgpt_dir, &xgpt_cmd_proc_fops);
 
-	pr_alert("GPT: init\n");
-
 	return 0;
 }
 
@@ -554,23 +559,31 @@ static void __init mt_gpt_init(struct device_node *node)
 {
 	int i;
 	u32 freq;
+	struct clk *clk_bus, *clk_13m;
 	unsigned long save_flags;
 
 	gpt_update_lock(save_flags);
-
-	/* freq=SYS_CLK_RATE */
-	if (of_property_read_u32(node, "clock-frequency", &freq))
-		pr_err("clock-frequency not set in the .dts file");
-
-#ifdef CONFIG_MTK_FPGA
-	freq = (freq / 13 * 6);	/* 13M would be 6M on FPGA */
-#endif
 
 	/* Setup IO addresses */
 	xgpt_timers.tmr_regs = of_iomap(node, 0);
 
 	/* Setup IRQ numbers */
 	xgpt_timers.tmr_irq = irq_of_parse_and_map(node, 0);
+
+	clk_bus = of_clk_get_by_name(node, "bus");
+	if (!IS_ERR(clk_bus))
+		clk_prepare_enable(clk_bus);
+
+	clk_13m = of_clk_get_by_name(node, "clk13m");
+	if (IS_ERR(clk_13m)) {
+		pr_err("mt_gpt_init Can't get clk_13m\n");
+		goto err_irq;
+	}
+
+	freq = clk_get_rate(clk_13m);
+#ifdef CONFIG_MTK_FPGA
+	freq = (freq / 13 * 6);	/* 13M would be 6M on FPGA */
+#endif
 
 	boot_time_value = xgpt_boot_up_time();	/*record the time when init GPT */
 
@@ -589,6 +602,12 @@ static void __init mt_gpt_init(struct device_node *node)
 	/* use cpuxgpt as syscnt */
 	setup_syscnt();
 
+	gpt_update_unlock(save_flags);
+
+	return;
+
+err_irq:
+	irq_dispose_mapping(xgpt_timers.tmr_irq);
 	gpt_update_unlock(save_flags);
 }
 
@@ -793,7 +812,6 @@ int gpt_get_cnt(unsigned int id, unsigned int *ptr)
 	return 0;
 }
 EXPORT_SYMBOL(gpt_get_cnt);
-
 
 int gpt_check_irq(unsigned int id)
 {

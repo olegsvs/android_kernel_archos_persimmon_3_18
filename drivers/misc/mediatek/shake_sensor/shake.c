@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #include "shake.h"
 
 static struct shk_context *shk_context_obj;
@@ -234,9 +247,15 @@ static ssize_t shk_show_flush(struct device *dev, struct device_attribute *attr,
 static ssize_t shk_show_devnum(struct device *dev, struct device_attribute *attr, char *buf)
 {
 	char *devname = NULL;
+	struct input_handle *handle;
 
-	devname = dev_name(&shk_context_obj->idev->dev);
-	return snprintf(buf, PAGE_SIZE, "%s\n", devname + 5);	/* TODO: why +5? */
+	list_for_each_entry(handle, &shk_context_obj->idev->h_list, d_node)
+		if (strncmp(handle->name, "event", 5) == 0) {
+			devname = handle->name;
+			break;
+		}
+
+	return snprintf(buf, PAGE_SIZE, "%s\n", devname + 5);
 }
 
 static int shake_remove(struct platform_device *pdev)
@@ -480,46 +499,54 @@ static int shk_remove(struct platform_device *pdev)
 
 static void shk_early_suspend(struct early_suspend *h)
 {
+#if 0
 	atomic_set(&(shk_context_obj->early_suspend), 1);
 	if (!atomic_read(&shk_context_obj->wake))	/* not wake up, disable in early suspend */
 		shk_real_enable(SHK_SUSPEND);
 
 	SHK_LOG(" shk_early_suspend ok------->hwm_obj->early_suspend=%d\n",
 		atomic_read(&(shk_context_obj->early_suspend)));
+	#endif
 }
 
 /*----------------------------------------------------------------------------*/
 static void shk_late_resume(struct early_suspend *h)
 {
+#if 0
 	atomic_set(&(shk_context_obj->early_suspend), 0);
 	if (!atomic_read(&shk_context_obj->wake) && resume_enable_status)
 		shk_real_enable(SHK_RESUME);
 
 	SHK_LOG(" shk_late_resume ok------->hwm_obj->early_suspend=%d\n",
 		atomic_read(&(shk_context_obj->early_suspend)));
+	#endif
 }
 
 #if !defined(CONFIG_HAS_EARLYSUSPEND) || !defined(USE_EARLY_SUSPEND)
 static int shk_suspend(struct platform_device *dev, pm_message_t state)
 {
+#if 0
 	atomic_set(&(shk_context_obj->suspend), 1);
 	if (!atomic_read(&shk_context_obj->wake))	/* not wake up, disable in early suspend */
 		shk_real_enable(SHK_SUSPEND);
 
 	SHK_LOG(" shk_early_suspend ok------->hwm_obj->suspend=%d\n",
 		atomic_read(&(shk_context_obj->suspend)));
+	#endif
 	return 0;
 }
 
 /*----------------------------------------------------------------------------*/
 static int shk_resume(struct platform_device *dev)
 {
+#if 0
 	atomic_set(&(shk_context_obj->suspend), 0);
 	if (!atomic_read(&shk_context_obj->wake) && resume_enable_status)
 		shk_real_enable(SHK_RESUME);
 
 	SHK_LOG(" shk_resume ok------->hwm_obj->suspend=%d\n",
 		atomic_read(&(shk_context_obj->suspend)));
+	#endif
 	return 0;
 }
 #endif				/* #if !defined(CONFIG_HAS_EARLYSUSPEND) || !defined(USE_EARLY_SUSPEND) */

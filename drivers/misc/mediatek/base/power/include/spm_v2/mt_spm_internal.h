@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #ifndef _MT_SPM_INTERNAL_
 #define _MT_SPM_INTERNAL_
 
@@ -6,6 +19,7 @@
 #include <linux/atomic.h>
 #include <linux/io.h>
 #include <mt-plat/aee.h>
+#include <mt-plat/mt_chip.h>
 
 #include "mt_clkbuf_ctl.h"
 #include "mt_spm.h"
@@ -149,6 +163,141 @@ struct pcm_desc {
 	u32 vec15;		/* event vector 15 config */
 };
 
+#if defined(CONFIG_ARCH_MT6757)
+struct pwr_ctrl {
+	u32 pcm_flags;
+	u32 pcm_flags_cust;	/* can override pcm_flags */
+	u32 pcm_reserve;
+	u32 timer_val;		/* @ 1T 32K */
+	u32 timer_val_cust;	/* @ 1T 32K, can override timer_val */
+	u32 timer_val_ramp_en;
+	u32 timer_val_ramp_en_sec;
+	u32 wake_src;
+	u32 wake_src_cust;	/* can override wake_src */
+	u32 wake_src_md32;
+	u8 r0_ctrl_en;
+	u8 r7_ctrl_en;
+	u8 infra_dcm_lock;
+	u8 wdt_disable;
+	u8 dvfs_halt_src_chk;
+
+	/* SPM_AP_STANDBY_CON */
+	u8 wfi_op;
+	u8 mp0_cputop_idle_mask;
+	u8 mp1_cputop_idle_mask;
+	u8 mcusys_idle_mask;
+	u8 mm_mask_b;
+	u8 md_ddr_en_dbc_en;
+	u8 md_mask_b;
+	u8 scp_mask_b;
+	u8 lte_mask_b;
+	u8 srcclkeni_mask_b;
+	u8 md_apsrc_1_sel;
+	u8 md_apsrc_0_sel;
+	u8 conn_mask_b;
+	u8 conn_apsrc_sel;
+
+	/* SPM_SRC_REQ */
+	u8 spm_apsrc_req;
+	u8 spm_f26m_req;
+	u8 spm_lte_req;
+	u8 spm_infra_req;
+	u8 spm_vrf18_req;
+	u8 spm_dvfs_req;
+	u8 spm_dvfs_force_down;
+	u8 spm_ddren_req;
+	u8 spm_rsv_src_req;
+	u8 cpu_md_dvfs_sop_force_on;
+
+	/* SPM_SRC_MASK */
+	u8 csyspwreq_mask;
+	u8 ccif0_md_event_mask_b;
+	u8 ccif0_ap_event_mask_b;
+	u8 ccif1_md_event_mask_b;
+	u8 ccif1_ap_event_mask_b;
+	u8 ccifmd_md1_event_mask_b;
+	u8 ccifmd_md2_event_mask_b;
+	u8 dsi0_vsync_mask_b;
+	u8 dsi1_vsync_mask_b;
+	u8 dpi_vsync_mask_b;
+	u8 isp0_vsync_mask_b;
+	u8 isp1_vsync_mask_b;
+	u8 md_srcclkena_0_infra_mask_b;
+	u8 md_srcclkena_1_infra_mask_b;
+	u8 conn_srcclkena_infra_mask_b;
+	u8 md32_srcclkena_infra_mask_b;
+	u8 srcclkeni_infra_mask_b;
+	u8 md_apsrc_req_0_infra_mask_b;
+	u8 md_apsrc_req_1_infra_mask_b;
+	u8 conn_apsrcreq_infra_mask_b;
+	u8 md32_apsrcreq_infra_mask_b;
+	u8 md_ddr_en_0_mask_b;
+	u8 md_ddr_en_1_mask_b;
+	u8 md_vrf18_req_0_mask_b;
+	u8 md_vrf18_req_1_mask_b;
+	u8 md1_dvfs_req_mask;
+	u8 cpu_dvfs_req_mask;
+	u8 emi_bw_dvfs_req_mask;
+	u8 md_srcclkena_0_dvfs_req_mask_b;
+	u8 md_srcclkena_1_dvfs_req_mask_b;
+	u8 conn_srcclkena_dvfs_req_mask_b;
+
+	/* SPM_SRC2_MASK */
+	u8 dvfs_halt_mask_b;
+	u8 vdec_req_mask_b;
+	u8 gce_req_mask_b;
+	u8 cpu_md_dvfs_req_merge_mask_b;
+	u8 md_ddr_en_dvfs_halt_mask_b;
+	u8 dsi0_vsync_dvfs_halt_mask_b;
+	u8 dsi1_vsync_dvfs_halt_mask_b;
+	u8 dpi_vsync_dvfs_halt_mask_b;
+	u8 isp0_vsync_dvfs_halt_mask_b;
+	u8 isp1_vsync_dvfs_halt_mask_b;
+	u8 conn_ddr_en_mask_b;
+	u8 disp_req_mask_b;
+	u8 disp1_req_mask_b;
+	u8 mfg_req_mask_b;
+	u8 c2k_ps_rccif_wake_mask_b;
+	u8 c2k_l1_rccif_wake_mask_b;
+	u8 ps_c2k_rccif_wake_mask_b;
+	u8 l1_c2k_rccif_wake_mask_b;
+	u8 sdio_on_dvfs_req_mask_b;
+	u8 emi_boost_dvfs_req_mask_b;
+	u8 cpu_md_emi_dvfs_req_prot_dis;
+	u8 dramc_spcmd_apsrc_req_mask_b;
+
+	/* SW_CRTL_EVENT */
+	u8 sw_ctrl_event_on;
+
+	/* SPM_SW_RSV_6 */
+	u8 md_srcclkena_0_2d_dvfs_req_mask_b;
+	u8 md_srcclkena_1_2d_dvfs_req_mask_b;
+	u8 dvfs_up_2d_dvfs_req_mask_b;
+	u8 disable_off_load_lpm;
+#if 0
+	/* SPM_WAKEUP_EVENT_MASK */
+	u32 spm_wakeup_event_mask;
+
+	/* SPM_WAKEUP_EVENT_EXT_MASK */
+	u32 spm_wakeup_event_ext_mask;
+#endif
+
+	u8 srclkenai_mask;
+
+	u8 mp1_cpu0_wfi_en;
+	u8 mp1_cpu1_wfi_en;
+	u8 mp1_cpu2_wfi_en;
+	u8 mp1_cpu3_wfi_en;
+	u8 mp0_cpu0_wfi_en;
+	u8 mp0_cpu1_wfi_en;
+	u8 mp0_cpu2_wfi_en;
+	u8 mp0_cpu3_wfi_en;
+
+	u32 param1;
+	u32 param2;
+	u32 param3;
+};
+#else
 struct pwr_ctrl {
 	/* for SPM */
 	u32 pcm_flags;
@@ -165,9 +314,7 @@ struct pwr_ctrl {
 	u8 r7_ctrl_en;
 	u8 infra_dcm_lock;
 	u8 wdt_disable;
-#if defined(CONFIG_ARCH_MT6755)
 	u8 dvfs_halt_src_chk;
-#endif
 	u8 spm_apsrc_req;
 	u8 spm_f26m_req;
 	u8 spm_lte_req;
@@ -185,7 +332,16 @@ struct pwr_ctrl {
 	u8 mcusys_idle_mask;
 	u8 mp1top_idle_mask;
 	u8 mp0top_idle_mask;
+#if defined(CONFIG_ARCH_MT6797)
+	u8 mp2top_idle_mask;
+	u8 mp3top_idle_mask;
+	u8 mptop_idle_mask;
+#endif
 	u8 wfi_op;		/* 1:WFI_OP_AND, 0:WFI_OP_OR */
+#if defined(CONFIG_ARCH_MT6797)
+	u8 mp2_cpu0_wfi_en;
+	u8 mp2_cpu1_wfi_en;
+#endif
 	u8 mp1_cpu0_wfi_en;
 	u8 mp1_cpu1_wfi_en;
 	u8 mp1_cpu2_wfi_en;
@@ -222,6 +378,10 @@ struct pwr_ctrl {
 	u8 md_ddr_en_1_mask_b;
 	u8 md_vrf18_req_0_mask_b;
 	u8 md_vrf18_req_1_mask_b;
+#if defined(CONFIG_ARCH_MT6797)
+	u8 md1_dvfs_req_mask;
+	u8 cpu_dvfs_req_mask;
+#endif
 	u8 emi_bw_dvfs_req_mask;
 	u8 md_srcclkena_0_dvfs_req_mask_b;
 	u8 md_srcclkena_1_dvfs_req_mask_b;
@@ -270,30 +430,49 @@ struct pwr_ctrl {
 	u32 param2;
 	u32 param3;
 };
+#endif
 
+#if defined(CONFIG_ARCH_MT6757)
+#define PCM_FIRMWARE_SIZE   0x4000 /* 16KB */
+#else
 #define PCM_FIRMWARE_SIZE   0x2000
+#endif
 #define DYNA_LOAD_PCM_PATH_SIZE 128
 #define PCM_FIRMWARE_VERSION_SIZE 128
 
+#if defined(CONFIG_ARCH_MT6757)
+enum dyna_load_pcm_index {
+	DYNA_LOAD_PCM_SUSPEND = 0,
+	DYNA_LOAD_PCM_SUSPEND_BY_MP1,
+	DYNA_LOAD_PCM_SUSPEND_LPDDR4,
+	DYNA_LOAD_PCM_SUSPEND_LPDDR4_BY_MP1,
+	DYNA_LOAD_PCM_SODI,
+	DYNA_LOAD_PCM_SODI_BY_MP1,
+	DYNA_LOAD_PCM_SODI_LPDDR4,
+	DYNA_LOAD_PCM_SODI_LPDDR4_BY_MP1,
+	DYNA_LOAD_PCM_DEEPIDLE,
+	DYNA_LOAD_PCM_DEEPIDLE_BY_MP1,
+	DYNA_LOAD_PCM_DEEPIDLE_LPDDR4,
+	DYNA_LOAD_PCM_DEEPIDLE_LPDDR4_BY_MP1,
+	DYNA_LOAD_PCM_MAX,
+};
+#else
 enum dyna_load_pcm_index {
 	DYNA_LOAD_PCM_SUSPEND = 0,
 	DYNA_LOAD_PCM_SUSPEND_BY_MP1,
 #if defined(CONFIG_ARCH_MT6797)
-	DYNA_LOAD_PCM_SODI_LPM,
-	DYNA_LOAD_PCM_SODI_BY_MP1_LPM,
-	DYNA_LOAD_PCM_SODI_HPM,
-	DYNA_LOAD_PCM_SODI_BY_MP1_HPM,
-	DYNA_LOAD_PCM_SODI_ULTRA,
-	DYNA_LOAD_PCM_SODI_BY_MP1_ULTRA,
-#else
+	DYNA_LOAD_PCM_VCOREFS_LPM,
+	DYNA_LOAD_PCM_VCOREFS_HPM,
+	DYNA_LOAD_PCM_VCOREFS_ULTRA,
+#endif
 	DYNA_LOAD_PCM_SODI,
 	DYNA_LOAD_PCM_SODI_BY_MP1,
-#endif
+
 	DYNA_LOAD_PCM_DEEPIDLE,
 	DYNA_LOAD_PCM_DEEPIDLE_BY_MP1,
-	DYNA_LOAD_PCM_MCDI,
 	DYNA_LOAD_PCM_MAX,
 };
+#endif
 
 struct dyna_load_pcm_t {
 	char path[DYNA_LOAD_PCM_PATH_SIZE];
@@ -347,6 +526,7 @@ extern void __spm_kick_im_to_fetch(const struct pcm_desc *pcmdesc);
 extern void __spm_init_pcm_register(void);	/* init r0 and r7 */
 extern void __spm_init_event_vector(const struct pcm_desc *pcmdesc);
 extern void __spm_set_power_control(const struct pwr_ctrl *pwrctrl);
+extern void __spm_set_vcorefs_wakeup_event(const struct pwr_ctrl *src_pwr_ctrl);
 extern void __spm_set_wakeup_event(const struct pwr_ctrl *pwrctrl);
 extern void __spm_kick_pcm_to_run(const struct pwr_ctrl *pwrctrl);
 
@@ -359,6 +539,10 @@ extern void __spm_dbgout_md_ddr_en(bool enable);
 
 extern void __spm_check_md_pdn_power_control(struct pwr_ctrl *pwr_ctrl);
 
+#if defined(CONFIG_ARCH_MT6797)
+bool is_vcorefs_fw(bool dynamic_load);
+#endif
+void __spm_backup_vcore_dvfs_dram_shuffle(void);
 /* sync with vcore_dvfs related pwr_ctrl */
 extern void __spm_sync_vcore_dvfs_power_control(struct pwr_ctrl *dest_pwr_ctrl, const struct pwr_ctrl *src_pwr_ctrl);
 
@@ -379,16 +563,20 @@ extern struct spm_lp_scen *spm_check_talking_get_lpscen(struct spm_lp_scen *lpsc
 							u32 *spm_flags);
 
 extern int spm_golden_setting_cmp(bool en);
+extern void spm_get_twam_table(const char ***table);
 extern bool is_md_c2k_conn_power_off(void);
 extern void __spm_backup_pmic_ck_pdn(void);
 extern void __spm_restore_pmic_ck_pdn(void);
 extern void __spm_bsi_top_init_setting(void);
 extern void __spm_pmic_pg_force_on(void);
 extern void __spm_pmic_pg_force_off(void);
+extern void __spm_pmic_low_iq_mode(int en);
+extern void __spm_set_pcm_wdt(int en);
+extern u32 _spm_get_wake_period(int pwake_time, wake_reason_t last_wr);
 extern struct dram_info *g_dram_info_dummy_read;
 
 #if defined(CONFIG_ARCH_MT6797)
-extern u32 spm_get_sodi_pcm_index(void);
+extern u32 spm_get_pcm_vcorefs_index(void);
 #endif
 
 /**************************************
@@ -441,14 +629,30 @@ static inline void update_pwrctrl_pcm_flags(u32 *flags)
 	/* SPM controls NFC clock buffer in RF only */
 	if (!is_clk_buf_from_pmic() && is_clk_buf_under_flightmode())
 		(*flags) |= SPM_FLAG_EN_NFC_CLOCK_BUF_CTRL;
+#if defined(CONFIG_ARCH_MT6755)
+	if (is_clk_buf_from_pmic())
+		(*flags) |= SPM_FLAG_IS_COTSX;
+#endif
 }
 
 static inline void set_pwrctrl_pcm_flags(struct pwr_ctrl *pwrctrl, u32 flags)
 {
+#if defined(CONFIG_ARCH_MT6797)
+	int segment_code = mt_get_chip_hw_ver();
+#endif
+
 	if (pwrctrl->pcm_flags_cust == 0)
 		pwrctrl->pcm_flags = flags;
 	else
 		pwrctrl->pcm_flags = pwrctrl->pcm_flags_cust;
+
+#if defined(CONFIG_ARCH_MT6797)
+	if (0xCA01 == segment_code) {
+		pwrctrl->pcm_flags |= SPM_FLAG_EN_SEGMENT2;
+	} else {
+		pwrctrl->pcm_flags &= ~SPM_FLAG_EN_SEGMENT2;
+	}
+#endif
 }
 
 static inline void set_pwrctrl_pcm_data(struct pwr_ctrl *pwrctrl, u32 data)

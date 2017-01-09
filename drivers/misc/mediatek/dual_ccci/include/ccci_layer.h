@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 /*****************************************************************************
  *
  * Filename:
@@ -30,8 +43,8 @@
 #include <linux/bitops.h>
 #include <linux/sched.h>
 #include <linux/wakelock.h>
-#include <ccci_ch.h>
-#include <ccif.h>
+#include "ccci_ch.h"
+#include "ccif.h"
 
 #define CCCI_DEV_NAME "ccci"
 /* #define CCCI_DEV_MAJOR 184 move to platform.h */

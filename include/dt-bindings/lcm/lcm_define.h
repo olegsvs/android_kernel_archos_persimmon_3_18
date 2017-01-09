@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #ifndef _LCM_DEFINE_H
 #define _LCM_DEFINE_H
 
@@ -42,7 +55,10 @@
 #define LCM_UTIL_WRITE_CMD_V2	5
 #define LCM_UTIL_READ_CMD_V1	6
 #define LCM_UTIL_READ_CMD_V2	7
-#define LCM_UTIL_RAR	8
+#define LCM_UTIL_WRITE_CMD_V21	8
+#define LCM_UTIL_WRITE_CMD_V22	9
+#define LCM_UTIL_WRITE_CMD_V23	10
+#define LCM_UTIL_RAR	11
 
 /* LCM_UTIL_RESET_DATA */
 #define LCM_UTIL_RESET_LOW	0

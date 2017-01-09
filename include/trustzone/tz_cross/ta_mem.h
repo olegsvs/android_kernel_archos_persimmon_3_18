@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 /** Commands for TA memory **/
 
 #ifndef __TRUSTZONE_TA_MEM__
@@ -19,10 +32,21 @@
 #define TZCMD_MEM_SECURECM_READ      10
 #define TZCMD_MEM_SECURECM_WRITE     11
 #define TZCMD_MEM_SECURECM_RSIZE     12
-#define TZCMD_MEM_SECURECM_START     13
-#define TZCMD_MEM_SECURECM_STOP      14
-#define TZCMD_MEM_SECURECM_QUERY     15
-#define TZCMD_MEM_TOTAL_SIZE         16
+#define TZCMD_MEM_TOTAL_SIZE         13
+#define TZCMD_MEM_SECUREMEM_ZALLOC   14
+#define TZCMD_MEM_SECURECM_ZALLOC    15
+#define TZCMD_MEM_RELEASE_SECURECM   16
+#define TZCMD_MEM_SECUREMEM_ALLOC_WITH_TAG    17
+#define TZCMD_MEM_SECURECM_ALLOC_WITH_TAG     18
+#define TZCMD_MEM_SECUREMEM_ZALLOC_WITH_TAG   19
+#define TZCMD_MEM_SECURECM_ZALLOC_WITH_TAG    20
+#define TZCMD_MEM_SHAREDMEM_REG_WITH_TAG      21
+#define TZCMD_MEM_USAGE_SECURECM              22
 
+/* data structure for parameter passing */
+typedef struct shm_buffer_s {
+	unsigned long long buffer;
+	unsigned long long size;
+} shm_buf_t;
 
 #endif /* __TRUSTZONE_TA_MEM__ */

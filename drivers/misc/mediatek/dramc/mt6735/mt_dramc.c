@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #include <linux/kernel.h>
 #include <linux/types.h>
 #include <linux/device.h>
@@ -1216,6 +1229,15 @@ static ssize_t freq_hopping_test_store(struct device_driver *driver,
 }
 #endif
 
+static void disable_dram_fh(void)
+{
+	unsigned int value;
+
+	value = ucDram_Register_Read(0xf4);
+	value &= ~(0x1 << 15);
+	ucDram_Register_Write(0xf4, value);
+}
+
 static int __init dt_scan_dram_info(unsigned long node, const char *uname, int depth, void *data)
 {
 	char *type = (char *)of_get_flat_dt_prop(node, "device_type", NULL);
@@ -1243,13 +1265,15 @@ static int __init dt_scan_dram_info(unsigned long node, const char *uname, int d
 	if (node) {
 		/* orig_dram_info */
 		dram_info = (const struct dram_info *)of_get_flat_dt_prop(node, "orig_dram_info", NULL);
-		if (dram_info == NULL)
+		if (dram_info == NULL) {
+			disable_dram_fh();
 			return 0;
+		}
 
 		if ((dram_rank_num == 0) || ((dram_rank_num != dram_info->rank_num) && (dram_rank_num != 0))) {
 			/* OTA, Rsv fail and 1GB simluate to 512MB */
 			dram_rank_num = dram_info->rank_num;
-			
+
 			if (dram_rank0_addr == 0) /* Rsv fail */
 				dram_rank0_addr = dram_info->rank_info[0].start;
 

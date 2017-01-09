@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 /******************************************************************************
 *
  *
@@ -84,6 +97,8 @@ unsigned long audio_bytes_to_frame(struct snd_pcm_substream *substream, unsigned
 
 unsigned long mtk_local_audio_copy_from_user(bool IsSRAM, kal_uint8 *dst, char *src, int len)
 {
+	unsigned long value;
+
 	if (IsSRAM) {
 		/* PRINTK_AUDDRV("mtk_local_audio_copy_from_user SRAM = %d\n", len); */
 #ifdef MEMCPY_SINGLE_MODE
@@ -111,8 +126,9 @@ unsigned long mtk_local_audio_copy_from_user(bool IsSRAM, kal_uint8 *dst, char *
 #endif
 	} else {
 		/* PRINTK_AUDDRV("mtk_local_audio_copy_from_user DRAM = %d\n", len); */
-		if (copy_from_user(dst, src, len)) {
-			pr_err("%s 4, len=%d", __func__, len);
+		value = copy_from_user(dst, src, len);
+		if (value) {
+			pr_err("%s 4, len=%d, length=%ld", __func__, len, value);
 			return 1;
 		}
 	}

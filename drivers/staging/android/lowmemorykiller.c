@@ -42,6 +42,7 @@
 #include <linux/rcupdate.h>
 #include <linux/notifier.h>
 #include <linux/freezer.h>
+#include <linux/cpu.h>
 
 #if defined(CONFIG_MTK_AEE_FEATURE) && defined(CONFIG_MT_ENG_BUILD)
 #include <mt-plat/aee.h>
@@ -83,6 +84,10 @@ static uint8_t lmk_log_buf[LMK_LOG_BUF_SIZE];
 static uint32_t enable_candidate_log;
 #endif
 static DEFINE_SPINLOCK(lowmem_shrink_lock);
+
+#define CREATE_TRACE_POINTS
+#include "trace/lowmemorykiller.h"
+
 static uint32_t lowmem_debug_level = 1;
 static short lowmem_adj[9] = {
 	0,
@@ -148,6 +153,7 @@ static unsigned long lowmem_scan(struct shrinker *s, struct shrink_control *sc)
 {
 	struct task_struct *tsk;
 	struct task_struct *selected = NULL;
+	static struct task_struct *prev_selected;
 	unsigned long rem = 0;
 	int tasksize;
 	int i;
@@ -163,10 +169,12 @@ static unsigned long lowmem_scan(struct shrinker *s, struct shrink_control *sc)
 
 	int print_extra_info = 0;
 	static unsigned long lowmem_print_extra_info_timeout;
-
-#ifdef CONFIG_MTK_GMO_RAM_OPTIMIZE
-	int other_anon = global_page_state(NR_INACTIVE_ANON) - global_page_state(NR_ACTIVE_ANON);
+#ifdef CONFIG_SWAP
+	int to_be_aggressive = 0;
+	unsigned long swap_pages = 0;
 #endif
+	bool in_cpu_hotplugging = false;
+
 #ifdef CONFIG_MT_ENG_BUILD
 	/* dump memory info when framework low memory*/
 	int pid_dump = -1; /* process which need to be dump */
@@ -186,6 +194,9 @@ static unsigned long lowmem_scan(struct shrinker *s, struct shrink_control *sc)
 	if (lowmem_deathpending &&
 	    time_before_eq(jiffies, lowmem_deathpending_timeout))
 		return SHRINK_STOP;
+
+	/* Check whether it is in cpu_hotplugging */
+	in_cpu_hotplugging = cpu_hotplugging();
 
 	/* Subtract CMA free pages from other_free if this is an unmovable page allocation */
 	if (IS_ENABLED(CONFIG_CMA))
@@ -211,6 +222,16 @@ static unsigned long lowmem_scan(struct shrinker *s, struct shrink_control *sc)
 	}
 #endif
 
+#ifdef CONFIG_SWAP
+	swap_pages = atomic_long_read(&nr_swap_pages);
+	/* More than 1/2 swap usage */
+	if (swap_pages * 2 < total_swap_pages)
+		to_be_aggressive++;
+	/* More than 3/4 swap usage */
+	if (swap_pages * 4 < total_swap_pages)
+		to_be_aggressive++;
+#endif
+
 	if (lowmem_adj_size < array_size)
 		array_size = lowmem_adj_size;
 	if (lowmem_minfree_size < array_size)
@@ -218,16 +239,27 @@ static unsigned long lowmem_scan(struct shrinker *s, struct shrink_control *sc)
 	for (i = 0; i < array_size; i++) {
 		minfree = lowmem_minfree[i];
 		if (other_free < minfree && other_file < minfree) {
+#ifdef CONFIG_SWAP
+			if (totalram_pages < 0x40000) {
+				if (to_be_aggressive != 0 && i > 3) {
+					i -= to_be_aggressive;
+					if (i < 3)
+						i = 3;
+				}
+			} else {
+				to_be_aggressive = 0;
+			}
+#endif
 			min_score_adj = lowmem_adj[i];
 			break;
 		}
 	}
-#ifdef CONFIG_MTK_GMO_RAM_OPTIMIZE /* Need removal */
-	if (min_score_adj < 9 && other_anon > 70 * 256) {
-		/* if other_anon > 70MB, don't kill adj <= 8 */
-		min_score_adj = 9;
+
+	/* If in CPU hotplugging, let LMK be more aggressive */
+	if (in_cpu_hotplugging) {
+		pr_alert("Aggressive LMK during CPU hotplug!\n");
+		min_score_adj = 0;
 	}
-#endif
 
 	lowmem_print(3, "lowmem_scan %lu, %x, ofree %d %d, ma %hd\n",
 			sc->nr_to_scan, sc->gfp_mask, other_free,
@@ -418,19 +450,37 @@ log_again:
 #endif
 
 	if (selected) {
+		long cache_size = other_file * (long)(PAGE_SIZE / 1024);
+		long cache_limit = minfree * (long)(PAGE_SIZE / 1024);
+		long free = other_free * (long)(PAGE_SIZE / 1024);
+		trace_lowmemory_kill(selected, cache_size, cache_limit, free);
+
+		/*  Did it be selected? */
+		if (selected == prev_selected) {
+			lowmem_print(1, "%s state(%ld)\n", selected->comm, selected->state);
+			show_stack(selected, NULL);
+		}
+		prev_selected = selected;
+
 		lowmem_print(1, "Killing '%s' (%d), adj %d, score_adj %hd,\n"
 				"   to free %ldkB on behalf of '%s' (%d) because\n"
 				"   cache %ldkB is below limit %ldkB for oom_score_adj %hd\n"
-				"   Free memory is %ldkB above reserved\n",
-			     selected->comm, selected->pid,
-				 REVERT_ADJ(selected_oom_score_adj),
-			     selected_oom_score_adj,
-			     selected_tasksize * (long)(PAGE_SIZE / 1024),
-			     current->comm, current->pid,
-			     other_file * (long)(PAGE_SIZE / 1024),
-			     minfree * (long)(PAGE_SIZE / 1024),
-			     min_score_adj,
-			     other_free * (long)(PAGE_SIZE / 1024));
+				"   Free memory is %ldkB above reserved\n"
+#ifdef CONFIG_SWAP
+				"   swapfree %lukB of SwapTatal %lukB(decrease %d level)\n"
+#endif
+				, selected->comm, selected->pid,
+				REVERT_ADJ(selected_oom_score_adj),
+				selected_oom_score_adj,
+				selected_tasksize * (long)(PAGE_SIZE / 1024),
+				current->comm, current->pid,
+				cache_size, cache_limit,
+				min_score_adj,
+				free
+#ifdef CONFIG_SWAP
+				, swap_pages * 4, total_swap_pages * 4, to_be_aggressive
+#endif
+				);
 		lowmem_deathpending = selected;
 		lowmem_deathpending_timeout = jiffies + HZ;
 		set_tsk_thread_flag(selected, TIF_MEMDIE);

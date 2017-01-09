@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 
 #include "activity.h"
 
@@ -6,23 +19,19 @@ struct act_context *act_context_obj = NULL;
 
 static struct act_init_info *activity_init_list[MAX_CHOOSE_ACT_NUM] = { 0 };	/* modified */
 
-static void act_early_suspend(struct early_suspend *h);
-static void act_late_resume(struct early_suspend *h);
-
 static void act_work_func(struct work_struct *work)
 {
 
 	struct act_context *cxt = NULL;
 	/* int out_size; */
-	/* hwm_sensor_data sensor_data; */
+	struct hwm_sensor_data sensor_data;
 	/* u64 data64[6]; //for unify get_data parameter type */
 	/* u16 data32[6]; //for hwm_sensor_data.values as int */
-	u16 data16[6];		/* for hwm_sensor_data.values as int */
 	int status;
 	int64_t nt;
 	struct timespec time;
 	int err = 0;
-
+	static int64_t last_time_stamp;
 	cxt = act_context_obj;
 
 	if (cxt->act_data.get_data == NULL)
@@ -35,69 +44,55 @@ static void act_work_func(struct work_struct *work)
 	/* add wake lock to make sure data can be read before system suspend */
 	/* initial data */
 
-	ACT_LOG("act_data.values %d,%d,%d,%d,%d,%d\n",
-	cxt->drv_data.act_data.values[0],
-	cxt->drv_data.act_data.values[1],
-	cxt->drv_data.act_data.values[2],
-	cxt->drv_data.act_data.values[3],
-	cxt->drv_data.act_data.values[4],
-	cxt->drv_data.act_data.values[5]);
-
-	err = cxt->act_data.get_data(data16, &status);
-
-	ACT_LOG("get_data 16 %d,%d,%d,%d,%d,%d\n",
-		data16[0], data16[1], data16[2], data16[3], data16[4], data16[5]);
+	err = cxt->act_data.get_data(&sensor_data, &status);
 
 	if (err) {
 		ACT_ERR("get act data fails!!\n");
 		goto act_loop;
 	} else {
-		if ((data16[0] == cxt->drv_data.act_data.values[0])
-		    && (data16[1] == cxt->drv_data.act_data.values[1])
-		    && (data16[2] == cxt->drv_data.act_data.values[2])
-		    && (data16[3] == cxt->drv_data.act_data.values[3])
-		    && (data16[4] == cxt->drv_data.act_data.values[4])
-		    && (data16[5] == cxt->drv_data.act_data.values[5])) {
-			goto act_loop;
-		} else {
-			cxt->drv_data.act_data.values[0] = data16[0];
-			cxt->drv_data.act_data.values[1] = data16[1];
-			cxt->drv_data.act_data.values[2] = data16[2];
-			cxt->drv_data.act_data.values[3] = data16[3];
-			cxt->drv_data.act_data.values[4] = data16[4];
-			cxt->drv_data.act_data.values[5] = data16[5];
-			ACT_LOG("act values %d,%d,%d,%d,%d,%d\n",
-				cxt->drv_data.act_data.values[0],
-				cxt->drv_data.act_data.values[1],
-				cxt->drv_data.act_data.values[2],
-				cxt->drv_data.act_data.values[3],
-				cxt->drv_data.act_data.values[4],
-				cxt->drv_data.act_data.values[5]);
-			cxt->drv_data.act_data.status = status;
-			cxt->drv_data.act_data.time = nt;
-		}
+		cxt->drv_data.probability[0] = sensor_data.probability[0];
+		cxt->drv_data.probability[1] = sensor_data.probability[1];
+		cxt->drv_data.probability[2] = sensor_data.probability[2];
+		cxt->drv_data.probability[3] = sensor_data.probability[3];
+		cxt->drv_data.probability[4] = sensor_data.probability[4];
+		cxt->drv_data.probability[5] = sensor_data.probability[5];
+		cxt->drv_data.probability[6] = sensor_data.probability[6];
+		cxt->drv_data.probability[7] = sensor_data.probability[7];
+		cxt->drv_data.probability[8] = sensor_data.probability[8];
+		cxt->drv_data.probability[9] = sensor_data.probability[9];
+		cxt->drv_data.probability[10] = sensor_data.probability[10];
+		cxt->drv_data.probability[11] = sensor_data.probability[11];
+		cxt->drv_data.status = status;
+		cxt->drv_data.time = sensor_data.time;
 	}
 
 	if (true == cxt->is_first_data_after_enable) {
 		cxt->is_first_data_after_enable = false;
 		/* filter -1 value */
-		if (ACT_INVALID_VALUE == cxt->drv_data.act_data.values[0] ||
-		    ACT_INVALID_VALUE == cxt->drv_data.act_data.values[1] ||
-		    ACT_INVALID_VALUE == cxt->drv_data.act_data.values[2] ||
-		    ACT_INVALID_VALUE == cxt->drv_data.act_data.values[3] ||
-		    ACT_INVALID_VALUE == cxt->drv_data.act_data.values[4] ||
-		    ACT_INVALID_VALUE == cxt->drv_data.act_data.values[5]) {
+		if (ACT_INVALID_VALUE == cxt->drv_data.probability[0] ||
+		    ACT_INVALID_VALUE == cxt->drv_data.probability[1] ||
+		    ACT_INVALID_VALUE == cxt->drv_data.probability[2] ||
+		    ACT_INVALID_VALUE == cxt->drv_data.probability[3] ||
+		    ACT_INVALID_VALUE == cxt->drv_data.probability[4] ||
+		    ACT_INVALID_VALUE == cxt->drv_data.probability[5] ||
+		    ACT_INVALID_VALUE == cxt->drv_data.probability[6] ||
+		    ACT_INVALID_VALUE == cxt->drv_data.probability[7] ||
+		    ACT_INVALID_VALUE == cxt->drv_data.probability[8] ||
+		    ACT_INVALID_VALUE == cxt->drv_data.probability[9] ||
+		    ACT_INVALID_VALUE == cxt->drv_data.probability[10] ||
+		    ACT_INVALID_VALUE == cxt->drv_data.probability[11]) {
 			ACT_LOG(" read invalid data\n");
 			goto act_loop;
 
 		}
 	}
 	/* report data to input devic */
-	/* printk("new act work run....\n") */
-	/* ACT_LOG("act data[%d,%d,%d]\n" ,cxt->drv_data.act_data.values[0],*/
-	/* cxt->drv_data.act_data.values[1],cxt->drv_data.act_data.values[2]);*/
-
-	act_data_report(cxt->drv_data.act_data, cxt->drv_data.act_data.status);
+	/* ACT_LOG("act data[%d,%d,%d]\n" ,cxt->drv_data.act_data.probability[0],*/
+	/* cxt->drv_data.act_data.probability[1],cxt->drv_data.act_data.probability[2]);*/
+	if (last_time_stamp != cxt->drv_data.time) {
+		last_time_stamp = cxt->drv_data.time;
+		act_data_report(&cxt->drv_data, cxt->drv_data.status);
+	}
 
 act_loop:
 	if (true == cxt->is_polling_run) {
@@ -207,12 +202,18 @@ static int act_enable_data(int enable)
 				cxt->is_polling_run = false;
 				del_timer_sync(&cxt->timer);
 				cancel_work_sync(&cxt->report);
-				cxt->drv_data.act_data.values[0] = ACT_INVALID_VALUE;
-				cxt->drv_data.act_data.values[1] = ACT_INVALID_VALUE;
-				cxt->drv_data.act_data.values[2] = ACT_INVALID_VALUE;
-				cxt->drv_data.act_data.values[3] = ACT_INVALID_VALUE;
-				cxt->drv_data.act_data.values[4] = ACT_INVALID_VALUE;
-				cxt->drv_data.act_data.values[5] = ACT_INVALID_VALUE;
+				cxt->drv_data.probability[0] = ACT_INVALID_VALUE;
+				cxt->drv_data.probability[1] = ACT_INVALID_VALUE;
+				cxt->drv_data.probability[2] = ACT_INVALID_VALUE;
+				cxt->drv_data.probability[3] = ACT_INVALID_VALUE;
+				cxt->drv_data.probability[4] = ACT_INVALID_VALUE;
+				cxt->drv_data.probability[5] = ACT_INVALID_VALUE;
+				cxt->drv_data.probability[6] = ACT_INVALID_VALUE;
+				cxt->drv_data.probability[7] = ACT_INVALID_VALUE;
+				cxt->drv_data.probability[8] = ACT_INVALID_VALUE;
+				cxt->drv_data.probability[9] = ACT_INVALID_VALUE;
+				cxt->drv_data.probability[10] = ACT_INVALID_VALUE;
+				cxt->drv_data.probability[11] = ACT_INVALID_VALUE;
 			}
 		}
 
@@ -368,12 +369,39 @@ static ssize_t act_store_batch(struct device *dev, struct device_attribute *attr
 	mutex_lock(&act_context_obj->act_op_mutex);
 	cxt = act_context_obj;
 	if (cxt->act_ctl.is_support_batch) {
-		if (!strncmp(buf, "1", 1))
+		if (!strncmp(buf, "1", 1)) {
 			cxt->is_batch_enable = true;
-		else if (!strncmp(buf, "0", 1))
+			if (true == cxt->is_polling_run) {
+				cxt->is_polling_run = false;
+				smp_mb();  /* for memory barrier */
+				del_timer_sync(&cxt->timer);
+				smp_mb();  /* for memory barrier */
+				cancel_work_sync(&cxt->report);
+				cxt->drv_data.probability[0] = ACT_INVALID_VALUE;
+				cxt->drv_data.probability[1] = ACT_INVALID_VALUE;
+				cxt->drv_data.probability[2] = ACT_INVALID_VALUE;
+				cxt->drv_data.probability[3] = ACT_INVALID_VALUE;
+				cxt->drv_data.probability[4] = ACT_INVALID_VALUE;
+				cxt->drv_data.probability[5] = ACT_INVALID_VALUE;
+				cxt->drv_data.probability[6] = ACT_INVALID_VALUE;
+				cxt->drv_data.probability[7] = ACT_INVALID_VALUE;
+				cxt->drv_data.probability[8] = ACT_INVALID_VALUE;
+				cxt->drv_data.probability[9] = ACT_INVALID_VALUE;
+				cxt->drv_data.probability[10] = ACT_INVALID_VALUE;
+				cxt->drv_data.probability[11] = ACT_INVALID_VALUE;
+			}
+		} else if (!strncmp(buf, "0", 1)) {
 			cxt->is_batch_enable = false;
-		else
+			if (false == cxt->is_polling_run) {
+				if (false == cxt->act_ctl.is_report_input_direct && true == cxt->is_active_data) {
+					mod_timer(&cxt->timer,
+						  jiffies + atomic_read(&cxt->delay) / (1000 / HZ));
+					cxt->is_polling_run = true;
+				}
+			}
+		} else {
 			ACT_ERR(" act_store_batch error !!\n");
+		}
 	} else {
 		ACT_LOG(" act_store_batch not support\n");
 	}
@@ -406,8 +434,13 @@ static ssize_t act_show_flush(struct device *dev, struct device_attribute *attr,
 static ssize_t act_show_devnum(struct device *dev, struct device_attribute *attr, char *buf)
 {
 	const char *devname = NULL;
+	struct input_handle *handle;
 
-	devname = dev_name(&act_context_obj->idev->dev);
+	list_for_each_entry(handle, &act_context_obj->idev->h_list, d_node)
+		if (strncmp(handle->name, "event", 5) == 0) {
+			devname = handle->name;
+			break;
+		}
 	return snprintf(buf, PAGE_SIZE, "%s\n", devname + 5);
 }
 
@@ -502,7 +535,7 @@ static int act_misc_init(struct act_context *cxt)
 	int err = 0;
 	/* kernel-3.10\include\linux\Miscdevice.h */
 	/* use MISC_DYNAMIC_MINOR exceed 64 */
-	cxt->mdev.minor = M_ACT_MISC_MINOR;
+	cxt->mdev.minor = MISC_DYNAMIC_MINOR;
 	cxt->mdev.name = ACT_MISC_DEV_NAME;
 	err = misc_register(&cxt->mdev);
 	if (err)
@@ -535,15 +568,28 @@ static int act_input_init(struct act_context *cxt)
 	input_set_capability(dev, EV_ABS, EVENT_TYPE_ACT_ON_FOOT);
 	input_set_capability(dev, EV_ABS, EVENT_TYPE_ACT_STILL);
 	input_set_capability(dev, EV_ABS, EVENT_TYPE_ACT_UNKNOWN);
-	input_set_capability(dev, EV_ABS, EVENT_TYPE_ACT_TILT);
+	input_set_capability(dev, EV_ABS, EVENT_TYPE_ACT_TILTING);
+	input_set_capability(dev, EV_ABS, EVENT_TYPE_ACT_WALKING);
+	input_set_capability(dev, EV_ABS, EVENT_TYPE_ACT_STANDING);
+	input_set_capability(dev, EV_ABS, EVENT_TYPE_ACT_LYING);
+	input_set_capability(dev, EV_ABS, EVENT_TYPE_ACT_RUNNING);
+	input_set_capability(dev, EV_ABS, EVENT_TYPE_ACT_CLIMBING);
+	input_set_capability(dev, EV_ABS, EVENT_TYPE_ACT_SITTING);
 	input_set_capability(dev, EV_ABS, EVENT_TYPE_ACT_STATUS);
-
+	input_set_capability(dev, EV_REL, EVENT_TYPE_ACT_TIMESTAMP_HI);
+	input_set_capability(dev, EV_REL, EVENT_TYPE_ACT_TIMESTAMP_LO);
 	input_set_abs_params(dev, EVENT_TYPE_ACT_IN_VEHICLE, ACT_VALUE_MIN, ACT_VALUE_MAX, 0, 0);
 	input_set_abs_params(dev, EVENT_TYPE_ACT_ON_BICYCLE, ACT_VALUE_MIN, ACT_VALUE_MAX, 0, 0);
 	input_set_abs_params(dev, EVENT_TYPE_ACT_ON_FOOT, ACT_VALUE_MIN, ACT_VALUE_MAX, 0, 0);
 	input_set_abs_params(dev, EVENT_TYPE_ACT_STILL, ACT_VALUE_MIN, ACT_VALUE_MAX, 0, 0);
 	input_set_abs_params(dev, EVENT_TYPE_ACT_UNKNOWN, ACT_VALUE_MIN, ACT_VALUE_MAX, 0, 0);
-	input_set_abs_params(dev, EVENT_TYPE_ACT_TILT, ACT_VALUE_MIN, ACT_VALUE_MAX, 0, 0);
+	input_set_abs_params(dev, EVENT_TYPE_ACT_TILTING, ACT_VALUE_MIN, ACT_VALUE_MAX, 0, 0);
+	input_set_abs_params(dev, EVENT_TYPE_ACT_WALKING, ACT_VALUE_MIN, ACT_VALUE_MAX, 0, 0);
+	input_set_abs_params(dev, EVENT_TYPE_ACT_STANDING, ACT_VALUE_MIN, ACT_VALUE_MAX, 0, 0);
+	input_set_abs_params(dev, EVENT_TYPE_ACT_LYING, ACT_VALUE_MIN, ACT_VALUE_MAX, 0, 0);
+	input_set_abs_params(dev, EVENT_TYPE_ACT_RUNNING, ACT_VALUE_MIN, ACT_VALUE_MAX, 0, 0);
+	input_set_abs_params(dev, EVENT_TYPE_ACT_CLIMBING, ACT_VALUE_MIN, ACT_VALUE_MAX, 0, 0);
+	input_set_abs_params(dev, EVENT_TYPE_ACT_SITTING, ACT_VALUE_MIN, ACT_VALUE_MAX, 0, 0);
 	input_set_abs_params(dev, EVENT_TYPE_ACT_STATUS, ACT_STATUS_MIN, ACT_STATUS_MAX, 0, 0);
 	input_set_drvdata(dev, cxt);
 
@@ -627,29 +673,32 @@ int act_register_control_path(struct act_control_path *ctl)
 	return 0;
 }
 
-int act_data_report(hwm_sensor_data data, int status)
+int act_data_report(struct hwm_sensor_data *data, int status)
 {
 	struct act_context *cxt = NULL;
 	int err = 0;
 
-	/* ACT_LOG("+act_data_report! %d, %d, %d, %d\n",x,y,z,status); */
-	ACT_LOG("+act_data_report! %d, %d, %d, %d %d %d\n",
-		data.values[0], data.values[1], data.values[2], data.values[3], data.values[4],
-		data.values[5]);
 	cxt = act_context_obj;
 
-	input_report_abs(cxt->idev, EVENT_TYPE_ACT_IN_VEHICLE, data.values[0]);
-	input_report_abs(cxt->idev, EVENT_TYPE_ACT_ON_BICYCLE, data.values[1]);
-	input_report_abs(cxt->idev, EVENT_TYPE_ACT_ON_FOOT, data.values[2]);
-	input_report_abs(cxt->idev, EVENT_TYPE_ACT_STILL, data.values[3]);
-	input_report_abs(cxt->idev, EVENT_TYPE_ACT_UNKNOWN, data.values[4]);
-	input_report_abs(cxt->idev, EVENT_TYPE_ACT_TILT, data.values[5]);
-	input_report_abs(cxt->idev, EVENT_TYPE_ACT_STATUS, status);
+	input_report_abs(cxt->idev, EVENT_TYPE_ACT_STILL, data->probability[0]);
+	input_report_abs(cxt->idev, EVENT_TYPE_ACT_STANDING, data->probability[1]);
+	input_report_abs(cxt->idev, EVENT_TYPE_ACT_SITTING, data->probability[2]);
+	input_report_abs(cxt->idev, EVENT_TYPE_ACT_LYING, data->probability[3]);
+	input_report_abs(cxt->idev, EVENT_TYPE_ACT_ON_FOOT, data->probability[4]);
+	input_report_abs(cxt->idev, EVENT_TYPE_ACT_WALKING, data->probability[5]);
+	input_report_abs(cxt->idev, EVENT_TYPE_ACT_RUNNING, data->probability[6]);
+	input_report_abs(cxt->idev, EVENT_TYPE_ACT_CLIMBING, data->probability[7]);
+	input_report_abs(cxt->idev, EVENT_TYPE_ACT_ON_BICYCLE, data->probability[8]);
+	input_report_abs(cxt->idev, EVENT_TYPE_ACT_IN_VEHICLE, data->probability[9]);
+	input_report_abs(cxt->idev, EVENT_TYPE_ACT_TILTING, data->probability[10]);
+	input_report_abs(cxt->idev, EVENT_TYPE_ACT_UNKNOWN, data->probability[11]);
+	input_report_rel(cxt->idev, EVENT_TYPE_ACT_TIMESTAMP_HI, data->time >> 32);
+	input_report_rel(cxt->idev, EVENT_TYPE_ACT_TIMESTAMP_LO, data->time & 0xFFFFFFFFLL);
 	input_sync(cxt->idev);
 	return err;
 }
 
-static int act_probe(struct platform_device *pdev)
+static int act_probe(void)
 {
 	int err;
 
@@ -679,14 +728,6 @@ static int act_probe(struct platform_device *pdev)
 		ACT_ERR("unable to register act input device!\n");
 		goto exit_alloc_input_dev_failed;
 	}
-#if defined(CONFIG_HAS_EARLYSUSPEND) && defined(CONFIG_EARLYSUSPEND)
-	atomic_set(&(act_context_obj->early_suspend), 0);
-	act_context_obj->early_drv.level = EARLY_SUSPEND_LEVEL_STOP_DRAWING - 1,
-	    act_context_obj->early_drv.suspend = act_early_suspend,
-	    act_context_obj->early_drv.resume = act_late_resume,
-	    register_early_suspend(&act_context_obj->early_drv);
-#endif				/* #if defined(CONFIG_HAS_EARLYSUSPEND) && defined(CONFIG_EARLYSUSPEND) */
-
 	ACT_LOG("----act_probe OK !!\n");
 	return 0;
 
@@ -713,7 +754,7 @@ exit_alloc_data_failed:
 
 
 
-static int act_remove(struct platform_device *pdev)
+static int act_remove(void)
 {
 	int err = 0;
 
@@ -728,58 +769,11 @@ static int act_remove(struct platform_device *pdev)
 
 	return 0;
 }
-
-static void act_early_suspend(struct early_suspend *h)
-{
-	atomic_set(&(act_context_obj->early_suspend), 1);
-	ACT_LOG("act_early_suspend ok------->hwm_obj->early_suspend=%d\n",
-		atomic_read(&(act_context_obj->early_suspend);
-}
-
-/*----------------------------------------------------------------------------*/
-static void act_late_resume(struct early_suspend *h)
-{
-	atomic_set(&(act_context_obj->early_suspend), 0);
-	ACT_LOG("act_late_resume ok------->hwm_obj->early_suspend=%d\n",
-		atomic_read(&(act_context_obj->early_suspend)));
-}
-
-static int act_suspend(struct platform_device *dev, pm_message_t state)
-{
-	return 0;
-}
-
-/*----------------------------------------------------------------------------*/
-static int act_resume(struct platform_device *dev)
-{
-	return 0;
-}
-
-#ifdef CONFIG_OF
-static const struct of_device_id m_act_pl_of_match[] = {
-	{.compatible = "mediatek,m_act_pl",},
-	{},
-};
-#endif
-
-static struct platform_driver act_driver = {
-	.probe = act_probe,
-	.remove = act_remove,
-	.suspend = act_suspend,
-	.resume = act_resume,
-	.driver = {
-		   .name = ACT_PL_DEV_NAME,	/* mt_act_pl */
-#ifdef CONFIG_OF
-		   .of_match_table = m_act_pl_of_match,
-#endif
-		   }
-};
-
 static int __init act_init(void)
 {
 	ACT_FUN(f);
 
-	if (platform_driver_register(&act_driver)) {
+	if (act_probe()) {
 		ACT_ERR("failed to register act driver\n");
 		return -ENODEV;
 	}
@@ -789,7 +783,7 @@ static int __init act_init(void)
 
 static void __exit act_exit(void)
 {
-	platform_driver_unregister(&act_driver);
+	act_remove();
 	platform_driver_unregister(&activity_driver);
 }
 

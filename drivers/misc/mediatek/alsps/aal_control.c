@@ -1,3 +1,16 @@
+/*
+* Copyright (C) 2016 MediaTek Inc.
+*
+* This program is free software; you can redistribute it and/or modify
+* it under the terms of the GNU General Public License version 2 as
+* published by the Free Software Foundation.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+* See http://www.gnu.org/licenses/gpl-2.0.html for more details.
+*/
+
 #include <linux/miscdevice.h>
 #include <linux/kernel.h>
 #include <linux/init.h>
@@ -63,7 +76,7 @@ static long AAL_unlocked_ioctl(struct file *file, unsigned int cmd, unsigned lon
 			AAL_LOG("alsps_aal_get_data fail\n");
 			dat = hwmsen_aal_get_data();
 		}
-		AAL_LOG("Get als dat :%d\n", dat);
+		/* AAL_LOG("Get als dat :%d\n", dat); */
 
 		if (copy_to_user(ptr, &dat, sizeof(dat))) {
 			err = -EFAULT;

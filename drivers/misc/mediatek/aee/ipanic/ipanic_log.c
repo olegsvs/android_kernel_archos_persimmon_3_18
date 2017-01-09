@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #include <linux/version.h>
 #include <linux/module.h>
 #include "ipanic.h"
@@ -39,6 +52,7 @@ void ipanic_klog_region(struct kmsg_dumper *dumper)
 {
 	static struct ipanic_log_index next = { 0 };
 
+	dumper->cur_idx = next.seq ? next.idx : log_first_idx;
 	dumper->cur_seq = next.seq ? next.seq : log_first_seq;
 	dumper->next_idx = log_next_idx;
 	dumper->next_seq = log_next_seq;

@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #include <linux/cdev.h>
 #include <linux/device.h>
 #include <linux/fs.h>
@@ -5,10 +18,12 @@
 #include <linux/wait.h>
 #include <linux/module.h>
 #include <linux/poll.h>
+#include <linux/skbuff.h>
 
-void __weak spm_is_md1_sleep(void)
+bool __weak spm_is_md1_sleep(void)
 {
 	pr_err("[ccci/dummy] %s is not supported!\n", __func__);
+	return 0;
 }
 
 void __weak spm_ap_mdsrc_req(u8 lock)
@@ -56,11 +71,6 @@ unsigned int __weak mt_irq_get_pending(unsigned int irq)
 	return 0;
 }
 
-void __weak notify_time_update(void)
-{
-	pr_debug("[ccci/dummy] %s is not supported!\n", __func__);
-}
-
 unsigned long __weak ccci_get_md_boot_count(int md_id)
 {
 	pr_debug("[ccci/dummy] %s is not supported!\n", __func__);
@@ -71,3 +81,31 @@ char * __weak ccci_get_ap_platform(void)
 	pr_debug("[ccci/dummy] %s is not supported!\n", __func__);
 	return "MTxxxxE1";
 }
+
+bool __weak is_clk_buf_from_pmic(void)
+{
+	pr_debug("[ccci/dummy] %s is not supported!\n", __func__);
+	return false;
+}
+
+void __weak clk_buf_get_rf_drv_curr(void *rf_drv_curr)
+{
+	pr_debug("[ccci/dummy] %s is not supported!\n", __func__);
+}
+
+void __weak clk_buf_save_afc_val(unsigned int afcdac)
+{
+	pr_debug("[ccci/dummy] %s is not supported!\n", __func__);
+}
+int __weak rawbulk_push_upstream_buffer(int transfer_id, const void *buffer,
+		unsigned int length)
+{
+	pr_debug("[ccci/dummy] %s is not supported!\n", __func__);
+	return 0;
+}
+int __weak mbim_start_xmit(struct sk_buff *skb, int ifid)
+{
+	pr_debug("[ccci/dummy] %s is not supported!\n", __func__);
+	return 0;
+}
+

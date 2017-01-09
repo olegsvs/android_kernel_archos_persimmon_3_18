@@ -1,10 +1,14 @@
 /*
-** Id: @(#) gl_p2p_cfg80211.c@@
-*/
-
-/*! \file   gl_p2p_kal.c
-    \brief
-
+* Copyright (C) 2016 MediaTek Inc.
+*
+* This program is free software; you can redistribute it and/or modify
+* it under the terms of the GNU General Public License version 2 as
+* published by the Free Software Foundation.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+* See http://www.gnu.org/licenses/gpl-2.0.html for more details.
 */
 
 /*******************************************************************************
@@ -794,7 +798,8 @@ kalGetChnlList(IN P_GLUE_INFO_T prGlueInfo,
 	       IN ENUM_BAND_T eSpecificBand,
 	       IN UINT_8 ucMaxChannelNum, IN PUINT_8 pucNumOfChannel, IN P_RF_CHANNEL_INFO_T paucChannelList)
 {
-	rlmDomainGetChnlList(prGlueInfo->prAdapter, eSpecificBand, ucMaxChannelNum, pucNumOfChannel, paucChannelList);
+	rlmDomainGetChnlList(prGlueInfo->prAdapter, eSpecificBand, FALSE, ucMaxChannelNum,
+			     pucNumOfChannel, paucChannelList);
 }				/* kalGetChnlList */
 
 /* ////////////////////////////////////ICS SUPPORT////////////////////////////////////// */
@@ -1175,7 +1180,7 @@ struct ieee80211_channel *kalP2pFuncGetChannelEntry(IN P_GL_P2P_INFO_T prP2pInfo
 
 /*----------------------------------------------------------------------------*/
 /*!
-* \brief to set the block list of Hotspot
+* \brief to set/clear the MAC address to/from the black list of Hotspot
 *
 * \param[in]
 *           prGlueInfo
@@ -1183,39 +1188,49 @@ struct ieee80211_channel *kalP2pFuncGetChannelEntry(IN P_GL_P2P_INFO_T prP2pInfo
 * \return
 */
 /*----------------------------------------------------------------------------*/
-INT_32 kalP2PSetBlackList(IN P_GLUE_INFO_T prGlueInfo, IN PARAM_MAC_ADDRESS rbssid, IN BOOLEAN fgIsblock)
+INT_32 kalP2PSetBlackList(IN P_GLUE_INFO_T prGlueInfo, IN PARAM_MAC_ADDRESS bssid, IN BOOLEAN block)
 {
 	UINT_8 aucNullAddr[] = NULL_MAC_ADDR;
 	UINT_32 i;
 
-	ASSERT(prGlueInfo);
-	ASSERT(prGlueInfo->prP2PInfo);
+	if ((!prGlueInfo) || (!prGlueInfo->prP2PInfo)) {
+		ASSERT(FALSE);
+		return -EFAULT;
+	}
 
-	if (EQUAL_MAC_ADDR(rbssid, aucNullAddr))
+	if (EQUAL_MAC_ADDR(bssid, aucNullAddr))
 		return -EINVAL;
 
-	if (fgIsblock) {
-		for (i = 0; i < 8; i++) {
-			if (EQUAL_MAC_ADDR(&(prGlueInfo->prP2PInfo->aucblackMACList[i]), rbssid)) {
+	if (block) {
+		/* Set the bssid to the black list to block the STA */
+		for (i = 0; i < P2P_MAXIMUM_CLIENT_COUNT; i++) {
+			if (EQUAL_MAC_ADDR(&(prGlueInfo->prP2PInfo->aucBlackMACList[i]), bssid))
 				break;
-			} else if (EQUAL_MAC_ADDR(&(prGlueInfo->prP2PInfo->aucblackMACList[i]), aucNullAddr)) {
-				COPY_MAC_ADDR(&(prGlueInfo->prP2PInfo->aucblackMACList[i]), rbssid);
-				break;
+		}
+		if (i >= P2P_MAXIMUM_CLIENT_COUNT) {
+			for (i = 0; i < P2P_MAXIMUM_CLIENT_COUNT; i++) {
+				if (EQUAL_MAC_ADDR(&(prGlueInfo->prP2PInfo->aucBlackMACList[i]), aucNullAddr)) {
+					COPY_MAC_ADDR(&(prGlueInfo->prP2PInfo->aucBlackMACList[i]), bssid);
+					break;
+				}
 			}
-		}
-		if (i >= 8) {
-			DBGLOG(P2P, ERROR, "AP black list is full, cannot block more STA!!\n");
-			return -ENOBUFS;
-		}
+			if (i >= P2P_MAXIMUM_CLIENT_COUNT) {
+				DBGLOG(P2P, ERROR, "AP black list full, cannot block more STA!!\n");
+				return -ENOBUFS;
+			}
+		} else
+			DBGLOG(P2P, WARN, MACSTR " already in black list\n", MAC2STR(bssid));
+
 	} else {
-		for (i = 0; i < 8; i++) {
-			if (EQUAL_MAC_ADDR(&(prGlueInfo->prP2PInfo->aucblackMACList[i]), rbssid)) {
-				COPY_MAC_ADDR(&(prGlueInfo->prP2PInfo->aucblackMACList[i]), aucNullAddr);
+		/* Clear the bssid from the black list to unblock the STA */
+		for (i = 0; i < P2P_MAXIMUM_CLIENT_COUNT; i++) {
+			if (EQUAL_MAC_ADDR(&(prGlueInfo->prP2PInfo->aucBlackMACList[i]), bssid)) {
+				COPY_MAC_ADDR(&(prGlueInfo->prP2PInfo->aucBlackMACList[i]), aucNullAddr);
 				break;
 			}
 		}
-		if (i >= 8)
-			DBGLOG(P2P, ERROR, "The STA is not found in black list!!\n");
+		if (i >= P2P_MAXIMUM_CLIENT_COUNT)
+			DBGLOG(P2P, ERROR, MACSTR " is not found in black list!!\n", MAC2STR(bssid));
 	}
 
 	return 0;
@@ -1223,7 +1238,7 @@ INT_32 kalP2PSetBlackList(IN P_GLUE_INFO_T prGlueInfo, IN PARAM_MAC_ADDRESS rbss
 
 /*----------------------------------------------------------------------------*/
 /*!
-* \brief to compare the black list of Hotspot
+* \brief to compare and check whether the MAC address is in the black list of Hotspot
 *
 * \param[in]
 *           prGlueInfo
@@ -1231,31 +1246,28 @@ INT_32 kalP2PSetBlackList(IN P_GLUE_INFO_T prGlueInfo, IN PARAM_MAC_ADDRESS rbss
 * \return
 */
 /*----------------------------------------------------------------------------*/
-BOOLEAN kalP2PCmpBlackList(IN P_GLUE_INFO_T prGlueInfo, IN PARAM_MAC_ADDRESS rbssid)
+BOOLEAN kalP2PCmpBlackList(IN P_GLUE_INFO_T prGlueInfo, IN PARAM_MAC_ADDRESS bssid)
 {
 	UINT_8 aucNullAddr[] = NULL_MAC_ADDR;
-	BOOLEAN fgIsExsit = FALSE;
 	UINT_32 i;
 
-	ASSERT(prGlueInfo);
-	ASSERT(prGlueInfo->prP2PInfo);
+	if ((!prGlueInfo) || (!prGlueInfo->prP2PInfo))
+		return FALSE;
 
-	for (i = 0; i < 8; i++) {
-		if (UNEQUAL_MAC_ADDR(rbssid, aucNullAddr)) {
-			if (EQUAL_MAC_ADDR(&(prGlueInfo->prP2PInfo->aucblackMACList[i]), rbssid)) {
-				fgIsExsit = TRUE;
-				return fgIsExsit;
-			}
-		}
+	if (EQUAL_MAC_ADDR(bssid, aucNullAddr))
+		return FALSE;
+
+	for (i = 0; i < P2P_MAXIMUM_CLIENT_COUNT; i++) {
+		if (EQUAL_MAC_ADDR(&(prGlueInfo->prP2PInfo->aucBlackMACList[i]), bssid))
+			return TRUE;
 	}
 
-	return fgIsExsit;
-
+	return FALSE;
 }
 
 /*----------------------------------------------------------------------------*/
 /*!
-* \brief to return the max clients of Hotspot
+* \brief to set the max clients of Hotspot or P2P GO
 *
 * \param[in]
 *           prGlueInfo
@@ -1270,15 +1282,15 @@ VOID kalP2PSetMaxClients(IN P_GLUE_INFO_T prGlueInfo, IN UINT_32 u4MaxClient)
 		return;
 	}
 
-	if (u4MaxClient == 0 || prGlueInfo->prP2PInfo->ucMaxClients >= P2P_MAXIMUM_CLIENT_COUNT)
+	if (u4MaxClient == 0 || u4MaxClient >= P2P_MAXIMUM_CLIENT_COUNT)
 		prGlueInfo->prP2PInfo->ucMaxClients = P2P_MAXIMUM_CLIENT_COUNT;
 	else
-		prGlueInfo->prP2PInfo->ucMaxClients = u4MaxClient;
+		prGlueInfo->prP2PInfo->ucMaxClients = (UINT_8)u4MaxClient;
 }
 
 /*----------------------------------------------------------------------------*/
 /*!
-* \brief to return the max clients of Hotspot
+* \brief to check whether reaches the max clients of Hotspot or P2P GO
 *
 * \param[in]
 *           prGlueInfo
@@ -1286,7 +1298,7 @@ VOID kalP2PSetMaxClients(IN P_GLUE_INFO_T prGlueInfo, IN UINT_32 u4MaxClient)
 * \return
 */
 /*----------------------------------------------------------------------------*/
-BOOLEAN kalP2PMaxClients(IN P_GLUE_INFO_T prGlueInfo, IN UINT_32 u4NumClient)
+BOOLEAN kalP2PReachMaxClients(IN P_GLUE_INFO_T prGlueInfo, IN UINT_32 u4NumClient)
 {
 	if ((!prGlueInfo) || (!prGlueInfo->prP2PInfo)) {
 		ASSERT(FALSE);
@@ -1294,7 +1306,7 @@ BOOLEAN kalP2PMaxClients(IN P_GLUE_INFO_T prGlueInfo, IN UINT_32 u4NumClient)
 	}
 
 	if (prGlueInfo->prP2PInfo->ucMaxClients) {
-		if ((UINT_8) u4NumClient > prGlueInfo->prP2PInfo->ucMaxClients)
+		if ((UINT_8)u4NumClient >= prGlueInfo->prP2PInfo->ucMaxClients)
 			return TRUE;
 		else
 			return FALSE;

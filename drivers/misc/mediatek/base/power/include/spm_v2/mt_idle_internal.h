@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #ifndef __MT_IDLE_INTERNAL_H__
 #define __MT_IDLE_INTERNAL_H__
 #include <linux/io.h>
@@ -8,6 +21,10 @@
 #if defined(CONFIG_ARCH_MT6755)
 
 #include "mt_idle_mt6755.h"
+
+#elif defined(CONFIG_ARCH_MT6757)
+
+#include "mt_idle_mt6757.h"
 
 #elif defined(CONFIG_ARCH_MT6797)
 
@@ -48,6 +65,7 @@ enum {
 	BY_ISO,
 #endif
 	BY_DVFSP,
+	BY_CONN,
 	NR_REASONS,
 };
 
@@ -77,6 +95,7 @@ void __init iomap_init(void);
 
 bool is_disp_pwm_rosc(void);
 bool is_auxadc_released(void);
+bool vcore_dvfs_is_progressing(void);
 
 #endif /* __MT_IDLE_INTERNAL_H__ */
 

@@ -1,6 +1,20 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #ifndef __CCIF_PLATFORM_H__
 #define __CCIF_PLATFORM_H__
-#include "ccci_core.h"
+#include "ccci_config.h"
+#include "ccci_modem.h"
 #include <mach/sync_write.h>
 
 #define ccif_write32(b, a, v)           mt_reg_sync_writel(v, (b)+(a))
@@ -69,7 +83,7 @@ struct md_hw_info {
 
 extern unsigned long ccci_modem_boot_count[];
 
-extern int md_ccif_power_off(struct ccci_modem *md, unsigned int timeout);
+extern int md_ccif_power_off(struct ccci_modem *md, unsigned int stop_type);
 extern int md_ccif_power_on(struct ccci_modem *md);
 extern int md_ccif_let_md_go(struct ccci_modem *md);
 

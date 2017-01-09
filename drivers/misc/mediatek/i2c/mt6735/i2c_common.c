@@ -1,3 +1,16 @@
+/*
+* Copyright (C) 2016 MediaTek Inc.
+*
+* This program is free software; you can redistribute it and/or modify
+* it under the terms of the GNU General Public License version 2 as
+* published by the Free Software Foundation.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+* See http://www.gnu.org/licenses/gpl-2.0.html for more details.
+*/
+
 #include <linux/module.h>
 #include <linux/init.h>
 #include <linux/i2c.h>
@@ -221,7 +234,6 @@ static ssize_t set_config(struct device *dev, struct device_attribute *attr, con
 	int timing;
 	int trans_num;
 	int trans_auxlen;
-	int dir = 0;
 
 	int number = 0;
 	int length = 0;
@@ -238,7 +250,7 @@ static ssize_t set_config(struct device *dev, struct device_attribute *attr, con
 			&bus_id, &address, &operation, &trans_mode, &trans_stop,
 			&speed_mode, &pushpull_mode, &query_mode, &timing, &trans_num,
 			&trans_auxlen,&dir, data_buffer) ) { */
-	if (sscanf(buf, "%d %x %d %d %d %d %d %d %d %d %d %s", &bus_id, &address, &operation, &trans_mode,
+	if (sscanf(buf, "%d %x %d %d %d %d %d %d %d %d %d %1023s", &bus_id, &address, &operation, &trans_mode,
 		&trans_stop, &speed_mode, &pushpull_mode, &query_mode, &timing, &trans_num,
 		&trans_auxlen, data_buffer) != 0) {
 		if ((address != 0) && (operation <= 2)) {
@@ -257,8 +269,6 @@ static ssize_t set_config(struct device *dev, struct device_attribute *attr, con
 				I2CERR("invalid operation\n");
 				goto err;
 			}
-			if (dir > 0)
-				ext_flag |= I2C_DIRECTION_FLAG;
 
 			if (trans_mode == 0) {
 				/* default is fifo */
@@ -314,7 +324,7 @@ static ssize_t set_config(struct device *dev, struct device_attribute *attr, con
 			if (trans_mode == 1) {	/*DMA MODE */
 				/*need GFP_DMA32 flag to confirm DMA alloc PA is 32bit range */
 				vir_addr =
-				    dma_alloc_coherent(dev, length >> 1, &dma_addr,
+				    dma_alloc_coherent(dev, (length >> 1) + 1, &dma_addr,
 						       GFP_KERNEL | GFP_DMA32);
 				if (vir_addr == NULL) {
 
@@ -322,7 +332,7 @@ static ssize_t set_config(struct device *dev, struct device_attribute *attr, con
 					goto err;
 				}
 			} else {
-				vir_addr = kzalloc(length >> 1, GFP_KERNEL);
+				vir_addr = kzalloc((length >> 1) + 1, GFP_KERNEL);
 				if (vir_addr == NULL) {
 
 					I2CERR("alloc virtual memory failed\n");
@@ -356,26 +366,26 @@ static ssize_t set_config(struct device *dev, struct device_attribute *attr, con
 
 				if (operation == 1) {
 					hex2string(vir_addr, tmpbuffer, length >> 1);
-					sprintf(data_buffer, "1 %s", tmpbuffer);
+					snprintf(data_buffer, sizeof(data_buffer), "1 %s", tmpbuffer);
 					I2CLOG("received data: %s\n", tmpbuffer);
 				} else if (operation == 0) {
 					hex2string(vir_addr, tmpbuffer, trans_auxlen);
-					sprintf(data_buffer, "1 %s", tmpbuffer);
+					snprintf(data_buffer, sizeof(data_buffer), "1 %s", tmpbuffer);
 					I2CLOG("received data: %s\n", tmpbuffer);
 				} else {
-					sprintf(data_buffer, "1 %s", "00");
+					snprintf(data_buffer, sizeof(data_buffer), "1 %s", "00");
 				}
 				I2CLOG("Actual return Value:%d 0x%p\n", ret, vir_addr);
 			} else if (ret < 0) {
 
 				if (ret == -EINVAL)
-					sprintf(data_buffer, "0 %s", "Invalid Parameter");
+					snprintf(data_buffer, sizeof(data_buffer), "0 %s", "Invalid Parameter");
 				else if (ret == -ETIMEDOUT)
-					sprintf(data_buffer, "0 %s", "Transfer Timeout");
+					snprintf(data_buffer, sizeof(data_buffer), "0 %s", "Transfer Timeout");
 				else if (ret == -EREMOTEIO)
-					sprintf(data_buffer, "0 %s", "Ack Error");
+					snprintf(data_buffer, sizeof(data_buffer), "0 %s", "Ack Error");
 				else
-					sprintf(data_buffer, "0 %s", "unknown error");
+					snprintf(data_buffer, sizeof(data_buffer), "0 %s", "unknown error");
 				I2CLOG("Actual return Value:%d 0x%p\n", ret, vir_addr);
 			}
 
@@ -438,7 +448,7 @@ static DEVICE_ATTR(ut, 0660, show_config, set_config);
 static int i2c_common_probe(struct platform_device *pdev)
 {
 	int ret = 0;
-	/* your code here£¬your should save client in your own way */
+	/* your code hereÂ£Â¬your should save client in your own way */
 	I2CLOG("i2c_common device probe\n");
 	ret = device_create_file(&pdev->dev, &dev_attr_ut);
 	return ret;

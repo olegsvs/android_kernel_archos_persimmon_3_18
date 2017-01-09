@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #ifndef __MJC_KERNEL_DRIVER_H__
 #define __MJC_KERNEL_DRIVER_H__
 
@@ -51,12 +64,6 @@ typedef struct {
 	unsigned long ulRegPSize;
 } MJC_IOCTL_REG_INFO_T;
 
-typedef struct{
-	unsigned int u4StructSize;
-	unsigned char u1EFuseIndex;
-	unsigned int u4EFuseBit;
-} MJC_IOCTL_EFUSE_INFO_T;
-
 #define MJC_IOC_MAGIC    'N'
 
 #define MJC_LOCKHW                           _IOW(MJC_IOC_MAGIC, 0x00, MJC_IOCTL_LOCK_HW_T)
@@ -67,6 +74,5 @@ typedef struct{
 #define MJC_CLEAR_REG_TBL                   _IOW(MJC_IOC_MAGIC, 0x05, int)
 #define MJC_SOURCE_CLK                      _IOW(MJC_IOC_MAGIC, 0x06, MJC_IOCTL_SRC_CLK_T)
 #define MJC_REG_INFO                      _IOW(MJC_IOC_MAGIC, 0x07, MJC_IOCTL_REG_INFO_T)
-#define MJC_EFUSE_INFO                      _IOW(MJC_IOC_MAGIC, 0x08, MJC_IOCTL_EFUSE_INFO_T)
 
 #endif				/* __MJC_KERNEL_DRIVER_H__ */

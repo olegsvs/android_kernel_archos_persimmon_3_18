@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #include "face_down.h"
 
 static struct fdn_context *fdn_context_obj;
@@ -237,9 +250,15 @@ static ssize_t fdn_show_flush(struct device *dev, struct device_attribute *attr,
 static ssize_t fdn_show_devnum(struct device *dev, struct device_attribute *attr, char *buf)
 {
 	char *devname = NULL;
+	struct input_handle *handle;
 
-	devname = dev_name(&fdn_context_obj->idev->dev);
-	return snprintf(buf, PAGE_SIZE, "%s\n", devname + 5);	/* TODO: why +5? */
+	list_for_each_entry(handle, &fdn_context_obj->idev->h_list, d_node)
+		if (strncmp(handle->name, "event", 5) == 0) {
+			devname = handle->name;
+			break;
+		}
+
+	return snprintf(buf, PAGE_SIZE, "%s\n", devname + 5);
 }
 
 static int face_down_remove(struct platform_device *pdev)

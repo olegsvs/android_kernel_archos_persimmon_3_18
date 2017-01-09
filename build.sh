@@ -15,8 +15,7 @@ echo "Export toolchains >>>"
 export ARCH=arm CROSS_COMPILE=../*5.2*/bin/arm-cortex-linux-gnueabi-
 echo "Make defconfig >>>"
 
-make persimmon_defconfig
-
+make k37mv1_defconfig
 echo "Start build >>>"
 
 	time make -j16

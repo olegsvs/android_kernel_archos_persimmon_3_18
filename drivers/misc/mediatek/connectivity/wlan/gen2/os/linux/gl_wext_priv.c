@@ -1,206 +1,14 @@
 /*
-** Id: //Department/DaVinci/BRANCHES/MT6620_WIFI_DRIVER_V2_3/os/linux/gl_wext_priv.c#4
-*/
-
-/*! \file gl_wext_priv.c
-    \brief This file includes private ioctl support.
-*/
-
-/*
-** Log: gl_wext_priv.c
- *
- * 07 17 2012 yuche.tsai
- * NULL
- * Let netdev bring up.
- *
- * 06 13 2012 yuche.tsai
- * NULL
- * Update maintrunk driver.
- * Add support for driver compose assoc request frame.
- *
- * 03 20 2012 wh.su
- * [WCXRP00001153] [MT6620 Wi-Fi][Driver] Adding the get_ch_list and set_tx_power proto type function
- * [WCXRP00001202] [MT6628 Wi-Fi][FW] Adding the New PN init code
- * use return to avoid the ioctl return not supported
- *
- * 03 02 2012 terry.wu
- * NULL
- * Snc CFG80211 modification for ICS migration from branch 2.2.
- *
- * 01 16 2012 wh.su
- * [WCXRP00001170] [MT6620 Wi-Fi][Driver] Adding the related code for set/get band ioctl
- * Adding the template code for set / get band IOCTL (with ICS supplicant_6)..
- *
- * 01 05 2012 wh.su
- * [WCXRP00001153] [MT6620 Wi-Fi][Driver] Adding the get_ch_list and set_tx_power proto type function
- * Adding the related ioctl / wlan oid function to set the Tx power cfg.
- *
- * 01 02 2012 wh.su
- * [WCXRP00001153] [MT6620 Wi-Fi][Driver] Adding the get_ch_list and set_tx_power proto type function
- * Adding the proto type function for set_int set_tx_power and get int get_ch_list.
- *
- * 11 10 2011 cp.wu
- * [WCXRP00001098] [MT6620 Wi-Fi][Driver] Replace printk by DBG LOG macros in linux porting layer
- * 1. eliminaite direct calls to printk in porting layer.
- * 2. replaced by DBGLOG, which would be XLOG on ALPS platforms.
- *
- * 11 02 2011 chinghwa.yu
- * [WCXRP00000063] Update BCM CoEx design and settings
- * Fixed typo.
- *
- * 09 20 2011 chinglan.wang
- * [WCXRP00000989] [WiFi Direct] [Driver] Add a new io control API to start the formation for the sigma test.
- * .
- *
- * 07 28 2011 chinghwa.yu
- * [WCXRP00000063] Update BCM CoEx design and settings
- * Add BWCS cmd and event.
- *
- * 07 18 2011 chinghwa.yu
- * [WCXRP00000063] Update BCM CoEx design and settings[WCXRP00000612] [MT6620 Wi-Fi] [FW] CSD update SWRDD algorithm
- * Add CMD/Event for RDD and BWCS.
- *
- * 03 17 2011 chinglan.wang
- * [WCXRP00000570] [MT6620 Wi-Fi][Driver] Add Wi-Fi Protected Setup v2.0 feature
- * .
- *
- * 03 07 2011 terry.wu
- * [WCXRP00000521] [MT6620 Wi-Fi][Driver] Remove non-standard debug message
- * Toggle non-standard debug messages to comments.
- *
- * 01 27 2011 cm.chang
- * [WCXRP00000402] [MT6620 Wi-Fi][Driver] Enable MCR read/write by iwpriv by default
- * .
- *
- * 01 26 2011 wh.su
- * [WCXRP00000396] [MT6620 Wi-Fi][Driver] Support Sw Ctrl ioctl at linux
- * adding the SW cmd ioctl support, use set/get structure ioctl.
- *
- * 01 20 2011 eddie.chen
- * [WCXRP00000374] [MT6620 Wi-Fi][DRV] SW debug control
- * Adjust OID order.
- *
- * 01 20 2011 eddie.chen
- * [WCXRP00000374] [MT6620 Wi-Fi][DRV] SW debug control
- * Add Oid for sw control debug command
- *
- * 01 07 2011 cm.chang
- * [WCXRP00000336] [MT6620 Wi-Fi][Driver] Add test mode commands in normal phone operation
- * Add a new compiling option to control if MCR read/write is permitted
- *
- * 12 31 2010 cm.chang
- * [WCXRP00000336] [MT6620 Wi-Fi][Driver] Add test mode commands in normal phone operation
- * Add some iwpriv commands to support test mode operation
- *
- * 12 15 2010 george.huang
- * [WCXRP00000152] [MT6620 Wi-Fi] AP mode power saving function
- * Support set PS profile and set WMM-PS related iwpriv.
- *
- * 11 08 2010 wh.su
- * [WCXRP00000171] [MT6620 Wi-Fi][Driver] Add message check code same behavior as mt5921
- * add the message check code from mt5921.
- *
- * 10 18 2010 cp.wu
- * [WCXRP00000056] [MT6620 Wi-Fi][Driver] NVRAM implementation with Version Check
- * [WCXRP00000086] [MT6620 Wi-Fi][Driver] The mac address is all zero at android
- * complete implementation of Android NVRAM access
- *
- * 09 24 2010 cp.wu
- * [WCXRP00000056] [MT6620 Wi-Fi][Driver] NVRAM implementation with Version Check
- * correct typo for NVRAM access.
- *
- * 09 23 2010 cp.wu
- * [WCXRP00000056] [MT6620 Wi-Fi][Driver] NVRAM implementation with Version Check
- * add skeleton for NVRAM integration
- *
- * 08 04 2010 cp.wu
- * NULL
- * revert changelist #15371, efuse read/write access will be done by RF test approach
- *
- * 08 04 2010 cp.wu
- * NULL
- * add OID definitions for EFUSE read/write access.
- *
- * 07 08 2010 cp.wu
- *
- * [WPD00003833] [MT6620 and MT5931] Driver migration - move to new repository.
- *
- * 06 06 2010 kevin.huang
- * [WPD00003832][MT6620 5931] Create driver base
- * [MT6620 5931] Create driver base
- *
- * 06 01 2010 cp.wu
- * [WPD00001943]Create WiFi test driver framework on WinXP
- * enable OID_CUSTOM_MTK_WIFI_TEST for RFTest & META tool
- *
- * 05 29 2010 jeffrey.chang
- * [WPD00003826]Initial import for Linux port
- * fix private ioctl for rftest
- *
- * 04 21 2010 jeffrey.chang
- * [WPD00003826]Initial import for Linux port
- * add for private ioctl support
-**  \main\maintrunk.MT5921\32 2009-10-08 10:33:25 GMT mtk01090
-**  Avoid accessing private data of net_device directly. Replace with netdev_priv(). Add more checking for input
-**  parameters and pointers.
-**  \main\maintrunk.MT5921\31 2009-09-29 16:46:21 GMT mtk01090
-**  Remove unused functions
-**  \main\maintrunk.MT5921\30 2009-09-29 14:46:47 GMT mtk01090
-**  Fix compile warning
-**  \main\maintrunk.MT5921\29 2009-09-29 14:28:48 GMT mtk01090
-**  Fix compile warning
-**  \main\maintrunk.MT5921\28 2009-09-28 22:21:38 GMT mtk01090
-**  Refine lines to suppress compile warning
-**  \main\maintrunk.MT5921\27 2009-09-28 20:19:14 GMT mtk01090
-**  Add private ioctl to carry OID structures. Restructure public/private ioctl interfaces to Linux kernel.
-**  \main\maintrunk.MT5921\26 2009-08-18 22:56:53 GMT mtk01090
-**  Add Linux SDIO (with mmc core) support.
-**  Add Linux 2.6.21, 2.6.25, 2.6.26.
-**  Fix compile warning in Linux.
-**  \main\maintrunk.MT5921\25 2009-05-07 22:26:15 GMT mtk01089
-**  Add mandatory and private IO control for Linux BWCS
-**  \main\maintrunk.MT5921\24 2009-04-29 10:07:05 GMT mtk01088
-**  fixed the compiling error at linux
-**  \main\maintrunk.MT5921\23 2009-04-24 09:09:45 GMT mtk01088
-**  mark the code not used at linux supplicant v0.6.7
-**  \main\maintrunk.MT5921\22 2008-11-24 21:03:51 GMT mtk01425
-**  1. Add PTA_ENABLED flag
-**  \main\maintrunk.MT5921\21 2008-08-29 14:55:59 GMT mtk01088
-**  adjust the code for meet the coding style, and add assert check
-**  \main\maintrunk.MT5921\20 2008-07-16 15:23:20 GMT mtk01104
-**  Support GPIO2 mode
-**  \main\maintrunk.MT5921\19 2008-07-15 17:43:11 GMT mtk01084
-**  modify variable name
-**  \main\maintrunk.MT5921\18 2008-07-14 14:37:58 GMT mtk01104
-**  Add exception handle about length in function priv_set_struct()
-**  \main\maintrunk.MT5921\17 2008-07-14 13:55:32 GMT mtk01104
-**  Support PRIV_CMD_BT_COEXIST
-**  \main\maintrunk.MT5921\16 2008-07-09 00:20:15 GMT mtk01461
-**  Add priv oid to support WMM_PS_TEST
-**  \main\maintrunk.MT5921\15 2008-06-02 11:15:22 GMT mtk01461
-**  Update after wlanoidSetPowerMode changed
-**  \main\maintrunk.MT5921\14 2008-05-30 19:31:07 GMT mtk01461
-**  Add IOCTL for Power Mode
-**  \main\maintrunk.MT5921\13 2008-05-30 18:57:15 GMT mtk01461
-**  Not use wlanoidSetCSUMOffloadForLinux()
-**  \main\maintrunk.MT5921\12 2008-05-30 15:13:18 GMT mtk01084
-**  rename wlanoid
-**  \main\maintrunk.MT5921\11 2008-05-29 14:16:31 GMT mtk01084
-**  rename for wlanoidSetBeaconIntervalForLinux
-**  \main\maintrunk.MT5921\10 2008-04-17 23:06:37 GMT mtk01461
-**  Add iwpriv support for AdHocMode setting
-**  \main\maintrunk.MT5921\9 2008-03-31 21:00:55 GMT mtk01461
-**  Add priv IOCTL for VOIP setting
-**  \main\maintrunk.MT5921\8 2008-03-31 13:49:43 GMT mtk01461
-**  Add priv ioctl to turn on / off roaming
-**  \main\maintrunk.MT5921\7 2008-03-26 15:35:14 GMT mtk01461
-**  Add CSUM offload priv ioctl for Linux
-**  \main\maintrunk.MT5921\6 2008-03-11 14:50:59 GMT mtk01461
-**  Unify priv ioctl
-**  \main\maintrunk.MT5921\5 2007-11-06 19:32:30 GMT mtk01088
-**  add WPS code
-**  \main\maintrunk.MT5921\4 2007-10-30 12:01:39 GMT MTK01425
-**  1. Update wlanQueryInformation and wlanSetInformation
+* Copyright (C) 2016 MediaTek Inc.
+*
+* This program is free software; you can redistribute it and/or modify
+* it under the terms of the GNU General Public License version 2 as
+* published by the Free Software Foundation.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+* See http://www.gnu.org/licenses/gpl-2.0.html for more details.
 */
 
 /*******************************************************************************
@@ -227,7 +35,7 @@
 *                              C O N S T A N T S
 ********************************************************************************
 */
-#define NUM_SUPPORTED_OIDS      (sizeof(arWlanOidReqTable) / sizeof(WLAN_REQ_ENTRY))
+#define NUM_SUPPORTED_OIDS		(sizeof(arWlanOidReqTable) / sizeof(WLAN_REQ_ENTRY))
 #define CMD_START			"START"
 #define CMD_STOP			"STOP"
 #define CMD_SCAN_ACTIVE			"SCAN-ACTIVE"
@@ -281,10 +89,11 @@
 #define MIRACAST_MCHAN_BW       25
 #endif
 
-#define	CMD_BAND_AUTO	0
+#define	CMD_BAND_AUTO		0
 #define	CMD_BAND_5G		1
 #define	CMD_BAND_2G		2
-#define	CMD_BAND_ALL	3
+#define	CMD_BAND_ALL		3
+#define	CMD_OID_BUF_LENGTH	4096
 
 /* Mediatek private command */
 
@@ -360,7 +169,7 @@ reqExtSetAcpiDevicePowerState(IN P_GLUE_INFO_T prGlueInfo,
 *                       P R I V A T E   D A T A
 ********************************************************************************
 */
-static UINT_8 aucOidBuf[4096] = { 0 };
+static UINT_8 aucOidBuf[CMD_OID_BUF_LENGTH] = { 0 };
 
 /* OID processing table */
 /* Order is important here because the OIDs should be in order of
@@ -572,7 +381,7 @@ static WLAN_REQ_ENTRY arWlanOidReqTable[] = {
 	,
 	{OID_CUSTOM_MTK_WIFI_TEST,
 	 DISP_STRING("OID_CUSTOM_MTK_WIFI_TEST"),
-	 TRUE, TRUE, ENUM_OID_DRIVER_CORE, sizeof(PARAM_MTK_WIFI_TEST_STRUCT_T),
+	 FALSE, FALSE, ENUM_OID_DRIVER_CORE, sizeof(PARAM_MTK_WIFI_TEST_STRUCT_T),
 	 (PFN_OID_HANDLER_FUNC_REQ) wlanoidRftestQueryAutoTest,
 	 (PFN_OID_HANDLER_FUNC_REQ) wlanoidRftestSetAutoTest}
 	,
@@ -1507,7 +1316,10 @@ _priv_get_int(IN struct net_device *prNetDev,
 			wlanQueryDebugCode(prGlueInfo->prAdapter);
 
 			kalMemSet(gucBufDbgCode, '.', sizeof(gucBufDbgCode));
-			if (copy_to_user(prIwReqData->data.pointer, gucBufDbgCode, prIwReqData->data.length))
+			u4BufLen = prIwReqData->data.length;
+			if (u4BufLen > sizeof(gucBufDbgCode))
+				u4BufLen = sizeof(gucBufDbgCode);
+			if (copy_to_user(prIwReqData->data.pointer, gucBufDbgCode, u4BufLen))
 				return -EFAULT;
 			else
 				return status;
@@ -1539,7 +1351,9 @@ static int
 _priv_set_ints(IN struct net_device *prNetDev,
 	      IN struct iw_request_info *prIwReqInfo, IN union iwreq_data *prIwReqData, IN char *pcExtra)
 {
-	UINT_32 u4SubCmd, u4BufLen;
+	UINT_16 i = 0;
+	UINT_32 u4SubCmd, u4BufLen, u4CmdLen;
+	INT_32  setting[4] = {0};
 	P_GLUE_INFO_T prGlueInfo;
 	int status = 0;
 	WLAN_STATUS rStatus = WLAN_STATUS_SUCCESS;
@@ -1555,19 +1369,15 @@ _priv_set_ints(IN struct net_device *prNetDev,
 	prGlueInfo = *((P_GLUE_INFO_T *) netdev_priv(prNetDev));
 
 	u4SubCmd = (UINT_32) prIwReqData->data.flags;
+	u4CmdLen = (UINT_32) prIwReqData->data.length;
 
 	switch (u4SubCmd) {
 	case PRIV_CMD_SET_TX_POWER:
 		{
-			INT_32 *setting = prIwReqData->data.pointer;
-			UINT_16 i;
-
-#if 0
-			DBGLOG(REQ, INFO, "Tx power num = %d\n", prIwReqData->data.length);
-
-			DBGLOG(REQ, INFO, "Tx power setting = %d %d %d %d\n",
-				setting[0], setting[1], setting[2], setting[3]);
-#endif
+			if (u4CmdLen > 4)
+				return -EINVAL;
+			if (copy_from_user(setting, prIwReqData->data.pointer, u4CmdLen))
+				return -EFAULT;
 			prTxpwr = &prGlueInfo->rTxPwr;
 			if (setting[0] == 0 && prIwReqData->data.length == 4 /* argc num */) {
 				/* 0 (All networks), 1 (legacy STA), 2 (Hotspot AP), 3 (P2P), 4 (BT over Wi-Fi) */
@@ -1724,7 +1534,6 @@ _priv_set_struct(IN struct net_device *prNetDev,
 	/* WLAN_STATUS rStatus = WLAN_STATUS_SUCCESS; */
 	UINT_32 u4CmdLen = 0;
 	P_NDIS_TRANSPORT_STRUCT prNdisReq;
-	PUINT_32 pu4IntBuf = NULL;
 
 	P_GLUE_INFO_T prGlueInfo = NULL;
 	UINT_32 u4BufLen = 0;
@@ -1810,13 +1619,19 @@ _priv_set_struct(IN struct net_device *prNetDev,
 	case PRIV_CMD_WSC_PROBE_REQ:
 		{
 			/* retrieve IE for Probe Request */
-			if (prIwReqData->data.length > 0) {
-				if (copy_from_user(prGlueInfo->aucWSCIE, prIwReqData->data.pointer,
-						   prIwReqData->data.length)) {
+			u4CmdLen = prIwReqData->data.length;
+			if (u4CmdLen > GLUE_INFO_WSCIE_LENGTH) {
+				DBGLOG(REQ, ERROR, "Input data length is invalid %u\n", u4CmdLen);
+				return -EINVAL;
+			}
+
+			if (u4CmdLen > 0) {
+				if (copy_from_user(prGlueInfo->aucWSCIE, prIwReqData->data.pointer, u4CmdLen)) {
+					DBGLOG(REQ, ERROR, "Copy from user failed\n");
 					status = -EFAULT;
 					break;
 				}
-				prGlueInfo->u2WSCIELen = prIwReqData->data.length;
+				prGlueInfo->u2WSCIELen = u4CmdLen;
 			} else {
 				prGlueInfo->u2WSCIELen = 0;
 			}
@@ -1824,11 +1639,17 @@ _priv_set_struct(IN struct net_device *prNetDev,
 		break;
 #endif
 	case PRIV_CMD_OID:
-		if (copy_from_user(&aucOidBuf[0], prIwReqData->data.pointer, prIwReqData->data.length)) {
+		u4CmdLen = prIwReqData->data.length;
+		if (u4CmdLen > CMD_OID_BUF_LENGTH) {
+			DBGLOG(REQ, ERROR, "Input data length is invalid %u\n", u4CmdLen);
+			return -EINVAL;
+		}
+
+		if (copy_from_user(&aucOidBuf[0], prIwReqData->data.pointer, u4CmdLen)) {
 			status = -EFAULT;
 			break;
 		}
-		if (!kalMemCmp(&aucOidBuf[0], pcExtra, prIwReqData->data.length))
+		if (!kalMemCmp(&aucOidBuf[0], pcExtra, u4CmdLen))
 			DBGLOG(REQ, INFO, "pcExtra buffer is valid\n");
 		else
 			DBGLOG(REQ, INFO, "pcExtra 0x%p\n", pcExtra);
@@ -1846,12 +1667,15 @@ _priv_set_struct(IN struct net_device *prNetDev,
 		break;
 
 	case PRIV_CMD_SW_CTRL:
-		pu4IntBuf = (PUINT_32) prIwReqData->data.pointer;
+		u4CmdLen = prIwReqData->data.length;
 		prNdisReq = (P_NDIS_TRANSPORT_STRUCT) &aucOidBuf[0];
 
-		/* kalMemCopy(&prNdisReq->ndisOidContent[0], prIwReqData->data.pointer, 8); */
-		if (copy_from_user(&prNdisReq->ndisOidContent[0], prIwReqData->data.pointer,
-			prIwReqData->data.length)) {
+		if (u4CmdLen > sizeof(prNdisReq->ndisOidContent)) {
+			DBGLOG(REQ, ERROR, "Input data length is invalid %u\n", u4CmdLen);
+			return -EINVAL;
+		}
+
+		if (copy_from_user(&prNdisReq->ndisOidContent[0], prIwReqData->data.pointer, u4CmdLen)) {
 			status = -EFAULT;
 			break;
 		}
@@ -1893,7 +1717,6 @@ _priv_get_struct(IN struct net_device *prNetDev,
 
 	P_GLUE_INFO_T prGlueInfo = NULL;
 	UINT_32 u4BufLen = 0;
-	PUINT_32 pu4IntBuf = NULL;
 	int status = 0;
 
 	kalMemZero(&aucOidBuf[0], sizeof(aucOidBuf));
@@ -1921,7 +1744,8 @@ _priv_get_struct(IN struct net_device *prNetDev,
 
 	switch (u4SubCmd) {
 	case PRIV_CMD_OID:
-		if (copy_from_user(&aucOidBuf[0], prIwReqData->data.pointer, sizeof(NDIS_TRANSPORT_STRUCT))) {
+		if (copy_from_user(&aucOidBuf[0], prIwReqData->data.pointer,
+					sizeof(NDIS_TRANSPORT_STRUCT) + sizeof(UINT_8)*16)) {
 			DBGLOG(REQ, INFO, "priv_get_struct() copy_from_user oidBuf fail\n");
 			return -EFAULT;
 		}
@@ -1935,7 +1759,7 @@ _priv_get_struct(IN struct net_device *prNetDev,
 			prNdisReq->outNdisOidLength = u4BufLen;
 			if (copy_to_user(prIwReqData->data.pointer,
 					 &aucOidBuf[0],
-					 u4BufLen + sizeof(NDIS_TRANSPORT_STRUCT) -
+					 u4BufLen + sizeof(NDIS_TRANSPORT_STRUCT) + sizeof(UINT_8)*16 -
 					 sizeof(prNdisReq->ndisOidContent))) {
 				DBGLOG(REQ, INFO, "priv_get_struct() copy_to_user oidBuf fail(1)\n");
 				return -EFAULT;
@@ -1950,7 +1774,6 @@ _priv_get_struct(IN struct net_device *prNetDev,
 		return -EFAULT;
 
 	case PRIV_CMD_SW_CTRL:
-		pu4IntBuf = (PUINT_32) prIwReqData->data.pointer;
 		prNdisReq = (P_NDIS_TRANSPORT_STRUCT) &aucOidBuf[0];
 
 		if (prIwReqData->data.length > (sizeof(aucOidBuf) - OFFSET_OF(NDIS_TRANSPORT_STRUCT, ndisOidContent))) {
@@ -2383,10 +2206,10 @@ _priv_set_string(IN struct net_device *prNetDev,
 		IN struct iw_request_info *prIwReqInfo, IN union iwreq_data *prIwReqData, IN char *pcExtra)
 {
 	P_GLUE_INFO_T GlueInfo;
-	INT_32 Status;
-	UINT_32 Subcmd;
-	UINT_8 *InBuf;
-	UINT_32 InBufLen;
+	INT_32 status = 0;
+	UINT_32 subcmd;
+	UINT_8 *pucInBuf = aucOidBuf;
+	UINT_32 u4BufLen;
 
 	/* sanity check */
 	ASSERT(prNetDev);
@@ -2394,36 +2217,35 @@ _priv_set_string(IN struct net_device *prNetDev,
 	ASSERT(prIwReqData);
 	ASSERT(pcExtra);
 
-	/* init */
-	DBGLOG(REQ, INFO, "priv_set_string (%s)(%d)\n",
-			   (UINT8 *) prIwReqData->data.pointer, (INT32) prIwReqData->data.length);
-
 	if (FALSE == GLUE_CHK_PR3(prNetDev, prIwReqData, pcExtra))
 		return -EINVAL;
+
+	u4BufLen = prIwReqData->data.length;
 	GlueInfo = *((P_GLUE_INFO_T *) netdev_priv(prNetDev));
 
-	InBuf = aucOidBuf;
-	InBufLen = prIwReqData->data.length;
-	Status = 0;
+	if (u4BufLen > CMD_OID_BUF_LENGTH) {
+		DBGLOG(REQ, ERROR, "Input data length is invalid %u\n", u4BufLen);
+		return -EINVAL;
+	}
 
-	if (copy_from_user(InBuf, prIwReqData->data.pointer, prIwReqData->data.length))
+	if (copy_from_user(pucInBuf, prIwReqData->data.pointer, u4BufLen))
 		return -EFAULT;
 
-	Subcmd = CmdStringDecParse(prIwReqData->data.pointer, &InBuf, &InBufLen);
-	DBGLOG(REQ, INFO, "priv_set_string> command = %u\n", (UINT32) Subcmd);
+	subcmd = CmdStringDecParse(prIwReqData->data.pointer, &pucInBuf, &u4BufLen);
+	DBGLOG(REQ, INFO, "priv_set_string> command = %u\n", (UINT32) subcmd);
 
 	/* handle the command */
-	switch (Subcmd) {
+	switch (subcmd) {
 #if (CFG_SUPPORT_TDLS == 1)
 	case PRIV_CMD_OTHER_TDLS:
-		TdlsexCmd(GlueInfo, InBuf, InBufLen);
+		TdlsexCmd(GlueInfo, pucInBuf, u4BufLen);
 		break;
 #endif /* CFG_SUPPORT_TDLS */
 
 #if (CFG_SUPPORT_TXR_ENC == 1)
 	case PRIV_CMD_OTHER_TAR:
 	{
-		rlmCmd(GlueInfo, InBuf, InBufLen);
+		rlmCmd(GlueInfo, pucInBuf, u4BufLen);
 		break;
 	}
 #endif /* CFG_SUPPORT_TXR_ENC */
@@ -2431,7 +2253,7 @@ _priv_set_string(IN struct net_device *prNetDev,
 		break;
 	}
 
-	return Status;
+	return status;
 }
 
 /*----------------------------------------------------------------------------*/

@@ -18,6 +18,10 @@
 
 #include "dt_idle_states.h"
 
+#if defined(CONFIG_ARCH_MT6755) || defined(CONFIG_ARCH_MT6757) || defined(CONFIG_ARCH_ELBRUS)
+#define USING_TICK_BROADCAST
+#endif
+
 int __attribute__((weak)) dpidle_enter(int cpu)
 {
 	return 1;
@@ -91,7 +95,11 @@ static struct cpuidle_driver mt67xx_v2_cpuidle_driver = {
 		.enter            = mt_dpidle_enter,
 		.exit_latency     = 2000,            /* 2 ms */
 		.target_residency = 1,
+#ifdef USING_TICK_BROADCAST
+		.flags            = CPUIDLE_FLAG_TIME_VALID | CPUIDLE_FLAG_TIMER_STOP,
+#else
 		.flags            = CPUIDLE_FLAG_TIME_VALID,
+#endif
 		.name             = "dpidle",
 		.desc             = "deepidle",
 	},
@@ -99,7 +107,11 @@ static struct cpuidle_driver mt67xx_v2_cpuidle_driver = {
 		.enter            = mt_soidle3_enter,
 		.exit_latency     = 5000,            /* 5 ms */
 		.target_residency = 1,
+#ifdef USING_TICK_BROADCAST
+		.flags            = CPUIDLE_FLAG_TIME_VALID | CPUIDLE_FLAG_TIMER_STOP,
+#else
 		.flags            = CPUIDLE_FLAG_TIME_VALID,
+#endif
 		.name             = "SODI3",
 		.desc             = "SODI3",
 	},
@@ -107,7 +119,11 @@ static struct cpuidle_driver mt67xx_v2_cpuidle_driver = {
 		.enter            = mt_soidle_enter,
 		.exit_latency     = 2000,            /* 2 ms */
 		.target_residency = 1,
+#ifdef USING_TICK_BROADCAST
+		.flags            = CPUIDLE_FLAG_TIME_VALID | CPUIDLE_FLAG_TIMER_STOP,
+#else
 		.flags            = CPUIDLE_FLAG_TIME_VALID,
+#endif
 		.name             = "SODI",
 		.desc             = "SODI",
 	},
@@ -115,7 +131,11 @@ static struct cpuidle_driver mt67xx_v2_cpuidle_driver = {
 		.enter            = mt_mcidle_enter,
 		.exit_latency     = 2000,            /* 2 ms */
 		.target_residency = 1,
+#ifdef USING_TICK_BROADCAST
+		.flags            = CPUIDLE_FLAG_TIME_VALID | CPUIDLE_FLAG_TIMER_STOP,
+#else
 		.flags            = CPUIDLE_FLAG_TIME_VALID,
+#endif
 		.name             = "MCDI",
 		.desc             = "MCDI",
 	},
@@ -139,7 +159,7 @@ static struct cpuidle_driver mt67xx_v2_cpuidle_driver = {
 	.safe_state_index = 0,
 };
 
-#ifdef CONFIG_ARM64
+#if defined(CONFIG_ARM64) && !defined(CONFIG_MTK_FPGA)
 
 static const struct of_device_id mt67xx_v2_idle_state_match[] __initconst = {
 	{ .compatible = "arm,idle-state" },

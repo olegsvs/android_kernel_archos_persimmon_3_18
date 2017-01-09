@@ -53,15 +53,15 @@ initrd=0x44000000,0x1000000 loglevel=8 androidboot.hardware=mt6735";
 	};
 
 	utos {
-	compatible = "microtrust,utos";
-	interrupts = <GIC_SPI 244 IRQ_TYPE_EDGE_RISING>,
-		<GIC_SPI 245 IRQ_TYPE_EDGE_RISING>,
-		<GIC_SPI 246 IRQ_TYPE_EDGE_RISING>,
-		<GIC_SPI 250 IRQ_TYPE_EDGE_RISING>,
-		<GIC_SPI 251 IRQ_TYPE_EDGE_RISING>,
-		<GIC_SPI 252 IRQ_TYPE_EDGE_RISING>,
-		<GIC_SPI 253 IRQ_TYPE_EDGE_RISING>,
-		<GIC_SPI 255 IRQ_TYPE_EDGE_RISING>;
+		compatible = "microtrust,utos";
+		interrupts = <GIC_SPI 244 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 245 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 246 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 250 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 251 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 252 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 253 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 255 IRQ_TYPE_EDGE_RISING>;
 	};
 
 	cpus {	#address-cells = <1>;
@@ -267,6 +267,18 @@ initrd=0x44000000,0x1000000 loglevel=8 androidboot.hardware=mt6735";
 			clock-frequency = <13000000>;
 		};
 
+		pmu {
+			compatible = "arm,armv8-pmuv3";
+			interrupts = <GIC_SPI 8 IRQ_TYPE_LEVEL_LOW>,
+				<GIC_SPI 9 IRQ_TYPE_LEVEL_LOW>,
+				<GIC_SPI 10 IRQ_TYPE_LEVEL_LOW>,
+				<GIC_SPI 11 IRQ_TYPE_LEVEL_LOW>;
+			interrupt-affinity = <&cpu0>,
+					     <&cpu1>,
+					     <&cpu2>,
+					     <&cpu3>;
+		};
+
 		timer {
 			compatible = "arm,armv8-timer";
 			interrupts = <GIC_PPI 13 IRQ_TYPE_LEVEL_LOW>, /*Secure Physical Timer Event*/
@@ -415,7 +427,6 @@ initrd=0x44000000,0x1000000 loglevel=8 androidboot.hardware=mt6735";
 					regulator-min-microvolt = <2900000>;
 					regulator-max-microvolt = <3300000>;
 					regulator-enable-ramp-delay = <44>;
-					regulator-boot-on;
 				};
 				mt_pmic_vtref_ldo_reg: ldo_vtref {
 					regulator-name = "vtref";
@@ -428,7 +439,6 @@ initrd=0x44000000,0x1000000 loglevel=8 androidboot.hardware=mt6735";
 					regulator-min-microvolt = <1800000>;
 					regulator-max-microvolt = <3300000>;
 					regulator-enable-ramp-delay = <44>;
-					regulator-boot-on;
 				};
 				mt_pmic_vcam_af_ldo_reg: ldo_vcamaf {
 					regulator-name = "vcamaf";
@@ -655,6 +665,9 @@ initrd=0x44000000,0x1000000 loglevel=8 androidboot.hardware=mt6735";
 			compatible = "mediatek, ext_buck_oc-eint";
 			status = "disabled";
 		};
+		swtp: swtp {
+			compatible = "mediatek, swtp-eint";
+		};
 
 		dsi_te: dsi_te {
 			compatible = "mediatek, dsi_te_1-eint";
@@ -671,6 +684,11 @@ initrd=0x44000000,0x1000000 loglevel=8 androidboot.hardware=mt6735";
 		INFRACFG_AO@0x10000000 {
 			compatible = "mediatek,INFRACFG_AO";
 			reg = <0x10000000 0x1000>;
+		};
+
+		usb2jtag: usb2jtag@10000000 {
+			compatible = "mediatek,usb2jtag_v1";
+			reg = <0x10000000 0x1000>, <0x11210000 0x1000>;
 		};
 
 		PWRAP@0x10001000 {
@@ -704,6 +722,18 @@ initrd=0x44000000,0x1000000 loglevel=8 androidboot.hardware=mt6735";
 
 			mediatek,max_eint_num = <213>;
 			mediatek,mapping_table_entry = <0>;
+
+			mediatek,debtime_setting_entry = <10>;
+			mediatek,debtime_setting_array	= <0 125>,
+							<1 250>,
+							<2 500>,
+							<3 1000>,
+							<4 16000>,
+							<5 32000>,
+							<6 64000>,
+							<7 128000>,
+							<8 256000>,
+							<9 512000>;
 		};
 
 		SLEEP@0x10006000 {
@@ -1056,7 +1086,7 @@ initrd=0x44000000,0x1000000 loglevel=8 androidboot.hardware=mt6735";
 		};
 
 		cpu_dbgapb: cpu_dbgapb {
-			compatible = "mediatek,mt6735-dbg_debug";
+			compatible = "mediatek,hw_dbg";
 			num = <4>;
 			reg =  <0x10810000 0x1000
 				0x10910000 0x1000
@@ -1209,7 +1239,7 @@ initrd=0x44000000,0x1000000 loglevel=8 androidboot.hardware=mt6735";
 		/* NFC end */
 
 		gps {
-			compatible = "mediatek,mt3326-gps";
+			compatible = "mediatek,gps";
 		};
 
 		btcvsd@10000000 {
@@ -1274,7 +1304,7 @@ initrd=0x44000000,0x1000000 loglevel=8 androidboot.hardware=mt6735";
 			audmiso-gpio = <144 0>;
 			audmosi-gpio = <145 0>;
 			vowclk-gpio = <148 0>;
-			extspkamp-gpio = <100 0>;
+			extspkamp-gpio = <117 0>;
 			i2s1clk-gpio = <80 0>;
 			i2s1dat-gpio = <78 0>;
 			i2s1mclk-gpio = <9 0>;
@@ -1776,6 +1806,13 @@ initrd=0x44000000,0x1000000 loglevel=8 androidboot.hardware=mt6735";
 	lcm: lcm {
 		compatible = "mediatek,lcm";
 	};
+
+	/* ATF logger SW IRQ number 281 = 32 + 249 */
+	atf_logger {
+		compatible = "mediatek,atf_logger";
+		interrupts = <GIC_SPI 249 IRQ_TYPE_EDGE_RISING>;
+	};
+
 	psci {
 		compatible  = "arm,psci";
 		method      = "smc";
@@ -1874,6 +1911,7 @@ initrd=0x44000000,0x1000000 loglevel=8 androidboot.hardware=mt6735";
 			slew-rate = <1>;
 			bias-pull-up = <00>;
 			output-high;
+			output-low;
 		};
 	};
 

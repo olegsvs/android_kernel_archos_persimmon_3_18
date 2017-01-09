@@ -1,17 +1,19 @@
 /*
- * Copyright (C) 2007 The Android Open Source Project
+ * Copyright (C) 2015 MediaTek Inc.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ * You should have received a copy of the GNU General Public License
+ * along with this program
+ * If not, see <http://www.gnu.org/licenses/>.
  */
 /*******************************************************************************
  *
@@ -56,6 +58,8 @@
 #include <mach/mt_pmic_wrap.h>
 #endif
 
+static DEFINE_SPINLOCK(ana_set_reg_lock);
+
 /*****************************************************************************
  *                         D A T A   T Y P E S
  *****************************************************************************/
@@ -65,18 +69,21 @@ void Ana_Set_Reg(uint32 offset, uint32 value, uint32 mask)
 	/* set pmic register or analog CONTROL_IFACE_PATH */
 	int ret = 0;
 	uint32 Reg_Value;
+	unsigned long flags;
 
 	PRINTK_ANA_REG("Ana_Set_Reg offset= 0x%x , value = 0x%x mask = 0x%x\n", offset, value,
 		       mask);
 #ifdef AUDIO_USING_WRAP_DRIVER
+	spin_lock_irqsave(&ana_set_reg_lock, flags);
 	Reg_Value = Ana_Get_Reg(offset);
 	Reg_Value &= (~mask);
 	Reg_Value |= (value & mask);
 	ret = pwrap_write(offset, Reg_Value);
-	Reg_Value = Ana_Get_Reg(offset);
+	spin_unlock_irqrestore(&ana_set_reg_lock, flags);
 
+	Reg_Value = Ana_Get_Reg(offset);
 	if ((Reg_Value & mask) != (value & mask))
-		pr_debug("Ana_Set_Reg  mask: 0x%x ret: %d off: 0x%x val: 0x%x Reg: 0x%x\n",
+		PRINTK_ANA_REG("Ana_Set_Reg  mask: 0x%x ret: %d off: 0x%x val: 0x%x Reg: 0x%x\n",
 			mask, ret, offset, value, Reg_Value);
 #endif
 }

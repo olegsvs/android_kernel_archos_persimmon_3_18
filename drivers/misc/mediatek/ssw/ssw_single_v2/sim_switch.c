@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 
 #include <ssw.h>
 #include <mt-plat/mt_ccci_common.h>
@@ -211,7 +224,7 @@ int switch_sim_mode(int id, char *buf, unsigned int len)
 static int get_sim_mode_init(void)
 {
 	unsigned int sim_mode = 0;
-#ifdef CONFIG_MTK_SVLTE_SUPPORT
+#if defined(CONFIG_MTK_LTE_MODE) && (CONFIG_MTK_LTE_MODE == 1)
 	sim_mode = SINGLE_TALK_MDSYS;
 #else
 #ifdef CONFIG_EVDO_DT_SUPPORT

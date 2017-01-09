@@ -24,17 +24,12 @@
 #include <mt-plat/mt_ccci_common.h>
 #include "cbp_sdio.h"
 
-#ifdef CONFIG_MTK_C2K_DATA_PPP_SUPPORT
-#define ENABLE_CCMNI	(0)
-#define ENABLE_CHAR_DEV (0)
-#else
 #define ENABLE_CCMNI	(1)
 #define ENABLE_CHAR_DEV (1)
-#endif
 
 #define SDIO_TTY_CHAN_ID_BEGIN	1
 #define SDIO_TTY_CHAN_ID_END	13
-#define SDIO_TTY_NR		13	/*Number of UARTs this driver can handle */
+#define SDIO_TTY_NR		20	/*Number of UARTs this driver can handle */
 
 #ifdef CONFIG_EVDO_DT_VIA_SUPPORT
 #define CTRL_CH_ID			0
@@ -62,6 +57,11 @@
 #define EXCP_MSG_CH_ID		12
 #define EXCP_DATA_CH_ID		13
 #define CCMNI_AP_LOOPBACK_CH	(15)
+#define SDIO_AT4_CHANNEL_NUM	(16)
+#define SDIO_AT5_CHANNEL_NUM	(17)
+#define SDIO_AT6_CHANNEL_NUM	(18)
+#define SDIO_AT7_CHANNEL_NUM	(19)
+#define SDIO_AT8_CHANNEL_NUM	(20)
 #endif
 
 #define HEART_BEAT_TIMEOUT		(10000)	/*ms */
@@ -103,6 +103,7 @@
 #define SDIO_MSG_MAX_LEN			4096
 
 #define MORE_DATA_FOLLOWING				(0x20)
+#define EXTEND_CH_BIT					(0x10)
 #ifndef CONFIG_EVDO_DT_VIA_SUPPORT
 struct sdio_hw_head {
 	unsigned char len_low;
@@ -379,7 +380,7 @@ enum {
 /*Image type and header defination part*/
 /*=================================================================================*/
 
-#define C2K_IMG_PATH	"/etc/firmware/modem_3_3g_n.img"
+#define C2K_IMG_PATH	"/vendor/firmware/modem_3_3g_n.img"
 
 enum {
 	MD_BOOTING = 0,
@@ -520,7 +521,7 @@ extern void dump_c2k_iram_seg2(void);
 extern unsigned int get_c2k_reserve_mem_size(void);
 extern char *get_ap_platform(void);
 
-int sdio_modem_ccmni_send_pkt(int md_id, int tx_ch, void *data);
+int sdio_modem_ccmni_send_pkt(int md_id, int ccmni_idx, void *data, int is_ack);
 /*
 int sdio_modem_get_ccmni_ch(int md_id, int ccmni_idx, struct ccmni_ch *channel);
 */
@@ -549,6 +550,7 @@ extern phys_addr_t md3_mem_base;
 extern void mt_irq_dump_status(int irq);
 extern void mt_eint_dump_status(unsigned int eint);
 extern int c2k_modem_not_ready(void);
+extern void dump_c2k_bootup_status(void);
 
 #ifndef CONFIG_EVDO_DT_VIA_SUPPORT
 extern void c2k_sdio_install_eirq(void);

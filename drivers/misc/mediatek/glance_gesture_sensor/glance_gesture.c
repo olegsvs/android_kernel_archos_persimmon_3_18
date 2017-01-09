@@ -1,11 +1,23 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #include "glance_gesture.h"
 
 static struct glg_context *glg_context_obj;
 
 static struct glg_init_info *glance_gesture_init = { 0 };	/* modified */
 
-static void glg_early_suspend(struct early_suspend *h);
-static void glg_late_resume(struct early_suspend *h);
+
 
 static int resume_enable_status;
 static struct wake_lock glg_lock;
@@ -190,7 +202,7 @@ static ssize_t glg_show_active(struct device *dev, struct device_attribute *attr
 	return snprintf(buf, PAGE_SIZE, "%d\n", cxt->is_active_data);
 }
 
-static ssize_t glg_store_delay(struct device *dev, struct device_attribute *attr, char *buf)
+static ssize_t glg_store_delay(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
 {
 	int len = 0;
 
@@ -244,10 +256,16 @@ static ssize_t glg_show_flush(struct device *dev, struct device_attribute *attr,
 
 static ssize_t glg_show_devnum(struct device *dev, struct device_attribute *attr, char *buf)
 {
-	char *devname = NULL;
+	const char *devname = NULL;
+	struct input_handle *handle;
 
-	devname = dev_name(&glg_context_obj->idev->dev);
-	return snprintf(buf, PAGE_SIZE, "%s\n", devname + 5);	/* TODO: why +5? */
+	list_for_each_entry(handle, &glg_context_obj->idev->h_list, d_node)
+		if (strncmp(handle->name, "event", 5) == 0) {
+			devname = handle->name;
+			break;
+		}
+
+	return snprintf(buf, PAGE_SIZE, "%s\n", devname + 5);
 }
 
 static int glance_gesture_remove(struct platform_device *pdev)
@@ -327,7 +345,7 @@ static int glg_misc_init(struct glg_context *cxt)
 	int err = 0;
 	/* kernel-3.10\include\linux\Miscdevice.h */
 	/* use MISC_DYNAMIC_MINOR exceed 64 */
-	cxt->mdev.minor = M_GLG_MISC_MINOR;
+	cxt->mdev.minor = MISC_DYNAMIC_MINOR;
 	cxt->mdev.name = GLG_MISC_DEV_NAME;
 
 	err = misc_register(&cxt->mdev);
@@ -433,7 +451,7 @@ int glg_register_control_path(struct glg_control_path *ctl)
 	return 0;
 }
 
-static int glg_probe(struct platform_device *pdev)
+static int glg_probe(void)
 {
 	int err;
 
@@ -457,14 +475,6 @@ static int glg_probe(struct platform_device *pdev)
 		GLG_ERR("unable to register glg input device!\n");
 		goto exit_alloc_input_dev_failed;
 	}
-#if defined(CONFIG_HAS_EARLYSUSPEND) && defined(CONFIG_EARLYSUSPEND)
-	atomic_set(&(glg_context_obj->early_suspend), 0);
-	glg_context_obj->early_drv.level = EARLY_SUSPEND_LEVEL_STOP_DRAWING - 1,
-	    glg_context_obj->early_drv.suspend = glg_early_suspend,
-	    glg_context_obj->early_drv.resume = glg_late_resume,
-	    register_early_suspend(&glg_context_obj->early_drv);
-#endif				/* #if defined(CONFIG_HAS_EARLYSUSPEND) && defined(CONFIG_EARLYSUSPEND) */
-
 	GLG_LOG("----glg_probe OK !!\n");
 	return 0;
 
@@ -480,7 +490,7 @@ exit_alloc_data_failed:
 	return err;
 }
 
-static int glg_remove(struct platform_device *pdev)
+static int glg_remove(void)
 {
 	int err = 0;
 
@@ -495,80 +505,11 @@ static int glg_remove(struct platform_device *pdev)
 	kfree(glg_context_obj);
 	return 0;
 }
-
-static void glg_early_suspend(struct early_suspend *h)
-{
-	atomic_set(&(glg_context_obj->early_suspend), 1);
-	if (!atomic_read(&glg_context_obj->wake))	/* not wake up, disable in early suspend */
-		glg_real_enable(GLG_SUSPEND);
-
-	GLG_LOG(" glg_early_suspend ok------->hwm_obj->early_suspend=%d\n",
-		atomic_read(&(glg_context_obj->early_suspend)));
-}
-
-/*----------------------------------------------------------------------------*/
-static void glg_late_resume(struct early_suspend *h)
-{
-	atomic_set(&(glg_context_obj->early_suspend), 0);
-	if (!atomic_read(&glg_context_obj->wake) && resume_enable_status)
-		glg_real_enable(GLG_RESUME);
-
-	GLG_LOG(" glg_late_resume ok------->hwm_obj->early_suspend=%d\n",
-		atomic_read(&(glg_context_obj->early_suspend)));
-}
-
-#if !defined(CONFIG_HAS_EARLYSUSPEND) || !defined(USE_EARLY_SUSPEND)
-static int glg_suspend(struct platform_device *dev, pm_message_t state)
-{
-	atomic_set(&(glg_context_obj->suspend), 1);
-	if (!atomic_read(&glg_context_obj->wake))
-		glg_real_enable(GLG_SUSPEND);
-
-	GLG_LOG(" glg_suspend ok------->hwm_obj->suspend=%d\n",
-		atomic_read(&(glg_context_obj->suspend)));
-	return 0;
-}
-
-/*----------------------------------------------------------------------------*/
-static int glg_resume(struct platform_device *dev)
-{
-	atomic_set(&(glg_context_obj->suspend), 0);
-	if (!atomic_read(&glg_context_obj->wake) && resume_enable_status)
-		glg_real_enable(GLG_RESUME);
-
-	GLG_LOG(" glg_resume ok------->hwm_obj->suspend=%d\n",
-		atomic_read(&(glg_context_obj->suspend)));
-	return 0;
-}
-#endif				/* #if !defined(CONFIG_HAS_EARLYSUSPEND) || !defined(USE_EARLY_SUSPEND) */
-
-#ifdef CONFIG_OF
-static const struct of_device_id m_glg_pl_of_match[] = {
-	{.compatible = "mediatek,m_glg_pl",},
-	{},
-};
-#endif
-
-static struct platform_driver glg_driver = {
-	.probe = glg_probe,
-	.remove = glg_remove,
-#if !defined(CONFIG_HAS_EARLYSUSPEND) || !defined(USE_EARLY_SUSPEND)
-	.suspend = glg_suspend,
-	.resume = glg_resume,
-#endif
-	.driver = {
-		   .name = GLG_PL_DEV_NAME,
-#ifdef CONFIG_OF
-		   .of_match_table = m_glg_pl_of_match,
-#endif
-		   }
-};
-
 static int __init glg_init(void)
 {
 	GLG_FUN();
 
-	if (platform_driver_register(&glg_driver)) {
+	if (glg_probe()) {
 		GLG_ERR("failed to register glg driver\n");
 		return -ENODEV;
 	}
@@ -578,7 +519,7 @@ static int __init glg_init(void)
 
 static void __exit glg_exit(void)
 {
-	platform_driver_unregister(&glg_driver);
+	glg_remove();
 	platform_driver_unregister(&glance_gesture_driver);
 }
 

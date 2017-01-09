@@ -15,7 +15,7 @@
 #ifndef _PMT_H
 #define _PMT_H
 #include <mach/mtk_nand.h>
-#include <mtk_nand_util.h>
+#include "mtk_nand_util.h"
 #if defined(CONFIG_MTK_TLC_NAND_SUPPORT)
 #include "partition_define_tlc.h"
 #else

@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #if !defined(__AEE_H__)
 #define __AEE_H__
 
@@ -29,6 +42,7 @@ typedef enum {
 	AE_ANR,			/* Error or Warning or Defect */
 	AE_RESMON,
 	AE_MODEM_WARNING,
+	AE_WTF,
 	AE_WRN_ERR_END,
 	AE_MANUAL,		/* Manual Raise */
 	AE_EXP_CLASS_END,
@@ -36,6 +50,7 @@ typedef enum {
 	AE_KERNEL_PROBLEM_REPORT = 1000,
 	AE_SYSTEM_JAVA_DEFECT,
 	AE_SYSTEM_NATIVE_DEFECT,
+	AE_MANUAL_MRDUMP_KEY,
 } AE_EXP_CLASS;			/* General Program Exception Class */
 
 typedef enum {
@@ -255,6 +270,8 @@ int aee_in_nested_panic(void);
 void aee_stop_nested_panic(struct pt_regs *regs);
 void aee_wdt_dump_info(void);
 void aee_wdt_printf(const char *fmt, ...);
+
+void aee_fiq_ipi_cpu_stop(void *arg, void *regs, void *svc_sp);
 
 #if defined(CONFIG_MTK_AEE_DRAM_CONSOLE)
 void aee_dram_console_reserve_memory(void);

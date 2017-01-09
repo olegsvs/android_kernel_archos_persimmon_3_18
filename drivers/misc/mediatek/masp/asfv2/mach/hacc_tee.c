@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 
 #include <linux/types.h>
 #include "sec_hal.h"
@@ -45,6 +58,7 @@ static char *hacc_secure_request(HACC_USER user, unsigned char *buf, unsigned in
 				 unsigned int seed_size)
 {
 	unsigned int ret = SEC_OK;
+	unsigned char secure_algo_ret = TRUE;
 
 	/* get hacc lock */
 	if (TRUE == bDoLock) {
@@ -57,8 +71,9 @@ static char *hacc_secure_request(HACC_USER user, unsigned char *buf, unsigned in
 		}
 	}
 	/* turn on clock */
-	masp_hal_secure_algo_init();
-
+	secure_algo_ret = masp_hal_secure_algo_init();
+	if (FALSE == secure_algo_ret)
+		goto _exit;
 
 	if (buf_size != 0) {
 		/* try to open connection to TEE */
@@ -85,10 +100,9 @@ static char *hacc_secure_request(HACC_USER user, unsigned char *buf, unsigned in
 		    ("[HACC] hacc_secure_request - buffer size is 0, no encryption or decyrption is performed\n");
 	}
 
-
 _exit:
 	/* turn off clock */
-	masp_hal_secure_algo_deinit();
+	secure_algo_ret = masp_hal_secure_algo_deinit();
 	/* release hacc lock */
 	if (TRUE == bDoLock)
 		osal_hacc_unlock();

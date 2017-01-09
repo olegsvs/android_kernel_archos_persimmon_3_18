@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #ifndef __MTK_MEMCFG_H__
 #define __MTK_MEMCFG_H__
 #include <linux/fs.h>
@@ -7,7 +20,16 @@
 #define WARN_MEMSIZE_CONFLICT	(1 << 1)	/* dram info missing */
 #define WARN_API_NOT_INIT	(1 << 2)	/* API is not initialized */
 
+#define MTK_MEMCFG_MEMBLOCK_PHY 0x1
+#define MTK_MEMCFG_MEMBLOCK_DEBUG 0x2
+
 #ifdef CONFIG_MTK_MEMCFG
+
+#include <linux/memblock.h>
+extern int memblock_count;
+extern struct memblock_record memblock_record[100];
+extern struct memblock_stack_trace memblock_stack_trace[100];
+extern struct kernel_reserve_meminfo kernel_reserve_meminfo;
 
 #define MTK_MEMCFG_LOG_AND_PRINTK(fmt, arg...)  \
 	do {    \
@@ -17,6 +39,9 @@
 
 extern void mtk_memcfg_write_memory_layout_buf(char *, ...);
 extern void mtk_memcfg_late_warning(unsigned long);
+
+void mtk_memcfg_write_memory_layout_info(int type, const char *name,
+		unsigned long start, unsigned long size);
 
 #ifdef CONFIG_SLUB_DEBUG
 extern int slabtrace_open(struct inode *inode, struct file *file);
@@ -47,7 +72,7 @@ extern void split_page(struct page *page, unsigned int order);
 #define mtk_memcfg_set_bypass_slub_debug_flag(flag)  do { } while (0)
 #define mtk_memcfg_write_memory_layout_buf(fmt, arg...) do { } while (0)
 #define mtk_memcfg_late_warning(flag) do { } while (0)
-
+#define mtk_memcfg_write_memory_layout_info(arg...) do { } while (0)
 #endif /* end CONFIG_MTK_MEMCFG */
 
 #endif /* end __MTK_MEMCFG_H__ */

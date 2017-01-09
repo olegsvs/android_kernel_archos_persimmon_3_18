@@ -1,4 +1,18 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #include <linux/kernel.h>
+#include <mt_lpae.h>
 
 #ifdef DFT_TAG
 #undef DFT_TAG
@@ -101,6 +115,9 @@ static int hal_tx_dma_dump_reg(P_MTK_DMA_INFO_STR p_dma_info,
 			       ENUM_BTIF_REG_ID flag);
 static int is_tx_dma_irq_finish_done(P_MTK_DMA_INFO_STR p_dma_info);
 static int _btif_dma_dump_dbg_reg(void);
+static void hal_btif_tx_dma_vff_set_for_4g(void);
+static void hal_btif_rx_dma_vff_set_for_4g(void);
+
 /*****************************************************************************
 * FUNCTION
 *  hal_tx_dma_ier_ctrl
@@ -386,6 +403,7 @@ int hal_btif_dma_hw_init(P_MTK_DMA_INFO_STR p_dma_info)
 	int i_ret = 0;
 	unsigned int dat = 0;
 	unsigned long base = p_dma_info->base;
+	unsigned long addr_h = 0;
 	P_DMA_VFIFO p_vfifo = p_dma_info->p_vfifo;
 	P_MTK_BTIF_DMA_VFIFO p_mtk_dma_vfifo = container_of(p_vfifo,
 							    MTK_BTIF_DMA_VFIFO,
@@ -402,6 +420,13 @@ int hal_btif_dma_hw_init(P_MTK_DMA_INFO_STR p_dma_info)
 		} while (0x01 & dat);
 		/*write vfifo base address to VFF_ADDR*/
 		btif_reg_sync_writel(p_vfifo->phy_addr, RX_DMA_VFF_ADDR(base));
+		if (enable_4G())
+			hal_btif_rx_dma_vff_set_for_4g();
+		else {
+			addr_h = p_vfifo->phy_addr >> 16;
+			addr_h = addr_h >> 16;
+			btif_reg_sync_writel(addr_h, RX_DMA_VFF_ADDR_H(base));
+		}
 		/*write vfifo length to VFF_LEN*/
 		btif_reg_sync_writel(p_vfifo->vfifo_size, RX_DMA_VFF_LEN(base));
 		/*write wpt to VFF_WPT*/
@@ -428,6 +453,13 @@ int hal_btif_dma_hw_init(P_MTK_DMA_INFO_STR p_dma_info)
 		} while (0x01 & dat);
 /*write vfifo base address to VFF_ADDR*/
 		btif_reg_sync_writel(p_vfifo->phy_addr, TX_DMA_VFF_ADDR(base));
+		if (enable_4G())
+			hal_btif_tx_dma_vff_set_for_4g();
+		else {
+			addr_h = p_vfifo->phy_addr >> 16;
+			addr_h = addr_h >> 16;
+			btif_reg_sync_writel(addr_h, TX_DMA_VFF_ADDR_H(base));
+		}
 /*write vfifo length to VFF_LEN*/
 		btif_reg_sync_writel(p_vfifo->vfifo_size, TX_DMA_VFF_LEN(base));
 /*write wpt to VFF_WPT*/
@@ -478,7 +510,7 @@ int hal_btif_dma_rx_cb_reg(P_MTK_DMA_INFO_STR p_dma_info,
 			   dma_rx_buf_write rx_cb)
 {
 	if (NULL != p_dma_info->rx_cb) {
-		BTIF_INFO_FUNC
+		BTIF_DBG_FUNC
 		    ("rx_cb already registered, replace (0x%p) with (0x%p)\n",
 		     p_dma_info->rx_cb, rx_cb);
 	}
@@ -1394,5 +1426,20 @@ int _btif_dma_dump_dbg_reg(void)
 		BTIF_INFO_FUNC("<reg, val>-<0x%lx, 0x%08x>\n", g_dma_dbg_regs[i].reg_addr, g_dma_dbg_regs[i].reg_val);
 #endif
 	return 0;
+}
+
+static void hal_btif_tx_dma_vff_set_for_4g(void)
+{
+	BTIF_DBG_FUNC("Set btif tx_vff_addr bit29\n");
+	BTIF_SET_BIT(TX_DMA_VFF_ADDR_H(mtk_btif_tx_dma.base), DMA_VFF_BIT29_OFFSET);
+	BTIF_DBG_FUNC("Dump value of bit29 0x%x:(0x%x)\n", TX_DMA_VFF_ADDR_H(mtk_btif_tx_dma.base),
+					BTIF_READ32(TX_DMA_VFF_ADDR_H(mtk_btif_tx_dma.base)));
+}
+static void hal_btif_rx_dma_vff_set_for_4g(void)
+{
+	BTIF_DBG_FUNC("Set btif rx_vff_addr bit29\n");
+	BTIF_SET_BIT(RX_DMA_VFF_ADDR_H(mtk_btif_rx_dma.base), DMA_VFF_BIT29_OFFSET);
+	BTIF_DBG_FUNC("Dump value of bit29 0x%x:(0x%x)\n", RX_DMA_VFF_ADDR_H(mtk_btif_rx_dma.base),
+					BTIF_READ32(RX_DMA_VFF_ADDR_H(mtk_btif_rx_dma.base)));
 }
 

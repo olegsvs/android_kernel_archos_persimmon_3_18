@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #ifndef __HAL_BTIF_DMA_H_
 #define __HAL_BTIF_DMA_H_
 
@@ -5,7 +18,7 @@
 #include "btif_dma_pub.h"
 
 #if defined(CONFIG_MTK_CLKMGR)
-#if defined(CONFIG_ARCH_MT6580)
+#if defined(CONFIG_ARCH_MT6580) || defined(CONFIG_ARCH_MT6570)
 #define MTK_BTIF_APDMA_CLK_CG MT_CG_APDMA_SW_CG
 #elif defined(CONFIG_ARCH_MT6735) || defined(CONFIG_ARCH_MT6735M) || defined(CONFIG_ARCH_MT6753)
 #define MTK_BTIF_APDMA_CLK_CG MT_CG_PERI_APDMA
@@ -43,6 +56,7 @@ extern struct clk *clk_btif_apdma; /*btif apdma clock*/
 #define DMA_RPT_OFFSET  0x30
 #define DMA_VALID_OFFSET  0x3C
 #define DMA_LEFT_OFFSET  0x40
+#define DMA_VFF_BIT29_OFFSET  0x01
 
 #define TX_DMA_INT_FLAG(base)       (unsigned long)(base + 0x0)	/*BTIF Tx Virtual FIFO Interrupt Flag Register */
 #define TX_DMA_INT_EN(base)         (unsigned long)(base + 0x4)	/*BTIF Tx Virtual FIFO Interrupt Enable Register */
@@ -63,6 +77,7 @@ extern struct clk *clk_btif_apdma; /*btif apdma clock*/
 #define TX_DMA_VFF_VALID_SIZE(base) (unsigned long)(base + 0x3C) /*BTIF Tx Virtual FIFO Valid Size Register */
 #define TX_DMA_VFF_LEFT_SIZE(base)  (unsigned long)(base + 0x40) /*BTIF Tx Virtual FIFO Left Size Register */
 #define TX_DMA_DEBUG_STATUS(base)   (unsigned long)(base + 0x50) /*BTIF Tx Virtual FIFO Debug Status Register */
+#define TX_DMA_VFF_ADDR_H(base)     (unsigned long)(base + 0x54) /*BTIF Tx Virtual FIFO Base High Address Register */
 
 /*Rx Register Address Mapping*/
 #define RX_DMA_INT_FLAG(base)       (unsigned long)(base + 0x0)	/*BTIF Rx Virtual FIFO Interrupt Flag Register */
@@ -81,6 +96,7 @@ extern struct clk *clk_btif_apdma; /*btif apdma clock*/
 #define RX_DMA_VFF_VALID_SIZE(base) (unsigned long)(base + 0x3C) /*BTIF Rx Virtual FIFO Valid Size Register */
 #define RX_DMA_VFF_LEFT_SIZE(base)  (unsigned long)(base + 0x40) /*BTIF Rx Virtual FIFO Left Size  Register */
 #define RX_DMA_DEBUG_STATUS(base)   (unsigned long)(base + 0x50) /*BTIF Rx Virtual FIFO Debug Status Register */
+#define RX_DMA_VFF_ADDR_H(base)     (unsigned long)(base + 0x54) /*BTIF Rx Virtual FIFO Base High Address Register */
 
 #define DMA_EN_BIT (0x1)
 #define DMA_STOP_BIT (0x1)

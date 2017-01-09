@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #ifndef __M4U_PRIV_H__
 #define __M4U_PRIV_H__
 #include <linux/ioctl.h>
@@ -158,10 +171,9 @@ int m4u_do_mva_free(unsigned int mva, unsigned int size);
 /* ==== define in m4u_pgtable.c===== */
 void m4u_dump_pgtable(m4u_domain_t *domain, struct seq_file *seq);
 void m4u_dump_pte_nolock(m4u_domain_t *domain, unsigned int mva);
-int m4u_pte_invalid(m4u_domain_t *domain, unsigned int mva);
 void m4u_dump_pte(m4u_domain_t *domain, unsigned int mva);
 int m4u_pgtable_init(struct m4u_device *m4u_dev, m4u_domain_t *m4u_domain);
-int m4u_map_4K(m4u_domain_t *m4u_domain, unsigned int mva, unsigned long pa, unsigned int prot);
+int m4u_map_4K(m4u_domain_t *m4u_domain, unsigned int mva, phys_addr_t pa, unsigned int prot);
 int m4u_clean_pte(m4u_domain_t *domain, unsigned int mva, unsigned int size);
 
 unsigned long m4u_get_pte(m4u_domain_t *domain, unsigned int mva);

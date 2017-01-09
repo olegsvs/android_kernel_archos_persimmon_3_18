@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #ifndef _VAL_TYPES_PUBLIC_H_
 #define _VAL_TYPES_PUBLIC_H_
 
@@ -81,7 +94,11 @@ typedef enum _VAL_CHIP_NAME_T {
 	VAL_CHIP_NAME_MT8163,
 	VAL_CHIP_NAME_MT8173,                       /* / <8173 */
 	VAL_CHIP_NAME_MT6755,                       /* / <Jade */
+	VAL_CHIP_NAME_MT6757,                       /* / <Olympus */
 	VAL_CHIP_NAME_MT6797,                       /* / <Everest */
+	VAL_CHIP_NAME_MT7623,                       /* / <7623 */
+	VAL_CHIP_NAME_MT8167,                       /* / <MT8167 */
+	VAL_CHIP_NAME_ELBRUS,                       /* /< ELBRUS */
 	VAL_CHIP_NAME_MAX = 0xFFFFFFFF              /* /< Max Value */
 } VAL_CHIP_NAME_T;
 
@@ -479,6 +496,9 @@ typedef enum _VAL_VCODEC_SCENARIO_T {
 	VAL_VCODEC_SCENARIO_VENC_1080P  = 0x1,          /* /< Camera recording 1080P */
 	VAL_VCODEC_SCENARIO_VDEC_1080P  = 0x2,          /* /< Playback 1080P */
 	VAL_VCODEC_SCENARIO_VENC_WFD    = 0x4,          /* /< Wifi-display encoding */
+	VAL_VCODEC_SCENARIO_VDEC_60FPS  = 0x8,          /* /< Playback 60fps video */
+	VAL_VCODEC_SCENARIO_VDEC_4K     = 0x10,         /* /< Playback 4K */
+	VAL_VCODEC_SCENARIO_VDEC_2K     = 0x20,         /* /< Playback 2K */
 } VAL_VCODEC_SCENARIO_T;
 
 /**

@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #if defined(CONFIG_MTK_RTC)
 
 #ifdef pr_fmt
@@ -16,11 +29,13 @@
 #include <linux/platform_device.h>
 #include <linux/delay.h>
 #include <linux/types.h>
+#include <linux/sched.h>
 
 #include <mach/mt_rtc_hw.h>
 #include <mach/mtk_rtc_hal.h>
 #include <mtk_rtc_hal_common.h>
 #include <mt_pmic_wrap.h>
+#include <mt-plat/aee.h>
 
 #define hal_rtc_xinfo(fmt, args...)		\
 		pr_notice(fmt, ##args)
@@ -47,9 +62,19 @@ void rtc_write(u16 addr, u16 data)
 
 void rtc_busy_wait(void)
 {
+	unsigned long long t1, t2, t3;
+
 	do {
-		while (rtc_read(RTC_BBPU) & RTC_BBPU_CBUSY)
-			;
+		t1 = sched_clock();
+		t2 = t1;
+		while (rtc_read(RTC_BBPU) & RTC_BBPU_CBUSY) {
+			t3 = sched_clock();
+			if ((t3 - t2) > 500000000) {
+				t2 = t3;
+				hal_rtc_xerror("rtc_busy_wait too long: %lld(%lld:%lld), %x, %d\n",
+					t3-t1, t1, t3, rtc_read(RTC_BBPU), rtc_read(RTC_TC_SEC));
+			}
+		}
 	} while (0);
 }
 
@@ -196,12 +221,14 @@ void hal_rtc_get_alarm_time(struct rtc_time *tm)
 
 void hal_rtc_set_alarm_time(struct rtc_time *tm)
 {
-	hal_rtc_xinfo("read tc time = %04d/%02d/%02d (%d) %02d:%02d:%02d\n",
+	/* hal_rtc_xinfo("read tc time = %04d/%02d/%02d (%d) %02d:%02d:%02d\n",
 		      tm->tm_year + 1900, tm->tm_mon + 1, tm->tm_mday,
-		      tm->tm_wday, tm->tm_hour, tm->tm_min, tm->tm_sec);
-	hal_rtc_xinfo("a = %d\n", (rtc_read(RTC_AL_MTH) & ~(RTC_AL_MTH_MASK)) | tm->tm_mon);
-	hal_rtc_xinfo("b = %d\n", (rtc_read(RTC_AL_DOM) & ~(RTC_AL_DOM_MASK)) | tm->tm_mday);
-	hal_rtc_xinfo("c = %d\n", (rtc_read(RTC_AL_HOU) & ~(RTC_AL_HOU_MASK)) | tm->tm_hour);
+		      tm->tm_wday, tm->tm_hour, tm->tm_min, tm->tm_sec); */
+	hal_rtc_xinfo("mon = %d, day = %d, hour = %d\n",
+		(rtc_read(RTC_AL_MTH) & ~(RTC_AL_MTH_MASK)) | tm->tm_mon,
+		(rtc_read(RTC_AL_DOM) & ~(RTC_AL_DOM_MASK)) | tm->tm_mday,
+		(rtc_read(RTC_AL_HOU) & ~(RTC_AL_HOU_MASK)) | tm->tm_hour);
+
 	rtc_write(RTC_AL_YEA,
 		  (rtc_read(RTC_AL_YEA) & ~(RTC_AL_YEA_MASK)) | (tm->tm_year & RTC_AL_YEA_MASK));
 	rtc_write(RTC_AL_MTH,
@@ -268,6 +295,25 @@ void hal_rtc_read_rg(void)
 }
 
 #ifndef USER_BUILD_KERNEL
+static void rtc_lpd_reset(void)
+{
+	u16 con;
+
+	con = rtc_read(RTC_CON) | RTC_CON_LPEN;
+	con &= ~RTC_CON_LPRST;
+	rtc_write(RTC_CON, con);
+	rtc_write_trigger();
+
+	con |= RTC_CON_LPRST;
+	rtc_write(RTC_CON, con);
+	rtc_write_trigger();
+
+	con &= ~RTC_CON_LPRST;
+	rtc_write(RTC_CON, con);
+	rtc_write_trigger();
+
+}
+
 void rtc_lp_exception(void)
 {
 	u16 bbpu, irqsta, irqen, osc32;
@@ -282,9 +328,9 @@ void rtc_lp_exception(void)
 	prot = rtc_read(RTC_PROT);
 	con = rtc_read(RTC_CON);
 	sec1 = rtc_read(RTC_TC_SEC);
-	mdelay(2000);
+	/*mdelay(2000);*/
 	sec2 = rtc_read(RTC_TC_SEC);
-
+	rtc_lpd_reset();
 	hal_rtc_xfatal("!!! 32K WAS STOPPED !!!\n"
 		       "RTC_BBPU      = 0x%x\n"
 		       "RTC_IRQ_STA   = 0x%x\n"
@@ -297,6 +343,8 @@ void rtc_lp_exception(void)
 		       "RTC_TC_SEC    = %02d\n"
 		       "RTC_TC_SEC    = %02d\n",
 		       bbpu, irqsta, irqen, osc32, pwrkey1, pwrkey2, prot, con, sec1, sec2);
+	aee_kernel_warning("mtk_rtc_hal", "Need to check 32k @%s():%d\n", __func__, __LINE__);
+
 }
 #endif
 

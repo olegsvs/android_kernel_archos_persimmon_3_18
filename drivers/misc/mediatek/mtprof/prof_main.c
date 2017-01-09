@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #define DEBUG 1
 
 #include <linux/slab.h>
@@ -486,27 +499,54 @@ static void probe_signal_deliver(void *ignore, int sig, struct siginfo *info,
 }
 
 static void probe_death_signal(void *ignore, int sig, struct siginfo *info,
-				 struct k_sigaction *ka)
+		struct task_struct *task, int _group, int result)
 {
-	struct signal_struct *signal = current->signal;
+	struct signal_struct *signal = task->signal;
 	unsigned int state;
+	int group;
 
 	/*
 	 * all action will cause process coredump or terminate
+	 * kernel log reduction: only print delivered signals
 	 */
-	if ((sig_fatal(current, sig) || sig >= SIGRTMIN) &&
-	    (ka->sa.sa_handler == SIG_DFL) &&
-	    (!(signal->flags & SIGNAL_UNKILLABLE) || sig_kernel_only(sig))) {
+	if ((result == TRACE_SIGNAL_DELIVERED) &&
+	    sig_fatal(task, sig)) {
+		signal = task->signal;
+		group = _group ||
+			(signal->flags & (SIGNAL_GROUP_EXIT | SIGNAL_GROUP_COREDUMP));
 		/*
-		 * verbose log for death signals
-		 * ignore SIGKILL because it's too much
+		 * kernel log reduction
+		 * skip SIGRTMIN because it's used as timer signal
+		 * skip if the target thread is already dead
 		 */
-		if (sig != SIGKILL) {
-			state = current->state ? __ffs(current->state) + 1 : 0;
-			pr_debug("[signal]death sig %d delivered to [%d:%s:%c]\n",
-				 sig, current->pid, current->comm,
-				 state < sizeof(stat_nam) - 1 ? stat_nam[state] : '?');
-		}
+		if (sig == SIGRTMIN ||
+		    (task->state & (TASK_DEAD | EXIT_DEAD | EXIT_ZOMBIE)))
+			return;
+		/*
+		 * Global init gets no signals it doesn't want.
+		 * Container-init gets no signals it doesn't want from same
+		 * container.
+		 *
+		 * Note that if global/container-init sees a sig_kernel_only()
+		 * signal here, the signal must have been generated internally
+		 * or must have come from an ancestor namespace. In either
+		 * case, the signal cannot be dropped.
+		 */
+		if (unlikely(signal->flags & SIGNAL_UNKILLABLE) &&
+				!sig_kernel_only(sig))
+			return;
+		/*
+		 * kernel log reduction
+		 * only print process instead of all threads
+		 */
+		if (group && (task != task->group_leader))
+			return;
+
+		state = task->state ? __ffs(task->state) + 1 : 0;
+		pr_debug("[signal][%d:%s] send death sig %d to [%d:%s:%c]\n",
+			 current->pid, current->comm,
+			 sig, task->pid, task->comm,
+			 state < sizeof(stat_nam) - 1 ? stat_nam[state] : '?');
 	}
 }
 
@@ -554,7 +594,97 @@ static void __init init_signal_log(void)
 		register_trace_signal_generate(probe_signal_generate, NULL);
 	if (enabled_signal_log & SI_DELIVER)
 		register_trace_signal_deliver(probe_signal_deliver, NULL);
-	register_trace_signal_deliver(probe_death_signal, NULL);
+	register_trace_signal_generate(probe_death_signal, NULL);
+}
+
+/* 8. fork & exit logs */
+#include <trace/events/sched.h>
+
+MT_DEBUG_ENTRY(fork_exit_log);
+
+enum {
+	DO_FORK = (1 << 0),
+	DO_EXIT  = (1 << 1),
+} FORK_EXIT_LOG_MASK;
+
+static unsigned int enabled_fork_exit_log;
+
+static void probe_sched_fork_time(void *ignore,
+	struct task_struct *parent, struct task_struct *child, unsigned long long dur)
+{
+	char parent_comm[TASK_COMM_LEN], child_comm[TASK_COMM_LEN];
+	pid_t parent_pid, child_pid;
+	unsigned long long fork_time;
+
+	memcpy(parent_comm, parent->comm, TASK_COMM_LEN);
+	parent_pid = parent->pid;
+	memcpy(child_comm, child->comm, TASK_COMM_LEN);
+	child_pid = child->pid;
+	fork_time = dur;
+
+	pr_debug("[fork]comm=%s pid=%d fork child_comm=%s child_pid=%d, total fork time=%llu us",
+		parent_comm, parent_pid, child_comm, child_pid, fork_time);
+
+}
+
+static void probe_sched_process_exit(void *ignore, struct task_struct *p)
+{
+	char comm[TASK_COMM_LEN];
+	pid_t pid;
+	int prio;
+
+	memcpy(comm, p->comm, TASK_COMM_LEN);
+	pid = p->pid;
+	prio = p->prio;
+
+	pr_debug("[exit]comm=%s pid=%d prio=%d exited", comm, pid, prio);
+
+}
+
+static int mt_fork_exit_log_show(struct seq_file *m, void *v)
+{
+	SEQ_printf(m, "%d: debug message for fork\n", DO_FORK);
+	SEQ_printf(m, "%d: debug message for exit\n", DO_EXIT);
+	SEQ_printf(m, "%d: enable all logs\n", DO_FORK | DO_EXIT);
+	SEQ_printf(m, "%d\n", enabled_fork_exit_log);
+	return 0;
+}
+
+static ssize_t mt_fork_exit_log_write(struct file *filp, const char *ubuf,
+	   size_t cnt, loff_t *data)
+{
+	unsigned long val;
+	unsigned long update;
+	int ret;
+
+	ret = kstrtoul_from_user(ubuf, cnt, 10, &val);
+	if (ret)
+		return ret;
+
+	update = enabled_fork_exit_log ^ val;
+	if (update & DO_FORK) {
+		if (val & DO_FORK)
+			register_trace_sched_fork_time(probe_sched_fork_time, NULL);
+		else
+			unregister_trace_sched_fork_time(probe_sched_fork_time, NULL);
+	}
+	if (update & DO_EXIT) {
+		if (val & DO_EXIT)
+			register_trace_sched_process_exit(probe_sched_process_exit, NULL);
+		else
+			unregister_trace_sched_process_exit(probe_sched_process_exit, NULL);
+	}
+	enabled_fork_exit_log = val;
+
+	return cnt;
+}
+
+static void __init init_fork_exit_log(void)
+{
+	if (enabled_fork_exit_log & DO_FORK)
+		register_trace_sched_fork_time(probe_sched_fork_time, NULL);
+	if (enabled_fork_exit_log & DO_EXIT)
+		register_trace_sched_process_exit(probe_sched_process_exit, NULL);
 }
 
 /*-------------------------------------------------------------------*/
@@ -578,6 +708,11 @@ static int __init init_mtsched_prof(void)
 
 	init_signal_log();
 	pe = proc_create("mtprof/signal_log", 0664, NULL, &mt_signal_log_fops);
+	if (!pe)
+		return -ENOMEM;
+
+	init_fork_exit_log();
+	pe = proc_create("mtprof/fork_exit_log", 0664, NULL, &mt_fork_exit_log_fops);
 	if (!pe)
 		return -ENOMEM;
 

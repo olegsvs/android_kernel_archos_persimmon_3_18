@@ -36,6 +36,7 @@ struct mmc_csd {
 	unsigned int		r2w_factor;
 	unsigned int		max_dtr;
 	unsigned int		erase_size;		/* In sectors */
+	unsigned int		wp_grp_size;
 	unsigned int		read_blkbits;
 	unsigned int		write_blkbits;
 	unsigned int		capacity;
@@ -115,6 +116,13 @@ struct mmc_ext_csd {
 	u8			raw_pwr_cl_ddr_200_360;	/* 253 */
 	u8			raw_bkops_status;	/* 246 */
 	u8			raw_sectors[4];		/* 212 - 4 bytes */
+
+#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
+	#define MMC_CMDQ_MODE_EN	(1)
+	u8			cmdq_support;
+	u8			cmdq_mode_en;
+	u8			cmdq_depth;
+#endif
 
 	unsigned int            feature_support;
 #define MMC_DISCARD_FEATURE	BIT(0)                  /* CMD38 feature */
@@ -339,12 +347,14 @@ struct mmc_card {
 #ifdef CONFIG_MTK_EMMC_CACHE
 #define MMC_QUIRK_DISABLE_CACHE     (1<<12) /* eMMC cache feature */
 #endif
-#define MMC_QUIRK_DISABLE_SNO       (1<<13)     /* disable sleep notifation, this may cause card busy long time on some eMMC*/
+/* disable sleep notifation, this may cause card busy long time on some eMMC*/
+#define MMC_QUIRK_DISABLE_SNO       (1<<13)
 
 	unsigned int		erase_size;	/* erase size in sectors */
  	unsigned int		erase_shift;	/* if erase unit is power 2 */
  	unsigned int		pref_erase;	/* in sectors */
  	u8			erased_byte;	/* value of erased bytes */
+	unsigned int		wp_grp_size;	/* write group size in sectors */
 
 	u32			raw_cid[4];	/* raw card CID */
 	u32			raw_csd[4];	/* raw card CSD */

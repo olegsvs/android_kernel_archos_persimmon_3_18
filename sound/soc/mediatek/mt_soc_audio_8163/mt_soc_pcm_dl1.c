@@ -1,17 +1,19 @@
 /*
- * Copyright (C) 2007 The Android Open Source Project
+ * Copyright (C) 2015 MediaTek Inc.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ * You should have received a copy of the GNU General Public License
+ * along with this program
+ * If not, see <http://www.gnu.org/licenses/>.
  */
 /*******************************************************************************
  *
@@ -80,21 +82,13 @@
 #include <linux/proc_fs.h>
 #include <linux/string.h>
 #include <linux/mutex.h>
-/* #include <linux/xlog.h> */
-/* #include <mach/irqs.h> */
 #include <asm/uaccess.h>
 #include <asm/irq.h>
 #include <asm/io.h>
-/* #include <mach/mt_reg_base.h> */
 #include <asm/div64.h>
-/* #include <linux/aee.h> */
-/* #include <mach/upmu_common.h> */
-/* #include <mt-plat/upmu_common.h> */
-#include <mach/upmu_hw.h>
-/* #include <mach/mt_gpio.h> */
 #include <mt-plat/mt_gpio.h>
-/* #include <mach/mt_typedefs.h> */
 #include <linux/clk.h>
+#include <linux/pm_runtime.h>
 #include <linux/delay.h>
 #include <linux/platform_device.h>
 #include <linux/slab.h>
@@ -102,7 +96,6 @@
 #include <sound/soc.h>
 #include <sound/soc-dapm.h>
 #include <sound/pcm.h>
-/* #include <asm/mach-types.h> */
 
 #ifdef CONFIG_OF
 #include <linux/of.h>
@@ -170,7 +163,7 @@ static struct snd_pcm_hardware mtk_pcm_dl1_hardware = {
 
 static int mtk_pcm_dl1_stop(struct snd_pcm_substream *substream)
 {
-	pr_debug("%s\n", __func__);
+	PRINTK_AUDDRV("%s\n", __func__);
 
 	SetIrqEnable(Soc_Aud_IRQ_MCU_MODE_IRQ1_MCU_MODE, false);
 	SetMemoryPathEnable(Soc_Aud_Digital_Block_MEM_DL1, false);
@@ -204,7 +197,7 @@ static snd_pcm_uframes_t mtk_pcm_pointer(struct snd_pcm_substream *substream)
 	if (GetMemoryPathEnable(Soc_Aud_Digital_Block_MEM_DL1) == true) {
 		HW_Cur_ReadIdx = Afe_Get_Reg(AFE_DL1_CUR);
 		if (HW_Cur_ReadIdx == 0) {
-			PRINTK_AUDDRV("[%s] HW_Cur_ReadIdx == 0\n", __func__);
+			PRINTK_AUD_DL1("%s HW_Cur_ReadIdx == 0\n", __func__);
 			HW_Cur_ReadIdx = Afe_Block->pucPhysBufAddr;
 		}
 
@@ -224,7 +217,7 @@ static snd_pcm_uframes_t mtk_pcm_pointer(struct snd_pcm_substream *substream)
 		Afe_Block->u4DMAReadIdx %= Afe_Block->u4BufferSize;
 
 		PRINTK_AUD_DL1
-			("[%s] HW_Cur_ReadIdx = 0x%x HW_memory_index = 0x%x Afe_consumed_byte = 0x%x\n",
+			("%s HW_Cur_ReadIdx = 0x%x HW_memory_index = 0x%x Afe_consumed_byte = 0x%x\n",
 			__func__, HW_Cur_ReadIdx, HW_memory_index, Afe_consumed_bytes);
 
 		Auddrv_Dl1_Spinlock_unlock();
@@ -251,8 +244,10 @@ static void SetDL1Buffer(struct snd_pcm_substream *substream, struct snd_pcm_hw_
 	pblock->u4DataRemained = 0;
 	pblock->u4fsyncflag = false;
 	pblock->uResetFlag = true;
-	pr_debug("SetDL1Buffer u4BufferSize = %d pucVirtBufAddr = %p pucPhysBufAddr = 0x%x\n",
-	       pblock->u4BufferSize, pblock->pucVirtBufAddr, pblock->pucPhysBufAddr);
+
+	PRINTK_AUDDRV("%s u4BufferSize = %d pucVirtBufAddr = %p pucPhysBufAddr = 0x%x\n",
+	       __func__, pblock->u4BufferSize, pblock->pucVirtBufAddr, pblock->pucPhysBufAddr);
+
 	/* set dram address top hardware */
 	Afe_Set_Reg(AFE_DL1_BASE, pblock->pucPhysBufAddr, 0xffffffff);
 	Afe_Set_Reg(AFE_DL1_END, pblock->pucPhysBufAddr + (pblock->u4BufferSize - 1), 0xffffffff);
@@ -266,7 +261,7 @@ static int mtk_pcm_dl1_params(struct snd_pcm_substream *substream,
 	/* struct snd_dma_buffer *dma_buf = &substream->dma_buffer; */
 	int ret = 0;
 
-	PRINTK_AUDDRV("mtk_pcm_dl1_params\n");
+	PRINTK_AUDDRV("%s\n", __func__);
 
 	/* runtime->dma_bytes has to be set manually to allow mmap */
 	substream->runtime->dma_bytes = params_buffer_bytes(hw_params);
@@ -283,7 +278,7 @@ static int mtk_pcm_dl1_params(struct snd_pcm_substream *substream,
 		SetDL1Buffer(substream, hw_params);
 	}
 
-	PRINTK_AUDDRV("dma_bytes = %zu dma_area = %p dma_addr = 0x%lx\n",
+	PRINTK_AUDDRV("%s dma_bytes = %zu dma_area = %p dma_addr = 0x%lx\n", __func__,
 		      substream->runtime->dma_bytes, substream->runtime->dma_area,
 		      (long)substream->runtime->dma_addr);
 	return ret;
@@ -291,7 +286,7 @@ static int mtk_pcm_dl1_params(struct snd_pcm_substream *substream,
 
 static int mtk_pcm_dl1_hw_free(struct snd_pcm_substream *substream)
 {
-	PRINTK_AUDDRV("mtk_pcm_dl1_hw_free\n");
+	PRINTK_AUDDRV("%s\n", __func__);
 	return 0;
 }
 
@@ -308,8 +303,6 @@ static int mtk_pcm_dl1_open(struct snd_pcm_substream *substream)
 	int ret = 0;
 	struct snd_pcm_runtime *runtime = substream->runtime;
 
-	PRINTK_AUDDRV("mtk_pcm_dl1_open\n");
-
 	AfeControlSramLock();
 	if (GetSramState() == SRAM_STATE_FREE) {
 		mtk_pcm_dl1_hardware.buffer_bytes_max = GetPLaybackSramFullSize();
@@ -324,8 +317,8 @@ static int mtk_pcm_dl1_open(struct snd_pcm_substream *substream)
 	if (mPlaybackSramState == SRAM_STATE_PLAYBACKDRAM)
 		AudDrv_Emi_Clk_On();
 
-	pr_debug("mtk_pcm_dl1_hardware.buffer_bytes_max = %zu mPlaybackSramState = %d\n",
-	       mtk_pcm_dl1_hardware.buffer_bytes_max, mPlaybackSramState);
+	PRINTK_AUDDRV("%s mtk_pcm_dl1_hardware.buffer_bytes_max = %zu mPlaybackSramState = %d\n",
+	       __func__, mtk_pcm_dl1_hardware.buffer_bytes_max, mPlaybackSramState);
 	runtime->hw = mtk_pcm_dl1_hardware;
 
 	AudDrv_ANA_Clk_On();
@@ -341,12 +334,12 @@ static int mtk_pcm_dl1_open(struct snd_pcm_substream *substream)
 		pr_warn("snd_pcm_hw_constraint_integer failed\n");
 
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
-		pr_debug("SNDRV_PCM_STREAM_PLAYBACK mtkalsa_dl1playback_constraints\n");
+		PRINTK_AUDDRV("%s SNDRV_PCM_STREAM_PLAYBACK\n", __func__);
 	else
-		pr_debug("SNDRV_PCM_STREAM_CAPTURE mtkalsa_dl1playback_constraints\n");
+		PRINTK_AUDDRV("%s SNDRV_PCM_STREAM_CAPTURE\n", __func__);
 
 	if (ret < 0) {
-		pr_err("ret < 0 mtk_soc_pcm_dl1_close\n");
+		pr_err("%s ret < 0, close\n", __func__);
 		mtk_soc_pcm_dl1_close(substream);
 		return ret;
 	}
@@ -357,7 +350,7 @@ static int mtk_pcm_dl1_open(struct snd_pcm_substream *substream)
 
 static int mtk_soc_pcm_dl1_close(struct snd_pcm_substream *substream)
 {
-	pr_debug("%s\n", __func__);
+	PRINTK_AUDDRV("%s\n", __func__);
 	if (mPrepareDone == true) {
 		/* stop DAC output */
 		SetMemoryPathEnable(Soc_Aud_Digital_Block_I2S_OUT_DAC, false);
@@ -388,9 +381,10 @@ static int mtk_pcm_prepare(struct snd_pcm_substream *substream)
 	bool mI2SWLen;
 	struct snd_pcm_runtime *runtime = substream->runtime;
 
+	PRINTK_AUDDRV("%s format = %d rate = %d mPrepareDone = %d\n",  __func__,
+		runtime->format, runtime->rate, mPrepareDone);
+
 	if (mPrepareDone == false) {
-		pr_debug("%s format = %d SNDRV_PCM_FORMAT_S32_LE = %d SNDRV_PCM_FORMAT_U32_LE = %d\n",
-		       __func__, runtime->format, SNDRV_PCM_FORMAT_S32_LE, SNDRV_PCM_FORMAT_U32_LE);
 		SetMemifSubStream(Soc_Aud_Digital_Block_MEM_DL1, substream);
 
 		if (runtime->format == SNDRV_PCM_FORMAT_S32_LE
@@ -441,7 +435,7 @@ static int mtk_pcm_dl1_start(struct snd_pcm_substream *substream)
 {
 	struct snd_pcm_runtime *runtime = substream->runtime;
 
-	pr_debug("%s\n", __func__);
+	PRINTK_AUDDRV("%s\n", __func__);
 	/* here start digital part */
 
 	SetConnection(Soc_Aud_InterCon_Connection, Soc_Aud_InterConnectionInput_I05,
@@ -484,7 +478,7 @@ static int mtk_pcm_copy(struct snd_pcm_substream *substream,
 	/* struct snd_pcm_runtime *runtime = substream->runtime; */
 	char *data_w_ptr = (char *)dst;
 
-	PRINTK_AUD_DL1("mtk_pcm_copy pos = %lu count = %lu\n", pos, count);
+	PRINTK_AUD_DL1("%s pos = %lu count = %lu\n", __func__, pos, count);
 	/* get total bytes to copy */
 	count = audio_frame_to_bytes(substream, count);
 
@@ -495,7 +489,7 @@ static int mtk_pcm_copy(struct snd_pcm_substream *substream,
 		       Afe_Block->u4WriteIdx, Afe_Block->u4DMAReadIdx, Afe_Block->u4DataRemained);
 
 	if (Afe_Block->u4BufferSize == 0) {
-		pr_err("AudDrv_write: u4BufferSize=0 Error\n");
+		pr_err("%s u4BufferSize == 0 Error\n", __func__);
 		return 0;
 	}
 
@@ -511,7 +505,7 @@ static int mtk_pcm_copy(struct snd_pcm_substream *substream,
 	}
 
 	copy_size = Align64ByteSize(copy_size);
-	PRINTK_AUD_DL1("copy_size=0x%x, count=0x%x\n", copy_size, (unsigned int)count);
+	PRINTK_AUD_DL1("%s copy_size=0x%x, count=0x%x\n", __func__, copy_size, (unsigned int)count);
 
 	if (copy_size != 0) {
 		spin_lock_irqsave(&auddrv_DLCtl_lock, flags);
@@ -520,17 +514,17 @@ static int mtk_pcm_copy(struct snd_pcm_substream *substream,
 
 		if (Afe_WriteIdx_tmp + copy_size < Afe_Block->u4BufferSize) {	/* copy once */
 			if (!access_ok(VERIFY_READ, data_w_ptr, copy_size)) {
-				PRINTK_AUDDRV("AudDrv_write 0 ptr invalid data_w_ptr=%p, size=%d\n",
-					      data_w_ptr, copy_size);
-				PRINTK_AUDDRV("AudDrv_write u4BufferSize=%d, u4DataRemained=%d\n",
-					      Afe_Block->u4BufferSize, Afe_Block->u4DataRemained);
+				pr_warn
+				("%s 0 ptr invalid data_w_ptr=%p size=%d u4BufferSize=%d u4DataRemained=%d\n",
+				__func__, data_w_ptr, copy_size, Afe_Block->u4BufferSize,
+				Afe_Block->u4DataRemained);
 			} else {
 				PRINTK_AUD_DL1
-					("cp Afe_Block->pucVirtBufAddr+Afe_WriteIdx=%p, data_w_ptr=%p, copy_size=%x\n",
-					Afe_Block->pucVirtBufAddr + Afe_WriteIdx_tmp, data_w_ptr, copy_size);
+				("%s copy Afe_Block->pucVirtBufAddr+Afe_WriteIdx=%p data_w_ptr=%p copy_size=%x\n",
+				__func__, Afe_Block->pucVirtBufAddr + Afe_WriteIdx_tmp, data_w_ptr, copy_size);
 				if (copy_from_user((Afe_Block->pucVirtBufAddr + Afe_WriteIdx_tmp),
 					data_w_ptr, copy_size)) {
-					PRINTK_AUDDRV("AudDrv_write Fail copy from user\n");
+					pr_err("%s Fail copy from user\n", __func__);
 					return -1;
 				}
 			}
@@ -553,21 +547,20 @@ static int mtk_pcm_copy(struct snd_pcm_substream *substream,
 
 			size_1 = Align64ByteSize((Afe_Block->u4BufferSize - Afe_WriteIdx_tmp));
 			size_2 = Align64ByteSize((copy_size - size_1));
-			PRINTK_AUD_DL1("size_1=0x%x, size_2=0x%x\n", size_1, size_2);
+			PRINTK_AUD_DL1("%s size_1=0x%x size_2=0x%x\n", __func__, size_1, size_2);
 
 			if (!access_ok(VERIFY_READ, data_w_ptr, size_1)) {
-				pr_debug("AudDrv_write 1 ptr invalid data_w_ptr=%p, size_1=%d\n",
-				       data_w_ptr, size_1);
-				pr_debug("AudDrv_write u4BufferSize=%d, u4DataRemained=%d\n",
-				       Afe_Block->u4BufferSize, Afe_Block->u4DataRemained);
+				pr_warn
+				("%s 1 ptr invalid data_w_ptr=%p size_1=%d u4BufferSize=%d u4DataRemained=%d\n",
+				__func__, data_w_ptr, size_1, Afe_Block->u4BufferSize, Afe_Block->u4DataRemained);
 			} else {
 				PRINTK_AUD_DL1
-					("cp Afe_Block->pucVirtBufAddr+Afe_WriteIdx=%p, data_w_ptr=%p, size_1=%x\n",
-					Afe_Block->pucVirtBufAddr + Afe_WriteIdx_tmp, data_w_ptr, size_1);
+				("%s copy Afe_Block->pucVirtBufAddr+Afe_WriteIdx=%p data_w_ptr=%p size_1=%x\n",
+				__func__, Afe_Block->pucVirtBufAddr + Afe_WriteIdx_tmp, data_w_ptr, size_1);
 
 				if ((copy_from_user((Afe_Block->pucVirtBufAddr + Afe_WriteIdx_tmp),
 					data_w_ptr, (unsigned int)size_1))) {
-					PRINTK_AUDDRV("AudDrv_write Fail 1 copy from user\n");
+					pr_err("%s Fail 1 copy from user\n", __func__);
 					return -1;
 				}
 			}
@@ -580,19 +573,19 @@ static int mtk_pcm_copy(struct snd_pcm_substream *substream,
 			spin_unlock_irqrestore(&auddrv_DLCtl_lock, flags);
 
 			if (!access_ok(VERIFY_READ, data_w_ptr + size_1, size_2)) {
-				PRINTK_AUDDRV("AudDrv_write 2 ptr invalid data_w_ptr=%p, size_1=%d, size_2=%d\n",
-				     data_w_ptr, size_1, size_2);
-				PRINTK_AUDDRV("AudDrv_write u4BufferSize=%d, u4DataRemained=%d\n",
-					      Afe_Block->u4BufferSize, Afe_Block->u4DataRemained);
+				pr_warn("%s 2 ptr invalid data_w_ptr=%p, size_1=%d, size_2=%d",
+					__func__, data_w_ptr, size_1, size_2);
+				pr_warn(", u4BufferSize=%d, u4DataRemained=%d\n",
+					Afe_Block->u4BufferSize, Afe_Block->u4DataRemained);
 			} else {
 				PRINTK_AUD_DL1
-					("Afe_Block->pucVirtBufAddr+Afe_WriteIdx=%p, data_w_ptr+size_1=%p, size_2=%x\n",
-					Afe_Block->pucVirtBufAddr + Afe_WriteIdx_tmp, data_w_ptr + size_1,
-					(unsigned int)size_2);
+				("%s Afe_Block->pucVirtBufAddr+Afe_WriteIdx=%p data_w_ptr+size_1=%p size_2=%x\n",
+				__func__, Afe_Block->pucVirtBufAddr + Afe_WriteIdx_tmp, data_w_ptr + size_1,
+				(unsigned int)size_2);
 
 				if ((copy_from_user((Afe_Block->pucVirtBufAddr + Afe_WriteIdx_tmp),
 					(data_w_ptr + size_1), size_2))) {
-					PRINTK_AUDDRV("AudDrv_write Fail 2 copy from user\n");
+					pr_err("%s Fail 2 copy from user\n", __func__);
 					return -1;
 				}
 			}
@@ -626,7 +619,7 @@ static void *dummy_page[2];
 
 static struct page *mtk_pcm_page(struct snd_pcm_substream *substream, unsigned long offset)
 {
-	PRINTK_AUDDRV("%s\n", __func__);
+	pr_debug("%s\n", __func__);
 	return virt_to_page(dummy_page[substream->stream]);	/* the same page */
 }
 
@@ -652,75 +645,15 @@ static struct snd_soc_platform_driver mtk_soc_platform = {
 	.probe = mtk_asoc_dl1_probe,
 };
 
-static int mtk_soc_dl1_probe(struct platform_device *pdev)
-{
-#ifndef CONFIG_OF
-	int ret = 0;
+/*
+#ifndef CONFIG_MTK_CLKMGR
+struct platform_device *auddrv_pdev;
 #endif
-
-	PRINTK_AUDDRV("%s\n", __func__);
-
-	pdev->dev.coherent_dma_mask = DMA_BIT_MASK(64);
-
-	if (!pdev->dev.dma_mask)
-		pdev->dev.dma_mask = &pdev->dev.coherent_dma_mask;
-
-	if (pdev->dev.of_node)
-		dev_set_name(&pdev->dev, "%s", MT_SOC_DL1_PCM);
-
-	PRINTK_AUDDRV("%s: dev name %s\n", __func__, dev_name(&pdev->dev));
-
-#ifndef CONFIG_MTK_LEGACY
-		AudDrv_GPIO_probe(&pdev->dev);
-#endif
-
-	InitAfeControl();
-
-#ifndef CONFIG_OF
-	ret = Register_Aud_Irq(&pdev->dev, MT8163_AFE_MCU_IRQ_LINE);
-#endif
-
-	mDev = &pdev->dev;
-
-	return snd_soc_register_platform(&pdev->dev, &mtk_soc_platform);
-}
-
-static int mtk_asoc_pcm_dl1_new(struct snd_soc_pcm_runtime *rtd)
-{
-	int ret = 0;
-
-	PRINTK_AUDDRV("%s\n", __func__);
-	return ret;
-}
-
-
-static int mtk_asoc_dl1_probe(struct snd_soc_platform *platform)
-{
-	PRINTK_AUDDRV("mtk_asoc_dl1_probe\n");
-	/* allocate dram */
-	AudDrv_Allocate_mem_Buffer(platform->dev, Soc_Aud_Digital_Block_MEM_DL1,
-				   Dl1_MAX_BUFFER_SIZE);
-	Dl1_Playback_dma_buf = Get_Mem_Buffer(Soc_Aud_Digital_Block_MEM_DL1);
-	return 0;
-}
-
-static int mtk_afe_remove(struct platform_device *pdev)
-{
-	PRINTK_AUDDRV("%s\n", __func__);
-	snd_soc_unregister_platform(&pdev->dev);
-	return 0;
-}
+*/
 
 #ifdef CONFIG_OF
-/* extern void *AFE_BASE_ADDRESS; */
 u32 afe_irq_number = 0;
 int AFE_BASE_PHY;
-
-static const struct of_device_id mt_soc_pcm_dl1_of_ids[] = {
-
-	{.compatible = "mediatek,mt8163-soc-pcm-dl1",},
-	{}
-};
 
 static int Auddrv_Reg_map_new(void)
 {
@@ -1018,6 +951,102 @@ EXPORT_SYMBOL(GetGPIO_Info);
 #endif
 #endif
 
+static int mtk_soc_dl1_probe(struct platform_device *pdev)
+{
+	int ret = 0;
+
+	pr_debug("%s\n", __func__);
+
+	pdev->dev.coherent_dma_mask = DMA_BIT_MASK(64);
+
+	if (!pdev->dev.dma_mask)
+		pdev->dev.dma_mask = &pdev->dev.coherent_dma_mask;
+
+	if (pdev->dev.of_node)
+		dev_set_name(&pdev->dev, "%s", MT_SOC_DL1_PCM);
+
+	pr_debug("%s: dev name %s\n", __func__, dev_name(&pdev->dev));
+
+	Auddrv_Reg_map_new();
+
+#ifdef CONFIG_OF
+	ret = Register_Aud_Irq(&pdev->dev, afe_irq_number);
+#else
+	ret = Register_Aud_Irq(&pdev->dev, MT8163_AFE_MCU_IRQ_LINE);
+#endif
+
+#ifdef CONFIG_MTK_LEGACY
+	Auddrv_OF_ParseGPIO();
+#else
+	AudDrv_GPIO_probe(&pdev->dev);
+#endif
+
+#ifndef CONFIG_MTK_CLKMGR
+	Auddrv_Clk_Init(&pdev->dev);
+	pm_runtime_enable(&pdev->dev);
+#endif
+
+	InitAfeControl();
+
+	mDev = &pdev->dev;
+
+	return snd_soc_register_platform(&pdev->dev, &mtk_soc_platform);
+}
+
+static int mtk_asoc_pcm_dl1_new(struct snd_soc_pcm_runtime *rtd)
+{
+	int ret = 0;
+
+	pr_debug("%s\n", __func__);
+	return ret;
+}
+
+
+static int mtk_asoc_dl1_probe(struct snd_soc_platform *platform)
+{
+	pr_debug("mtk_asoc_dl1_probe\n");
+	/* allocate dram */
+	AudDrv_Allocate_mem_Buffer(platform->dev, Soc_Aud_Digital_Block_MEM_DL1,
+				   Dl1_MAX_BUFFER_SIZE);
+	Dl1_Playback_dma_buf = Get_Mem_Buffer(Soc_Aud_Digital_Block_MEM_DL1);
+	return 0;
+}
+
+static int mtk_afe_remove(struct platform_device *pdev)
+{
+	pr_debug("%s\n", __func__);
+#ifndef CONFIG_MTK_CLKMGR
+	pm_runtime_disable(&pdev->dev);
+	Auddrv_Clk_Deinit(&pdev->dev);
+#endif
+	snd_soc_unregister_platform(&pdev->dev);
+	return 0;
+}
+
+#ifdef CONFIG_OF
+
+static const struct of_device_id mt_soc_pcm_dl1_of_ids[] = {
+
+	{.compatible = "mediatek,mt8163-soc-pcm-dl1",},
+	{}
+};
+
+#ifndef CONFIG_MTK_CLKMGR
+int power_on_audsys(void)
+{
+	return pm_runtime_get_sync(mDev);
+}
+EXPORT_SYMBOL(power_on_audsys);
+
+int power_off_audsys(void)
+{
+	return pm_runtime_put_sync(mDev);
+}
+EXPORT_SYMBOL(power_off_audsys);
+
+#endif
+#endif
+
 static struct platform_driver mtk_afe_driver = {
 
 	.driver = {
@@ -1039,16 +1068,8 @@ static int __init mtk_soc_platform_init(void)
 {
 	int ret;
 
-	PRINTK_AUDDRV("%s\n", __func__);
-#ifdef CONFIG_OF
-	Auddrv_Reg_map_new();
-	ret = Register_Aud_Irq(NULL, afe_irq_number);
-
-#ifdef CONFIG_MTK_LEGACY
-	Auddrv_OF_ParseGPIO();
-#endif
-
-#else
+	pr_debug("%s\n", __func__);
+#ifndef CONFIG_OF
 	soc_mtkafe_dev = platform_device_alloc(MT_SOC_DL1_PCM, -1);
 
 	if (!soc_mtkafe_dev)
@@ -1068,7 +1089,7 @@ module_init(mtk_soc_platform_init);
 
 static void __exit mtk_soc_platform_exit(void)
 {
-	PRINTK_AUDDRV("%s\n", __func__);
+	pr_debug("%s\n", __func__);
 
 	platform_driver_unregister(&mtk_afe_driver);
 }

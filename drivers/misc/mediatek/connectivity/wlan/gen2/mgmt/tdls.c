@@ -1,18 +1,15 @@
 /*
-** Id: tdls.c#1
+* Copyright (C) 2016 MediaTek Inc.
+*
+* This program is free software; you can redistribute it and/or modify
+* it under the terms of the GNU General Public License version 2 as
+* published by the Free Software Foundation.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+* See http://www.gnu.org/licenses/gpl-2.0.html for more details.
 */
-
-/*! \file tdls.c
-    \brief This file includes IEEE802.11z TDLS support.
-*/
-
-/*
-** Log: tdls.c
- *
- * 11 13 2013 vend_samp.lin
- * NULL
- * Initial version.
- */
 
 /*******************************************************************************
  *						C O M P I L E R	 F L A G S
@@ -4391,6 +4388,7 @@ TDLS_STATUS TdlsexMgmtCtrl(ADAPTER_T *prAdapter, VOID *pvSetBuffer, UINT_32 u4Se
 
 	switch (prMgmtTxInfo->ucActionCode) {
 	case TDLS_FRM_ACTION_DISCOVERY_RESPONSE:
+	case TDLS_FRM_ACTION_DISCOVERY_REQ:
 		prStaRec = NULL;
 		break;
 
@@ -4801,7 +4799,7 @@ TDLS_STATUS TdlsexPeerUpdate(ADAPTER_T *prAdapter, VOID *pvSetBuffer, UINT_32 u4
 /*	prStaRec->u2HtExtendedCap */
 	prStaRec->u4TxBeamformingCap = 0;	/* no use */
 	prStaRec->ucAselCap = 0;	/* no use */
-	prStaRec->ucRCPI = 0;
+	prStaRec->ucRCPI = 120;
 	prStaRec->ucBmpTriggerAC = prCmd->UapsdBitmap;
 	prStaRec->ucBmpDeliveryAC = prCmd->UapsdBitmap;
 	prStaRec->ucUapsdSp = prCmd->UapsdMaxSp;
@@ -5117,7 +5115,8 @@ TDLS_STATUS TdlsexStaRecIdxGet(ADAPTER_T *prAdapter, MSDU_INFO_T *prMsduInfo)
 				}
 			}
 			prMsduInfo->ucStaRecIndex = prStaRec->ucIndex;
-		}
+		} else
+			Status = TDLS_STATUS_FAILURE;
 	} while (FALSE);
 
 	DBGLOG(TDLS, INFO, "<tdls> %s: (Status=%x) [%pM] ucStaRecIndex = %d!\n",

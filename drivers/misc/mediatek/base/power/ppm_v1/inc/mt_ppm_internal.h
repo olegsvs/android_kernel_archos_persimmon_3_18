@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 
 #ifndef __MT_PPM_INTERNAL_H__
 #define __MT_PPM_INTERNAL_H__
@@ -105,20 +118,21 @@ static const struct file_operations ppm_ ## name ## _proc_fops = {		\
 	pr_warn(TAG"[WARNING]"fmt, ##args)
 #define ppm_info(fmt, args...)		\
 	pr_warn(TAG""fmt, ##args)
-#define ppm_dbg(fmt, args...)		\
-	do {				\
-		if (ppm_debug)		\
-			ppm_info(fmt, ##args);		\
-		else			\
-			pr_debug(TAG""fmt, ##args);	\
+#define ppm_dbg(type, fmt, args...)				\
+	do {							\
+		if (ppm_debug & ALL || ppm_debug & type)	\
+			ppm_info(fmt, ##args);			\
+		else if (type == MAIN)				\
+			pr_debug(TAG""fmt, ##args);		\
 	} while (0)
-#define ppm_ver(fmt, args...)		\
-	do {				\
-		if (ppm_debug == 1)	\
-			ppm_info(fmt, ##args);		\
+#define ppm_ver(fmt, args...)			\
+	do {					\
+		if (ppm_debug == ALL)		\
+			ppm_info(fmt, ##args);	\
 	} while (0)
 #define ppm_cont(fmt, args...)		\
 	pr_cont(fmt, ##args)
+
 
 #define FUNC_LV_MODULE		BIT(0)	/* module, platform driver interface */
 #define FUNC_LV_API		BIT(1)	/* mt_ppm driver global function */
@@ -135,6 +149,17 @@ static const struct file_operations ppm_ ## name ## _proc_fops = {		\
 /*==============================================================*/
 /* Enum								*/
 /*==============================================================*/
+enum {
+	NONE	= 0,
+	ALL	= 1 << 0,
+	MAIN	= 1 << 1,
+	HICA	= 1 << 2,
+	DLPT	= 1 << 3,
+	USER_LIMIT = 1 << 4,
+	TIME_PROFILE = 1 << 5,
+	ET_ALGO	= 1 << 6,
+};
+
 enum ppm_policy {
 	PPM_POLICY_PTPOD = 0,		/* highest priority if priority value is the same */
 	PPM_POLICY_UT,
@@ -144,6 +169,7 @@ enum ppm_policy {
 	PPM_POLICY_USER_LIMIT,
 	PPM_POLICY_LCM_OFF,
 	PPM_POLICY_PERF_SERV,
+	PPM_POLICY_SYS_BOOST,
 	PPM_POLICY_HICA,
 
 	NR_PPM_POLICIES,
@@ -185,6 +211,7 @@ struct ppm_policy_data {
 	/* status */
 	bool is_enabled;
 	bool is_activated;
+	bool is_limit_updated;
 	/* lock */
 	struct mutex lock;
 	/* list link */
@@ -211,10 +238,20 @@ struct ppm_data {
 	/* status */
 	enum ppm_mode cur_mode;
 	enum ppm_power_state cur_power_state;
+#ifdef PPM_IC_SEGMENT_CHECK
+	enum ppm_power_state fix_state_by_segment;
+#endif
 	bool is_enabled;
 	bool is_in_suspend;
 	int fixed_root_cluster;
 	unsigned int min_power_budget;
+
+#ifdef PPM_VPROC_5A_LIMIT_CHECK
+	/* enable = 0: skip 5A limit check */
+	/* on/off is controlled by thermal */
+	bool is_5A_limit_enable;
+	bool is_5A_limit_on;
+#endif
 
 	/* platform settings */
 	unsigned int cluster_num;
@@ -269,7 +306,11 @@ struct ppm_state_sorted_pwr_tbl_data {
 		unsigned int value;
 		/* to store better perf_idx but lower pwr_idx one in pwr_sorted_tbl */
 		unsigned int advise_index;
+#ifdef PPM_POWER_TABLE_CALIBRATION
+	} *sorted_tbl;
+#else
 	} const *sorted_tbl;
+#endif
 	const size_t size;
 };
 
@@ -299,8 +340,13 @@ struct ppm_power_state_data {
 	const struct ppm_state_cluster_limit_data *cluster_limit;
 
 	/* power table */
+#ifdef PPM_POWER_TABLE_CALIBRATION
+	struct ppm_state_sorted_pwr_tbl_data *pwr_sorted_tbl;
+	struct ppm_state_sorted_pwr_tbl_data *perf_sorted_tbl;
+#else
 	const struct ppm_state_sorted_pwr_tbl_data *pwr_sorted_tbl;
 	const struct ppm_state_sorted_pwr_tbl_data *perf_sorted_tbl;
+#endif
 
 	/* state transfer data */
 	struct ppm_state_transfer_data *transfer_by_pwr;
@@ -312,10 +358,22 @@ struct ppm_power_state_data {
 /* Global variables						*/
 /*==============================================================*/
 extern struct ppm_data ppm_main_info;
+extern struct ppm_hica_algo_data ppm_hica_algo_data;
 extern struct proc_dir_entry *policy_dir;
+extern struct proc_dir_entry *profile_dir;
 extern unsigned int ppm_func_lv_mask;
 extern unsigned int ppm_debug;
 extern met_set_ppm_state_funcMET g_pSet_PPM_State;
+#ifdef PPM_USE_EFFICIENCY_TABLE
+extern int *freq_idx_mapping_tbl;
+extern int *freq_idx_mapping_tbl_r;
+extern int *freq_idx_mapping_tbl_big;
+extern int *freq_idx_mapping_tbl_big_r;
+extern int *efficiency_B[3];
+extern int *efficiency_LxLL[5][5];
+extern int *delta_power_B[3];
+extern int *delta_power_LxLL[5][5];
+#endif
 
 /*==============================================================*/
 /* APIs								*/
@@ -325,9 +383,6 @@ extern int ppm_procfs_init(void);
 extern char *ppm_copy_from_user_for_proc(const char __user *buffer, size_t count);
 
 /* hica */
-extern bool ppm_hica_is_log_enabled(void);
-extern unsigned int ppm_hica_get_table_idx_by_perf(enum ppm_power_state state, unsigned int perf_idx);
-extern unsigned int ppm_hica_get_table_idx_by_pwr(enum ppm_power_state state, unsigned int pwr_idx);
 extern void ppm_hica_set_default_limit_by_state(enum ppm_power_state state,
 					struct ppm_policy_data *policy);
 extern enum ppm_power_state ppm_hica_get_state_by_perf_idx(enum ppm_power_state state, unsigned int perf_idx);
@@ -335,9 +390,23 @@ extern enum ppm_power_state ppm_hica_get_state_by_pwr_budget(enum ppm_power_stat
 extern enum ppm_power_state ppm_hica_get_cur_state(void);
 extern void ppm_hica_fix_root_cluster_changed(int cluster_id);
 
+/* lcmoff */
+extern bool ppm_lcmoff_is_policy_activated(void);
+
 /* Power state/Power table */
 extern struct ppm_power_state_data *ppm_get_power_state_info(void);
+#ifdef PPM_POWER_TABLE_CALIBRATION
+extern struct ppm_power_tbl_data ppm_get_power_table(void);
+#ifdef PPM_THERMAL_ENHANCEMENT
+extern struct ppm_power_tbl_data ppm_get_tlp3_power_table(void);
+#endif
+extern void ppm_pwr_tbl_calibration(void);
+#else
 extern const struct ppm_power_tbl_data ppm_get_power_table(void);
+#ifdef PPM_THERMAL_ENHANCEMENT
+extern const struct ppm_power_tbl_data ppm_get_tlp3_power_table(void);
+#endif
+#endif
 extern const char *ppm_get_power_state_name(enum ppm_power_state state);
 extern enum ppm_power_state ppm_change_state_with_fix_root_cluster(
 			enum ppm_power_state cur_state, int cluster);
@@ -349,6 +418,15 @@ extern enum ppm_power_state ppm_judge_state_by_user_limit(enum ppm_power_state c
 extern void ppm_limit_check_for_user_limit(enum ppm_power_state cur_state, struct ppm_policy_req *req,
 			struct ppm_userlimit_data user_limit);
 extern unsigned int ppm_get_root_cluster_by_state(enum ppm_power_state cur_state);
+extern int ppm_get_table_idx_by_perf(enum ppm_power_state state, unsigned int perf_idx);
+extern int ppm_get_table_idx_by_pwr(enum ppm_power_state state, unsigned int pwr_idx);
+#ifdef PPM_THERMAL_ENHANCEMENT
+extern int ppm_get_tlp3_table_idx_by_pwr(enum ppm_power_state state, unsigned int pwr_idx);
+extern bool ppm_is_need_to_check_tlp3_table(enum ppm_power_state state, unsigned int pwr_idx);
+#endif
+#ifdef PPM_USE_EFFICIENCY_TABLE
+extern void ppm_init_efficiency_table(void);
+#endif
 
 /* main */
 extern void ppm_main_update_req_by_pwr(enum ppm_power_state new_state, struct ppm_policy_req *req);
@@ -358,6 +436,22 @@ extern void ppm_task_wakeup(void);
 extern void ppm_main_clear_client_req(struct ppm_client_req *c_req);
 extern int ppm_main_register_policy(struct ppm_policy_data *policy);
 extern void ppm_main_unregister_policy(struct ppm_policy_data *policy);
+
+/* profiling */
+extern int ppm_profile_init(void);
+extern void ppm_profile_exit(void);
+extern void ppm_profile_state_change_notify(enum ppm_power_state old_state, enum ppm_power_state new_state);
+extern void ppm_profile_update_client_exec_time(enum ppm_client client, unsigned long long time);
+
+/* SRAM debugging */
+#ifdef CONFIG_MTK_RAM_CONSOLE
+extern void aee_rr_rec_ppm_cluster_limit(int id, u32 val);
+extern void aee_rr_rec_ppm_step(u8 val);
+extern void aee_rr_rec_ppm_cur_state(u8 val);
+extern void aee_rr_rec_ppm_min_pwr_bgt(u32 val);
+extern void aee_rr_rec_ppm_policy_mask(u32 val);
+extern void aee_rr_rec_ppm_waiting_for_pbm(u8 val);
+#endif
 
 #ifdef __cplusplus
 }

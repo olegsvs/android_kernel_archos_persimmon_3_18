@@ -1,3 +1,16 @@
+/*
+* Copyright (C) 2016 MediaTek Inc.
+*
+* This program is free software; you can redistribute it and/or modify
+* it under the terms of the GNU General Public License version 2 as
+* published by the Free Software Foundation.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+* See http://www.gnu.org/licenses/gpl-2.0.html for more details.
+*/
+
 #include <linux/version.h>
 #include <linux/kernel.h>
 #include <linux/sched.h>
@@ -11,7 +24,9 @@
 #include <linux/spinlock.h>
 #include <linux/rtc.h>
 #include <linux/cpu.h>
+#include <linux/jiffies.h>
 #include <mt-plat/aee.h>
+#include <mt-plat/mtk_ram_console.h>
 #include <ext_wd_drv.h>
 
 #include <mach/wd_api.h>
@@ -44,6 +59,10 @@
 #define PROC_WK "wdk"
 #define	PROC_MRDUMP_RST	"mrdump_rst"
 
+__weak void mtk_wdt_cpu_callback(struct task_struct *wk_tsk, unsigned long action, int hotcpu, int kicker_init)
+{
+}
+
 static int kwdt_thread(void *arg);
 static int start_kicker(void);
 
@@ -54,9 +73,12 @@ static DEFINE_SPINLOCK(lock);
 
 #define CPU_NR (nr_cpu_ids)
 struct task_struct *wk_tsk[16] = { 0 };	/* max cpu 16 */
+static unsigned int wk_tsk_bind[16] = { 0 };	/* max cpu 16 */
+static unsigned long long wk_tsk_bind_time[16] = { 0 };	/* max cpu 16 */
+static char wk_tsk_buf[128] = { 0 };
 
 static unsigned long kick_bit;
-
+static unsigned long rtc_update;
 
 enum ext_wdt_mode g_wk_wdt_mode = WDT_DUAL_MODE;
 static struct wd_api *g_wd_api;
@@ -65,11 +87,11 @@ static int g_timeout = -1;
 static int g_need_config;
 static int wdt_start;
 static int g_enable = 1;
-
+static struct work_struct wdk_work;
+static struct workqueue_struct *wdk_workqueue;
 static unsigned int lasthpg_act;
 static unsigned int lasthpg_cpu;
 static unsigned long long lasthpg_t;
-
 
 static char cmd_buf[256];
 
@@ -270,6 +292,8 @@ static int start_kicker_thread_with_default_setting(void)
 	g_need_config = 0;	/* Note, we DO NOT want to call configure function */
 
 	wdt_start = 1;		/* Start once only */
+	rtc_update = jiffies;	/* update rtc_update time base*/
+
 	spin_unlock(&lock);
 	start_kicker();
 
@@ -289,6 +313,27 @@ void wk_start_kick_cpu(int cpu)
 	}
 }
 
+void dump_wdk_bind_info(void)
+{
+	int i = 0;
+
+	aee_sram_fiq_log("\n");
+	for (i = 0; i < CPU_NR; i++) {
+		if (wk_tsk[i] != NULL) {
+			/*
+			pr_err("[WDK]CPU %d, %d, %lld, %lu, %d, %ld\n", i, wk_tsk_bind[i], wk_tsk_bind_time[i],
+				wk_tsk[i]->cpus_allowed.bits[0], wk_tsk[i]->on_rq, wk_tsk[i]->state);
+				*/
+			memset(wk_tsk_buf, 0, sizeof(wk_tsk_buf));
+			snprintf(wk_tsk_buf, sizeof(wk_tsk_buf),
+				"[WDK]CPU %d, %d, %lld, %lu, %d, %ld\n", i, wk_tsk_bind[i], wk_tsk_bind_time[i],
+				wk_tsk[i]->cpus_allowed.bits[0], wk_tsk[i]->on_rq, wk_tsk[i]->state);
+			aee_sram_fiq_log(wk_tsk_buf);
+		}
+	}
+	aee_sram_fiq_log("\n");
+}
+
 void kicker_cpu_bind(int cpu)
 {
 	if (IS_ERR(wk_tsk[cpu]))
@@ -296,9 +341,9 @@ void kicker_cpu_bind(int cpu)
 	else {
 		/* kthread_bind(wk_tsk[cpu], cpu); */
 		WARN_ON_ONCE(set_cpus_allowed_ptr(wk_tsk[cpu], cpumask_of(cpu)) < 0);
-
 		wake_up_process(wk_tsk[cpu]);
-		pr_debug("[wdk]bind kicker thread[%d] to cpu[%d]\n", wk_tsk[cpu]->pid, cpu);
+		wk_tsk_bind[cpu] = 1;
+		wk_tsk_bind_time[cpu] = sched_clock();
 	}
 }
 
@@ -320,6 +365,7 @@ void wk_cpu_update_bit_flag(int cpu, int plug_status)
 		lasthpg_cpu = cpu;
 		lasthpg_act = plug_status;
 		lasthpg_t = sched_clock();
+		wk_tsk_bind[cpu] = 0;
 		spin_unlock(&lock);
 	}
 }
@@ -375,15 +421,33 @@ void wk_proc_exit(void)
 
 }
 
-static int kwdt_thread(void *arg)
+void kwdt_print_utc(void)
 {
-
-	struct sched_param param = {.sched_priority = 99 };
 	struct rtc_time tm;
 	struct timeval tv = { 0 };
 	/* android time */
 	struct rtc_time tm_android;
 	struct timeval tv_android = { 0 };
+
+	do_gettimeofday(&tv);
+	tv_android = tv;
+	rtc_time_to_tm(tv.tv_sec, &tm);
+	tv_android.tv_sec -= sys_tz.tz_minuteswest * 60;
+	rtc_time_to_tm(tv_android.tv_sec, &tm_android);
+	pr_debug
+	    ("[thread:%d][RT:%lld] %d-%02d-%02d %02d:%02d:%02d.%u UTC;"
+	     "android time %d-%02d-%02d %02d:%02d:%02d.%03d\n",
+	     current->pid, sched_clock(), tm.tm_year + 1900, tm.tm_mon + 1,
+	     tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec,
+	     (unsigned int)tv.tv_usec, tm_android.tm_year + 1900,
+	     tm_android.tm_mon + 1, tm_android.tm_mday, tm_android.tm_hour,
+	     tm_android.tm_min, tm_android.tm_sec,
+	     (unsigned int)tv_android.tv_usec);
+}
+
+static int kwdt_thread(void *arg)
+{
+	struct sched_param param = {.sched_priority = 99 };
 	int cpu = 0;
 	int local_bit = 0, loc_need_config = 0, loc_timeout = 0;
 	struct wd_api *loc_wk_wdt = NULL;
@@ -419,16 +483,15 @@ static int kwdt_thread(void *arg)
 					/* only process WDT info if thread-x is on cpu-x */
 					spin_lock(&lock);
 					local_bit = kick_bit;
-					printk_deferred("[WDK], local_bit:0x%x, cpu:%d,RT[%lld]\n",
-							local_bit, cpu, sched_clock());
 					if ((local_bit & (1 << cpu)) == 0) {
 						/* printk("[WDK]: set  WDT kick_bit\n"); */
 						local_bit |= (1 << cpu);
 						/* aee_rr_rec_wdk_kick_jiffies(jiffies); */
 					}
-					printk_deferred
-					    ("[WDK], local_bit:0x%x, cpu:%d, check bit0x:%x, lasthpg_cpu:%d, lasthpg_act:%d, lasthpg_t:%lld, RT[%lld]\n",
-					     local_bit, cpu, wk_check_kick_bit(), lasthpg_cpu, lasthpg_act, lasthpg_t, sched_clock());
+					pr_debug
+					    ("[WDK],local_bit:0x%x,cpu:%d,check bit0x:%x,%d,%d,%lld,RT[%lld]\n",
+					     local_bit, cpu, wk_check_kick_bit(), lasthpg_cpu, lasthpg_act,
+					     lasthpg_t, sched_clock());
 					if (local_bit == wk_check_kick_bit()) {
 						printk_deferred("[WDK]: kick Ex WDT,RT[%lld]\n",
 								sched_clock());
@@ -460,20 +523,13 @@ static int kwdt_thread(void *arg)
 				msleep_interruptible(debug_sleep * 1000);
 				pr_debug("WD kicker woke up %d\n", debug_sleep);
 #endif
-				do_gettimeofday(&tv);
-				tv_android = tv;
-				rtc_time_to_tm(tv.tv_sec, &tm);
-				tv_android.tv_sec -= sys_tz.tz_minuteswest * 60;
-				rtc_time_to_tm(tv_android.tv_sec, &tm_android);
-				printk_deferred
-				    ("[thread:%d][RT:%lld] %d-%02d-%02d %02d:%02d:%02d.%u UTC;"
-				     "android time %d-%02d-%02d %02d:%02d:%02d.%03d\n",
-				     current->pid, sched_clock(), tm.tm_year + 1900, tm.tm_mon + 1,
-				     tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec,
-				     (unsigned int)tv.tv_usec, tm_android.tm_year + 1900,
-				     tm_android.tm_mon + 1, tm_android.tm_mday, tm_android.tm_hour,
-				     tm_android.tm_min, tm_android.tm_sec,
-				     (unsigned int)tv_android.tv_usec);
+				/*limit the rtc time update frequency*/
+				spin_lock(&lock);
+				if (time_after(jiffies, rtc_update)) {
+					rtc_update = jiffies + (1 * HZ);
+					kwdt_print_utc();
+				}
+				spin_unlock(&lock);
 			}
 		}
 
@@ -618,7 +674,7 @@ ssize_t mtk_rgu_pause_wdt_store(struct kobject *kobj, const char *buffer, size_t
 {
 	char pause_wdt;
 	int pause_wdt_b;
-	int res = sscanf(buffer, "%s", &pause_wdt);
+	int res = sscanf(buffer, "%c", &pause_wdt);
 
 	pause_wdt_b = pause_wdt;
 
@@ -691,6 +747,8 @@ static int __cpuinit wk_cpu_callback(struct notifier_block *nfb, unsigned long a
 		return NOTIFY_DONE;
 	}
 
+	mtk_wdt_cpu_callback(wk_tsk[hotcpu], action, hotcpu, g_kicker_init);
+
 	return NOTIFY_OK;
 }
 
@@ -699,8 +757,7 @@ static struct notifier_block cpu_nfb __cpuinitdata = {
 	.priority = 6
 };
 
-
-static int __init init_wk(void)
+static void wdk_work_callback(struct work_struct *work)
 {
 	int res = 0;
 	int i = 0;
@@ -738,6 +795,20 @@ static int __init init_wk(void)
 	mtk_wdt_restart(WD_TYPE_NORMAL);	/* for KICK external wdt */
 	cpu_hotplug_enable();
 	pr_alert("[WDK]init_wk done late_initcall cpus_kick_bit=0x%x -----\n", cpus_kick_bit);
+
+}
+
+static int __init init_wk(void)
+{
+	int res = 0;
+
+	wdk_workqueue = create_singlethread_workqueue("mt-wdk");
+	INIT_WORK(&wdk_work, wdk_work_callback);
+
+	res = queue_work(wdk_workqueue, &wdk_work);
+
+	if (!res)
+		pr_err("[WDK]wdk_work start return:%d!\n", res);
 
 	return 0;
 }

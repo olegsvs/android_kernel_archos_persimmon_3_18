@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 
 #include "gmrv.h"
 
@@ -5,11 +18,6 @@ static struct gmrv_context *gmrv_context_obj;
 
 
 static struct gmrv_init_info *gmrvsensor_init_list[MAX_CHOOSE_GMRV_NUM] = { 0 };	/* modified */
-
-#if defined(CONFIG_HAS_EARLYSUSPEND) && defined(CONFIG_EARLYSUSPEND)
-static void gmrv_early_suspend(struct early_suspend *h);
-static void gmrv_late_resume(struct early_suspend *h);
-#endif
 
 static void gmrv_work_func(struct work_struct *work)
 {
@@ -71,7 +79,7 @@ static void gmrv_work_func(struct work_struct *work)
 	gmrv_data_report(cxt->drv_data.gmrv_data.values[0],
 			 cxt->drv_data.gmrv_data.values[1],
 			 cxt->drv_data.gmrv_data.values[2],
-			 cxt->drv_data.gmrv_data.values[3], cxt->drv_data.gmrv_data.status);
+			 cxt->drv_data.gmrv_data.values[3], cxt->drv_data.gmrv_data.status, nt);
 
 gmrv_loop:
 	if (true == cxt->is_polling_run)
@@ -98,6 +106,7 @@ static struct gmrv_context *gmrv_context_alloc_object(void)
 	}
 	atomic_set(&obj->delay, 200);	/*5Hz set work queue delay time 200ms */
 	atomic_set(&obj->wake, 0);
+	atomic_set(&obj->enable, 0);
 	INIT_WORK(&obj->report, gmrv_work_func);
 	init_timer(&obj->timer);
 	obj->timer.expires = jiffies + atomic_read(&obj->delay) / (1000 / HZ);
@@ -342,10 +351,15 @@ static ssize_t gmrv_show_delay(struct device *dev, struct device_attribute *attr
 static ssize_t gmrv_show_sensordevnum(struct device *dev, struct device_attribute *attr, char *buf)
 {
 	struct gmrv_context *cxt = NULL;
-	char *devname = NULL;
+	const char *devname = NULL;
+	struct input_handle *handle;
 
 	cxt = gmrv_context_obj;
-	devname = (char *)dev_name(&cxt->idev->dev);
+	list_for_each_entry(handle, &cxt->idev->h_list, d_node)
+		if (strncmp(handle->name, "event", 5) == 0) {
+			devname = handle->name;
+			break;
+		}
 	return snprintf(buf, PAGE_SIZE, "%s\n", devname + 5);
 }
 
@@ -422,7 +436,7 @@ static int gmrvsensor_probe(struct platform_device *pdev)
 
 #ifdef CONFIG_OF
 static const struct of_device_id gmrvsensor_of_match[] = {
-	{.compatible = "mediatek,gmrvsensor",},
+	{.compatible = "mediatek,gmagrotvec",},
 	{},
 };
 #endif
@@ -431,7 +445,7 @@ static struct platform_driver gmrvsensor_driver = {
 	.probe = gmrvsensor_probe,
 	.remove = gmrvsensor_remove,
 	.driver = {
-		   .name = "gmrvsensor",
+		   .name = "gmagrotvec",
 #ifdef CONFIG_OF
 		   .of_match_table = gmrvsensor_of_match,
 #endif
@@ -499,16 +513,17 @@ static int gmrv_input_init(struct gmrv_context *cxt)
 
 	dev->name = GMRV_INPUTDEV_NAME;
 
-	input_set_capability(dev, EV_ABS, EVENT_TYPE_GMRV_X);
-	input_set_capability(dev, EV_ABS, EVENT_TYPE_GMRV_Y);
-	input_set_capability(dev, EV_ABS, EVENT_TYPE_GMRV_Z);
-	input_set_capability(dev, EV_ABS, EVENT_TYPE_GMRV_SCALAR);
+	input_set_capability(dev, EV_REL, EVENT_TYPE_GMRV_X);
+	input_set_capability(dev, EV_REL, EVENT_TYPE_GMRV_Y);
+	input_set_capability(dev, EV_REL, EVENT_TYPE_GMRV_Z);
+	input_set_capability(dev, EV_REL, EVENT_TYPE_GMRV_SCALAR);
 	input_set_capability(dev, EV_REL, EVENT_TYPE_GMRV_STATUS);
-
-	input_set_abs_params(dev, EVENT_TYPE_GMRV_X, GMRV_VALUE_MIN, GMRV_VALUE_MAX, 0, 0);
+	input_set_capability(dev, EV_REL, EVENT_TYPE_GMRV_TIMESTAMP_HI);
+	input_set_capability(dev, EV_REL, EVENT_TYPE_GMRV_TIMESTAMP_LO);
+	/*input_set_abs_params(dev, EVENT_TYPE_GMRV_X, GMRV_VALUE_MIN, GMRV_VALUE_MAX, 0, 0);
 	input_set_abs_params(dev, EVENT_TYPE_GMRV_Y, GMRV_VALUE_MIN, GMRV_VALUE_MAX, 0, 0);
 	input_set_abs_params(dev, EVENT_TYPE_GMRV_Z, GMRV_VALUE_MIN, GMRV_VALUE_MAX, 0, 0);
-	input_set_abs_params(dev, EVENT_TYPE_GMRV_SCALAR, GMRV_VALUE_MIN, GMRV_VALUE_MAX, 0, 0);
+	input_set_abs_params(dev, EVENT_TYPE_GMRV_SCALAR, GMRV_VALUE_MIN, GMRV_VALUE_MAX, 0, 0);*/
 	input_set_drvdata(dev, cxt);
 
 	input_set_events_per_packet(dev, 32);	/* test */
@@ -593,22 +608,24 @@ int gmrv_register_control_path(struct gmrv_control_path *ctl)
 	return 0;
 }
 
-int gmrv_data_report(int x, int y, int z, int scalar, int status)
+int gmrv_data_report(int x, int y, int z, int scalar, int status, int64_t nt)
 {
 	/* GMRV_LOG("+gmrv_data_report! %d, %d, %d, %d\n",x,y,z,status); */
 	struct gmrv_context *cxt = NULL;
 
 	cxt = gmrv_context_obj;
-	input_report_abs(cxt->idev, EVENT_TYPE_GMRV_X, x);
-	input_report_abs(cxt->idev, EVENT_TYPE_GMRV_Y, y);
-	input_report_abs(cxt->idev, EVENT_TYPE_GMRV_Z, z);
-	input_report_abs(cxt->idev, EVENT_TYPE_GMRV_SCALAR, scalar);
+	input_report_rel(cxt->idev, EVENT_TYPE_GMRV_X, x);
+	input_report_rel(cxt->idev, EVENT_TYPE_GMRV_Y, y);
+	input_report_rel(cxt->idev, EVENT_TYPE_GMRV_Z, z);
+	input_report_rel(cxt->idev, EVENT_TYPE_GMRV_SCALAR, scalar);
+	input_report_rel(cxt->idev, EVENT_TYPE_GMRV_TIMESTAMP_HI, nt >> 32);
+	input_report_rel(cxt->idev, EVENT_TYPE_GMRV_TIMESTAMP_LO, nt & 0xFFFFFFFFLL);
 	/* input_report_rel(cxt->idev, EVENT_TYPE_GMRV_STATUS, status); */
 	input_sync(cxt->idev);
 	return 0;
 }
 
-static int gmrv_probe(struct platform_device *pdev)
+static int gmrv_probe(void)
 {
 
 	int err;
@@ -633,13 +650,6 @@ static int gmrv_probe(struct platform_device *pdev)
 		GMRV_ERR("unable to register gmrv input device!\n");
 		goto exit_alloc_input_dev_failed;
 	}
-#if defined(CONFIG_HAS_EARLYSUSPEND) && defined(CONFIG_EARLYSUSPEND)
-	atomic_set(&(gmrv_context_obj->early_suspend), 0);
-	gmrv_context_obj->early_drv.level = 1;	/* EARLY_SUSPEND_LEVEL_STOP_DRAWING - 1, */
-	gmrv_context_obj->early_drv.suspend = gmrv_early_suspend,
-	    gmrv_context_obj->early_drv.resume = gmrv_late_resume,
-	    register_early_suspend(&gmrv_context_obj->early_drv);
-#endif
 
 	GMRV_LOG("----gmrv_probe OK !!\n");
 	return 0;
@@ -667,7 +677,7 @@ exit_alloc_data_failed:
 
 
 
-static int gmrv_remove(struct platform_device *pdev)
+static int gmrv_remove(void)
 {
 	int err = 0;
 
@@ -683,57 +693,6 @@ static int gmrv_remove(struct platform_device *pdev)
 
 	return 0;
 }
-
-#if defined(CONFIG_HAS_EARLYSUSPEND) && defined(CONFIG_EARLYSUSPEND)
-static void gmrv_early_suspend(struct early_suspend *h)
-{
-	atomic_set(&(gmrv_context_obj->early_suspend), 1);
-	GMRV_LOG(" gmrv_early_suspend ok------->hwm_obj->early_suspend=%d\n",
-		 atomic_read(&(gmrv_context_obj->early_suspend)));
-}
-
-/*----------------------------------------------------------------------------*/
-
-static void gmrv_late_resume(struct early_suspend *h)
-{
-	atomic_set(&(gmrv_context_obj->early_suspend), 0);
-	GMRV_LOG(" gmrv_late_resume ok------->hwm_obj->early_suspend=%d\n",
-		 atomic_read(&(gmrv_context_obj->early_suspend)));
-}
-#endif
-
-static int gmrv_suspend(struct platform_device *dev, pm_message_t state)
-{
-	return 0;
-}
-
-/*----------------------------------------------------------------------------*/
-static int gmrv_resume(struct platform_device *dev)
-{
-	return 0;
-}
-
-
-#ifdef CONFIG_OF
-static const struct of_device_id m_gmrv_pl_of_match[] = {
-	{.compatible = "mediatek,m_gmrv_pl",},
-	{},
-};
-#endif
-
-static struct platform_driver gmrv_driver = {
-	.probe = gmrv_probe,
-	.remove = gmrv_remove,
-	.suspend = gmrv_suspend,
-	.resume = gmrv_resume,
-	.driver = {
-		   .name = GMRV_PL_DEV_NAME,
-#ifdef CONFIG_OF
-		   .of_match_table = m_gmrv_pl_of_match,
-#endif
-		   }
-};
-
 int gmrv_driver_add(struct gmrv_init_info *obj)
 {
 	int err = 0;
@@ -759,13 +718,13 @@ int gmrv_driver_add(struct gmrv_init_info *obj)
 		err = -1;
 	}
 	return err;
-} EXPORT_SYMBOL_GPL(gmrv_driver_add);
+}
 
 static int __init gmrv_init(void)
 {
 	GMRV_FUN();
 
-	if (platform_driver_register(&gmrv_driver)) {
+	if (gmrv_probe()) {
 		GMRV_ERR("failed to register gmrv driver\n");
 		return -ENODEV;
 	}
@@ -775,7 +734,7 @@ static int __init gmrv_init(void)
 
 static void __exit gmrv_exit(void)
 {
-	platform_driver_unregister(&gmrv_driver);
+	gmrv_remove();
 	platform_driver_unregister(&gmrvsensor_driver);
 }
 

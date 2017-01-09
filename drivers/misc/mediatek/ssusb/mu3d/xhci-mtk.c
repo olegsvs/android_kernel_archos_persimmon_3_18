@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #include <xhci.h>
 #include <linux/kernel.h>
 #include <linux/slab.h>
@@ -28,7 +41,7 @@
 #define USB2_PORT 2
 #define USB3_PORT 3
 
-#define OTG_IDDIG_DEBOUNCE 50
+#define OTG_IDDIG_DEBOUNCE 500
 
 #define U3_UX_EXIT_LFPS_TIMING_PAR	0xa0
 #define U3_REF_CK_PAR	0xb0

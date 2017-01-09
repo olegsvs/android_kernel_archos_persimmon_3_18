@@ -55,9 +55,9 @@
 		reg = <0x18>;
 	};
 
-	alsps@48 {
+	alsps@49 {
 		compatible = "mediatek,alsps";
-		reg = <0x48>;
+		reg = <0x49>;
 	};
 
 	nfc@28 {

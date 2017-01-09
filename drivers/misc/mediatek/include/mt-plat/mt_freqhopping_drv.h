@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
 #ifndef __FREQHOPPING_DRV_H
 #define __FREQHOPPING_DRV_H
 
@@ -58,7 +71,7 @@ struct mt_fh_hal_driver {
 	int (*mt_dram_overclock)(int);
 	int (*mt_get_dramc)(void);
 	void (*mt_fh_default_conf)(void);
-
+	int (*mt_dfs_general_pll)(unsigned int, unsigned int);
 	void (*ioctl)(unsigned int ctlid, void *);
 };
 
@@ -72,6 +85,7 @@ enum FH_DEVCTL_CMD_ID {
 	FH_DCTL_CMD_DVFS_SSC_DISABLE = 0x1003,
 	FH_DCTL_CMD_SSC_ENABLE = 0x1004,
 	FH_DCTL_CMD_SSC_DISABLE = 0x1005,
+	FH_DCTL_CMD_GENERAL_DFS = 0x1006,
 	FH_DCTL_CMD_MAX
 };
 

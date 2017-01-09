@@ -29,7 +29,7 @@ struct acc_hw *get_cust_acc(void)
 	return &accel_cust;
 }
 /*----------------------------------------------------------------------------*/
-#define DEBUG 1
+/*#define DEBUG 1*/
 /*----------------------------------------------------------------------------*/
 #define CONFIG_MPU6050_LOWPASS	/*apply low pass filter on output */
 #define SW_CALIBRATION
@@ -125,7 +125,7 @@ static const struct of_device_id accel_of_match[] = {
 	{},
 };
 #endif
-static struct i2c_driver mpu6050_i2c_driver = {
+static struct i2c_driver mpu6050g_i2c_driver = {
 	.driver = {
 		.name = MPU6050_DEV_NAME,
 #ifdef CONFIG_OF
@@ -151,10 +151,15 @@ static char selftestRes[8] = { 0 };
 
 
 /*----------------------------------------------------------------------------*/
+#define MPU6050G_DEBUG 0
 #define GSE_TAG                  "[Gsensor] "
 #define GSE_FUN(f)               pr_debug(GSE_TAG"%s\n", __func__)
 #define GSE_ERR(fmt, args...)    pr_err(GSE_TAG"%s %d : "fmt, __func__, __LINE__, ##args)
+#if MPU6050G_DEBUG
 #define GSE_LOG(fmt, args...)    pr_debug(GSE_TAG fmt, ##args)
+#else
+#define GSE_LOG(fmt, args...)
+#endif
 /*----------------------------------------------------------------------------*/
 static struct data_resolution mpu6050_data_resolution[] = {
 	/*8 combination by {FULL_RES,RANGE} */
@@ -311,7 +316,7 @@ static int MPU6050_SetPowerMode(struct i2c_client *client, bool enable)
 
 	res = mpu_i2c_write_block(client, MPU6050_REG_POWER_CTL, databuf, 0x1);
 	if (res < 0) {
-		GSE_LOG("set power mode failed!\n");
+		GSE_ERR("set power mode failed!\n");
 		return MPU6050_ERR_I2C;
 	} else if (atomic_read(&obj->trace) & MPU6050_TRC_INFO)
 		GSE_LOG("set power mode ok %d!\n", databuf[0]);
@@ -950,22 +955,22 @@ static int MPU6050_JudgeTestResult(struct i2c_client *client, s32 prv[MPU6050_AX
 
 	switch (format) {
 	case MPU6050_RANGE_2G:
-		GSE_LOG("format use self[0]\n");
+		/*GSE_LOG("format use self[0]\n");*/
 		ptr = &self[0];
 		break;
 
 	case MPU6050_RANGE_4G:
-		GSE_LOG("format use self[1]\n");
+		/*GSE_LOG("format use self[1]\n");*/
 		ptr = &self[1];
 		break;
 
 	case MPU6050_RANGE_8G:
-		GSE_LOG("format use self[2]\n");
+		/*GSE_LOG("format use self[2]\n");*/
 		ptr = &self[2];
 		break;
 
 	case MPU6050_RANGE_16G:
-		GSE_LOG("format use self[3]\n");
+		/*GSE_LOG("format use self[3]\n");*/
 		ptr = &self[3];
 		break;
 
@@ -1144,7 +1149,7 @@ static ssize_t store_self_value(struct device_driver *ddri, const char *buf, siz
 
 
 
-	GSE_LOG("NORMAL:\n");
+	/*GSE_LOG("NORMAL:\n");*/
 	MPU6050_SetPowerMode(client, true);
 	msleep(50);
 
@@ -1158,7 +1163,7 @@ static ssize_t store_self_value(struct device_driver *ddri, const char *buf, siz
 		avg_prv[MPU6050_AXIS_X] += prv[idx].raw[MPU6050_AXIS_X];
 		avg_prv[MPU6050_AXIS_Y] += prv[idx].raw[MPU6050_AXIS_Y];
 		avg_prv[MPU6050_AXIS_Z] += prv[idx].raw[MPU6050_AXIS_Z];
-		GSE_LOG("[%5d %5d %5d]\n", prv[idx].raw[MPU6050_AXIS_X],
+		GSE_LOG("Normal:[%5d %5d %5d]\n", prv[idx].raw[MPU6050_AXIS_X],
 			prv[idx].raw[MPU6050_AXIS_Y], prv[idx].raw[MPU6050_AXIS_Z]);
 	}
 
@@ -1167,7 +1172,7 @@ static ssize_t store_self_value(struct device_driver *ddri, const char *buf, siz
 	avg_prv[MPU6050_AXIS_Z] /= num;
 
 	/*initial setting for self test */
-	GSE_LOG("SELFTEST:\n");
+	/*GSE_LOG("SELFTEST:\n");*/
 	for (idx = 0; idx < num; idx++) {
 		res = MPU6050_ReadData(client, nxt[idx].raw);
 		if (res) {
@@ -1177,7 +1182,7 @@ static ssize_t store_self_value(struct device_driver *ddri, const char *buf, siz
 		avg_nxt[MPU6050_AXIS_X] += nxt[idx].raw[MPU6050_AXIS_X];
 		avg_nxt[MPU6050_AXIS_Y] += nxt[idx].raw[MPU6050_AXIS_Y];
 		avg_nxt[MPU6050_AXIS_Z] += nxt[idx].raw[MPU6050_AXIS_Z];
-		GSE_LOG("[%5d %5d %5d]\n", nxt[idx].raw[MPU6050_AXIS_X],
+		GSE_LOG("SELFTESt: [%5d %5d %5d]\n", nxt[idx].raw[MPU6050_AXIS_X],
 			nxt[idx].raw[MPU6050_AXIS_Y], nxt[idx].raw[MPU6050_AXIS_Z]);
 	}
 
@@ -1196,7 +1201,7 @@ static ssize_t store_self_value(struct device_driver *ddri, const char *buf, siz
 		GSE_LOG("SELFTEST : PASS\n");
 		strcpy(selftestRes, "y");
 	} else {
-		GSE_LOG("SELFTEST : FAIL\n");
+		GSE_ERR("SELFTEST : FAIL\n");
 		strcpy(selftestRes, "n");
 	}
 
@@ -1444,7 +1449,6 @@ int gsensor_operate(void *self, uint32_t command, void *buff_in, int size_in,
 				sample_delay = MPU6050_BW_44HZ;
 
 			GSE_LOG("Set delay parameter value:%d\n", value);
-
 
 			err = MPU6050_SetBWRate(priv->client, sample_delay);
 			if (err != MPU6050_SUCCESS)	{ /* 0x2C->BW=100Hz */
@@ -1894,15 +1898,12 @@ static int mpu6050_enable_nodata(int en)
 
 	for (retry = 0; retry < 3; retry++) {
 		res = MPU6050_SetPowerMode(obj_i2c_data->client, power);
-		if (res == 0) {
-			GSE_LOG("MPU6050_SetPowerMode done\n");
+		if (res == 0)
 			break;
-		}
-		GSE_LOG("MPU6050_SetPowerMode fail\n");
 	}
 
 	if (res != MPU6050_SUCCESS) {
-		GSE_LOG("MPU6050_SetPowerMode fail!\n");
+		GSE_ERR("MPU6050_SetPowerMode fail!\n");
 		return -1;
 	}
 	GSE_LOG("mpu6050_enable_nodata OK!\n");
@@ -1977,10 +1978,6 @@ static int mpu6050_i2c_probe(struct i2c_client *client, const struct i2c_device_
 
 	obj_i2c_data = obj;
 	obj->client = client;
-
-	//add by major for get i2c address  from dts.
-	 obj->client->addr = hw->i2c_addr[0];
-
 	/* obj->client->timing = 400; */
 
 	new_client = obj->client;
@@ -2094,9 +2091,9 @@ static int mpu6050_i2c_remove(struct i2c_client *client)
 static int mpu6050_remove(void)
 {
 
-	GSE_FUN();
+	/*GSE_FUN();*/
 	MPU6050_power(hw, 0);
-	i2c_del_driver(&mpu6050_i2c_driver);
+	i2c_del_driver(&mpu6050g_i2c_driver);
 	return 0;
 }
 /*----------------------------------------------------------------------------*/
@@ -2104,7 +2101,7 @@ static int mpu6050_remove(void)
 static int  mpu6050_local_init(void)
 {
 	MPU6050_power(hw, 1);
-	if (i2c_add_driver(&mpu6050_i2c_driver)) {
+	if (i2c_add_driver(&mpu6050g_i2c_driver)) {
 		GSE_ERR("add driver error\n");
 		return -1;
 	}
