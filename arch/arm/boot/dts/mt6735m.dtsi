@@ -9,7 +9,6 @@
 #include <dt-bindings/interrupt-controller/irq.h>
 #include "mt6735m-pinfunc.h"
 #include <dt-bindings/mmc/mt67xx-msdc.h>
-#include <generated/autoconf.h>
 
 / {
 	model = "MT6735M";
@@ -52,24 +51,6 @@
 	msdc1_ins: default {
 		compatible = "mediatek, msdc1_ins-eint";
 	};
-	};
-
-	/* ATF logger SW IRQ number 281 = 32 + 249 */
-	atf_logger {
-		compatible = "mediatek,atf_logger";
-		interrupts = <GIC_SPI 249 IRQ_TYPE_EDGE_RISING>;
-	};
-
-	utos {
-		compatible = "microtrust,utos";
-		interrupts = <GIC_SPI 244 IRQ_TYPE_EDGE_RISING>,
-			<GIC_SPI 245 IRQ_TYPE_EDGE_RISING>,
-			<GIC_SPI 246 IRQ_TYPE_EDGE_RISING>,
-			<GIC_SPI 250 IRQ_TYPE_EDGE_RISING>,
-			<GIC_SPI 251 IRQ_TYPE_EDGE_RISING>,
-			<GIC_SPI 252 IRQ_TYPE_EDGE_RISING>,
-			<GIC_SPI 253 IRQ_TYPE_EDGE_RISING>,
-			<GIC_SPI 255 IRQ_TYPE_EDGE_RISING>;
 	};
 
 	psci {
@@ -215,7 +196,7 @@
 		compatible = "simple-bus";
 		#address-cells = <1>;
 		#size-cells = <1>;
-		ranges = <0 0 0 0xffffffff>;
+		ranges;
 
 		cpuxgpt: cpuxgpt@10200000 {
 			compatible = "mediatek,mt6735-cpuxgpt";
@@ -235,18 +216,6 @@
 			reg = <0x10004000 0x1000>;
 			interrupts = <GIC_SPI 152 IRQ_TYPE_LEVEL_LOW>;
 			clock-frequency = <13000000>;
-		};
-
-		pmu {
-			compatible = "arm,cortex-a7-pmu";
-			interrupts = <GIC_SPI 8 IRQ_TYPE_LEVEL_LOW>,
-				<GIC_SPI 9 IRQ_TYPE_LEVEL_LOW>,
-				<GIC_SPI 10 IRQ_TYPE_LEVEL_LOW>,
-				<GIC_SPI 11 IRQ_TYPE_LEVEL_LOW>;
-			interrupt-affinity = <&cpu0>,
-					     <&cpu1>,
-					     <&cpu2>,
-					     <&cpu3>;
 		};
 
 		timer {
@@ -397,6 +366,7 @@
 					regulator-min-microvolt = <2900000>;
 					regulator-max-microvolt = <3300000>;
 					regulator-enable-ramp-delay = <44>;
+					regulator-boot-on;
 				};
 				mt_pmic_vtref_ldo_reg: ldo_vtref {
 					regulator-name = "vtref";
@@ -409,6 +379,7 @@
 					regulator-min-microvolt = <1800000>;
 					regulator-max-microvolt = <3300000>;
 					regulator-enable-ramp-delay = <44>;
+					regulator-boot-on;
 				};
 				mt_pmic_vcam_af_ldo_reg: ldo_vcamaf {
 					regulator-name = "vcamaf";
@@ -661,9 +632,6 @@
 			compatible = "mediatek, ext_buck_oc-eint";
 			status = "disabled";
 		};
-		swtp: swtp {
-			compatible = "mediatek, swtp-eint";
-		};
 	};
 
 	bus {
@@ -675,11 +643,6 @@
 		INFRACFG_AO@0x10000000 {
 			compatible = "mediatek,INFRACFG_AO";
 			reg = <0x10000000 0x1000>;
-		};
-
-		usb2jtag: usb2jtag@10000000 {
-			compatible = "mediatek,usb2jtag_v1";
-			reg = <0x10000000 0x1000>, <0x11210000 0x1000>;
 		};
 
 		PWRAP@0x10001000 {
@@ -715,18 +678,6 @@
 
 			mediatek,max_eint_num = <213>;
 			mediatek,mapping_table_entry = <0>;
-
-			mediatek,debtime_setting_entry = <10>;
-			mediatek,debtime_setting_array	= <0 125>,
-							<1 250>,
-							<2 500>,
-							<3 1000>,
-							<4 16000>,
-							<5 32000>,
-							<6 64000>,
-							<7 128000>,
-							<8 256000>,
-							<9 512000>;
 		};
 
 				SLEEP@0x10006000 {
@@ -1079,7 +1030,7 @@
 		};
 
 		cpu_dbgapb: cpu_dbgapb {
-			compatible = "mediatek,hw_dbg";
+			compatible = "mediatek,mt6735-dbg_debug";
 			num = <4>;
 			reg =  <0x10810000 0x1000
 				0x10910000 0x1000
@@ -1231,17 +1182,15 @@
 		/* NFC end */
 
 		gps {
-			compatible = "mediatek,gps";
+			compatible = "mediatek,mt3326-gps";
 		};
 
 		btcvsd@10000000 {
 			compatible = "mediatek,audio_bt_cvsd";
 			/*INFRA MISC, conn_bt_cvsd_mask, cvsd_mcu_read, write, packet_indicator*/
 			offset = <0x700 0x800 0xfd0 0xfd4 0xfd8>;
-			reg = <0x10000000 0x1000>, /*AUDIO_INFRA_BASE_PHYSICAL*/
-				<0x18000000 0x10000>, /*PKV_PHYSICAL_BASE*/
-				<0x18080000 0x8000>; /*SRAM_BANK2*/
-			interrupts = <GIC_SPI 228 IRQ_TYPE_LEVEL_LOW>;
+			reg = <0x18000000 0x1000 0x18080000 0x1000>;
+			interrupts = <0x0 0xe4 0x8>;
 		};
 
 		wifi@180F0000 {
@@ -1285,22 +1234,22 @@
 		audio@11220000 {
 			compatible = "mediatek,audio";
 			reg = <0x11220000 0x10000>;
-			interrupts = <GIC_SPI 144 IRQ_TYPE_LEVEL_LOW>;
+			interrupts = <0x0 0x90 0x8>;
 		};
 
-		mt_soc_dl1_pcm@11220000 {
+		audgpio:mt_soc_dl1_pcm@11220000 {
 			compatible = "mediatek,mt-soc-dl1-pcm";
 			reg = <0x11220000 0x1000>;
-			interrupts = <GIC_SPI 144 IRQ_TYPE_LEVEL_LOW>;
-			audclk-gpio = <143 0>;
-			audmiso-gpio = <144 0>;
-			audmosi-gpio = <145 0>;
-			vowclk-gpio = <148 0>;
-			extspkamp-gpio = <117 0>;
-			i2s1clk-gpio = <80 0>;
-			i2s1dat-gpio = <78 0>;
-			i2s1mclk-gpio = <9 0>;
-			i2s1ws-gpio = <79 0>;
+			interrupts = <0x0 0x90 0x8>;
+			audclk-gpio = <0x8f 0x0>;
+			audmiso-gpio = <0x90 0x0>;
+			audmosi-gpio = <0x91 0x0>;
+			vowclk-gpio = <0x94 0x0>;
+			extspkamp-gpio = <0x61 0x0>;
+			i2s1clk-gpio = <0x87 0x0>;
+			i2s1dat-gpio = <0x89 0x0>;
+			i2s1mclk-gpio = <0x86 0x0>;
+			i2s1ws-gpio = <0x88 0x0>;
 		};
 
 		mt_soc_ul1_pcm@11220000 {
@@ -1511,70 +1460,67 @@
 			interrupts = <GIC_SPI 190 IRQ_TYPE_LEVEL_LOW>;
 		};
 
-		DISPSYS@14007000 {
+		DISPSYS@0x14007000 {
 			compatible = "mediatek,DISPSYS";
 			reg = <0x14007000 0x1000>,  /*DISP_OVL0      */
-				<0 0>,  /*DISP_OVL1     */
-				<0x14009000 0x1000>,  /*DISP_RDMA0     */
-				<0 0>,  /*DISP_RDMA1     */
-				<0x1400b000 0x1000>,  /*DISP_WDMA0     */
-				<0x1400c000 0x1000>,  /*DISP_COLOR     */
-				<0x1400d000 0x1000>,  /*DISP_CCORR     */
-				<0x1400e000 0x1000>,  /*DISP_AAL       */
-				<0x1400f000 0x1000>,  /*DISP_GAMMA     */
-				<0x14010000 0x1000>,  /*DISP_DITHER    */
-				<0 0>,  /*DISP_UFOE      */
-				<0x1100e000 0x1000>,  /*DISP_PWM       */
-				<0 0>,  /*DISP_WDMA1     */
-				<0x14015000 0x1000>,  /*DISP_MUTEX     */
-				<0x14012000 0x1000>,  /*DISP_DSI0      */
-				<0x14013000 0x1000>,  /*DISP_DPI0      */
-				<0x14000000 0x1000>,  /*DISP_CONFIG    */
-				<0x14016000 0x1000>,  /*DISP_SMI_LARB0 */
-				<0x14017000 0x1000>,  /*DISP_SMI_COMMOM*/
-				<0x14018000 0x1000>,      /*MIPITX0,real chip would use this:<0x14017000 0x1000>;*/
-				<0x10206000 0x1000>,  /*DISP_CONFIG2*/
-				<0x10210000 0x1000>,  /*DISP_CONFIG3*/
-				<0x10211a70 0x000C>,  /*DISP_DPI_IO_DRIVING1 */
-				<0x10211974 0x000C>,  /*DISP_DPI_IO_DRIVING2 */
-				<0x10211b70 0x000C>,  /*DISP_DPI_IO_DRIVING3 */
-				<0x10206044 0x000C>,  /*DISP_DPI_USE */
-				<0x10206514 0x000C>,  /*DISP_DPI_USE_PERMISSION */
-				<0x10206558 0x000C>,  /*DISP_DPI_USE_KEY */
-				<0x102100a0 0x1000>,  /*DISP_TVDPLL_CFG6 */
-				<0x10209260 0x1000>,  /*DISP_TVDPLL_CON0 */
-				<0x10209264 0x1000>,  /*DISP_TVDPLL_CON1 */
-				<0 0>,  /*DISP_OD      */
-				<0x10209000 0x1000>;  /*DISP_VENCPLL      */
+						<0 0>,  /*DISP_OVL1     */
+						<0x14009000 0x1000>,  /*DISP_RDMA0     */
+						<0 0>,  /*DISP_RDMA1     */
+						<0x1400B000 0x1000>,  /*DISP_WDMA0     */
+						<0x1400C000 0x1000>,  /*DISP_COLOR     */
+						<0x1400D000 0x1000>,  /*DISP_CCORR     */
+						<0x1400E000 0x1000>,  /*DISP_AAL       */
+						<0x1400F000 0x1000>,  /*DISP_GAMMA     */
+						<0x14010000 0x1000>,  /*DISP_DITHER    */
+						<0 0>,  /*DISP_UFOE      */
+						<0x1100E000 0x1000>,  /*DISP_PWM       */
+						<0 0>,  /*DISP_WDMA1     */
+						<0x14015000 0x1000>,  /*DISP_MUTEX     */
+						<0x14012000 0x1000>,  /*DISP_DSI0      */
+						<0x14013000 0x1000>,  /*DISP_DPI0      */
+						<0x14000000 0x1000>,  /*DISP_CONFIG    */
+						<0x14016000 0x1000>,  /*DISP_SMI_LARB0 */
+						<0x14017000 0x1000>,  /*DISP_SMI_COMMOM*/
+						/*MIPITX0,real chip would use this:<0x14017000 0x1000>;*/
+						<0x14018000 0x1000>,
+						<0x10206000 0x1000>,  /*DISP_CONFIG2*/
+						<0x10210000 0x1000>,  /*DISP_CONFIG3*/
+						<0x100010F0 0x1000>,  /*DISP_DPI_IO_DRIVING */
+						<0x102100A0 0x1000>,  /*DISP_TVDPLL_CFG6 */
+						<0x10209270 0x1000>,  /*DISP_TVDPLL_CON0 */
+						<0x10209274 0x1000>,  /*DISP_TVDPLL_CON1 */
+						<0 0>,  /*DISP_OD      */
+						<0x10209000 0x1000>;  /*DISP_VENCPLL      */
 
 			interrupts = <0 193 8>, /*DISP_OVL0 */
-				 <0 0 8>, /*DISP_OVL1 */
-				 <0 195 8>, /*DISP_RDMA0 */
-				 <0 0 8>, /*DISP_RDMA1 */
-				 <0 197 8>, /*DISP_WDMA0 */
-				 <0 198 8>, /*DISP_COLOR */
-				 <0 199 8>, /*DISP_CCORR */
-				 <0 200 8>, /*DISP_AAL */
-				 <0 201 8>, /*DISP_GAMMA */
-				 <0 202 8>, /*DISP_DITHER */
-				 <0 0 8>, /*DISP_UFOE */
-				 <0 117 8>, /*DISP_PWM */
-				 <0 0 8>, /*DISP_WDMA1 */
-				 <0 186 8>, /*DISP_MUTEX */
-				 <0 204 8>, /*DISP_DSI0 */
-				 <0 205 8>, /*DISP_DPI0 */
-				 <0 206 8>, /*DISP_CONFIG, 0 means no IRQ*/
-				 <0 176 8>, /*DISP_SMI_LARB0 */
-				 <0 0 8>, /*DISP_SMI_COMMOM*/
-				 <0 0 8>,      /*MIPITX0,real chip would use this:<0x14017000 0x1000>;*/
-				 <0 0 8>,  /*DISP_CONFIG2*/
-				 <0 0 8>,  /*DISP_CONFIG3*/
-				 <0 0 8>,  /*DISP_DPI_IO_DRIVING */
-				 <0 0 8>,  /*DISP_TVDPLL_CFG6 */
-				 <0 0 8>,  /*DISP_TVDPLL_CON0 */
-				 <0 0 8>,  /*DISP_TVDPLL_CON1 */
-				 <0 0 8>,  /*DISP_OD      */
-				 <0 0 8>;  /*DISP_VENCPLL      */
+									 <0 0 8>, /*DISP_OVL1 */
+									 <0 195 8>, /*DISP_RDMA0 */
+									 <0 0 8>, /*DISP_RDMA1 */
+									 <0 197 8>, /*DISP_WDMA0 */
+									 <0 198 8>, /*DISP_COLOR */
+									 <0 199 8>, /*DISP_CCORR */
+									 <0 200 8>, /*DISP_AAL */
+									 <0 201 8>, /*DISP_GAMMA */
+									 <0 202 8>, /*DISP_DITHER */
+									 <0 0 8>, /*DISP_UFOE */
+									 <0 117 8>, /*DISP_PWM */
+									 <0 0 8>, /*DISP_WDMA1 */
+									 <0 186 8>, /*DISP_MUTEX */
+									 <0 204 8>, /*DISP_DSI0 */
+									 <0 205 8>, /*DISP_DPI0 */
+									 <0 206 8>, /*DISP_CONFIG, 0 means no IRQ*/
+									 <0 176 8>, /*DISP_SMI_LARB0 */
+									 <0 0 8>, /*DISP_SMI_COMMOM*/
+/*MIPITX0,real chip would use this:<0x14017000 0x1000>;*/
+									 <0 0 8>,
+									 <0 0 8>,  /*DISP_CONFIG2*/
+									 <0 0 8>,  /*DISP_CONFIG3*/
+									 <0 0 8>,  /*DISP_DPI_IO_DRIVING */
+									 <0 0 8>,  /*DISP_TVDPLL_CFG6 */
+									 <0 0 8>,  /*DISP_TVDPLL_CON0 */
+									 <0 0 8>,  /*DISP_TVDPLL_CON1 */
+									 <0 0 8>,  /*DISP_OD      */
+									 <0 0 8>;  /*DISP_VENCPLL      */
 				};
 
 		DISP_OVL0@0x14007000 {
@@ -1820,7 +1766,7 @@
 		};
 		barometer@0 {
 			compatible = "mediatek,barometer";
-		};
+	};
 		m_baro_pl@0 {
 			compatible = "mediatek,m_baro_pl";
 		};
@@ -1846,9 +1792,9 @@
 		mediatek,clkbuf-config = <2 1 1 1>;
 	};
 };
-#ifndef CONFIG_OF_RESOLVE
+
 #include <cust.dtsi>
-#endif
+
 &eintc {
 	pmic@206 {
 	compatible = "mediatek, pmic-eint";
