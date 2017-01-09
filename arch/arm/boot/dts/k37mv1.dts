@@ -218,7 +218,7 @@
 		headset-mode-setting = <0x500 0x200 1 0x1F0 0x800 0x800 0x20>;
 		accdet-plugout-debounce = <20>;
 		/*1:ACC mode, 2:low cost without in bias, 6:low cost with in bias*/
-		accdet-mic-mode = <6>;
+		accdet-mic-mode = <1>;
 		/*0--MD_MAX--UP_MAX--DW_MAX*/
 		headset-three-key-threshold = <0 80 220 500>;
 		/*0--MD_MAX--VOICE_MAX--UP_MAX--DW_MAX*/
@@ -463,7 +463,7 @@
 		pinctl_ddr50 = <&mmc1_pins_ddr50>;
 		register_setting = <&mmc1_register_setting_default>;
 		host_function = /bits/ 8 <MSDC_SD>;
-		cd_level = /bits/ 8 <MSDC_CD_LOW>;
+		cd_level = /bits/ 8 <MSDC_CD_HIGH>;
 		cd-gpios = <&pio 5 0>;
 		status = "okay";
 };
