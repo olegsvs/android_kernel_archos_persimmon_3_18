@@ -96,6 +96,13 @@ static dev_t mtk_disp_mgr_devno;
 static struct cdev *mtk_disp_mgr_cdev;
 static struct class *mtk_disp_mgr_class;
 
+#ifdef CONFIG_MTK_VIDEOX_CYNGN_LIVEDISPLAY
+static struct mtk_rgb_work_queue {
+        struct work_struct work;
+	struct mutex lock;
+} mtk_rgb_work_queue;
+#endif
+
 DEFINE_MUTEX(session_config_mutex);
 disp_session_input_config _session_input[2][DISP_SESSION_MEMORY];
 disp_mem_output_config _session_output[2][DISP_SESSION_MEMORY];
@@ -326,6 +333,8 @@ int disp_destroy_session(disp_session_config *config)
 
 	DISPPR_FENCE("destroy_session done\n");
 	/* 2. Destroy this session */
+	if (DISP_SESSION_TYPE(config->session_id) == DISP_SESSION_EXTERNAL)
+		external_display_switch_mode(config->mode, session_config, config->session_id);
 	if (ret == 0)
 		DISPDBG("Destroy session(0x%x)\n", session);
 	else
@@ -396,6 +405,18 @@ int _ioctl_create_session(unsigned long arg)
 		DISPMSG("[FB]: copy_from_user failed! line:%d\n", __LINE__);
 		return -EFAULT;
 	}
+
+#ifdef CONFIG_MTK_GMO_RAM_OPTIMIZE
+	if (config.type == DISP_SESSION_MEMORY) {
+		if (init_ext_decouple_buffers() < 0) {
+			DISPERR("allocate dc buffer fail\n");
+			return -ENOMEM;
+		} else {
+			DISPMSG("allocate dc buffer success\n");
+		}
+	}
+#endif
+
 #if !defined(OVL_TIME_SHARING)
 	if ((config.type == DISP_SESSION_MEMORY) && (get_ovl1_to_mem_on() == false)) {
 		DISPMSG("[FB]: _ioctl_create_session! line:%d  %d\n", __LINE__,
@@ -440,6 +461,13 @@ int _ioctl_destroy_session(unsigned long arg)
 		DISPMSG("[FB]: copy_from_user failed! line:%d\n", __LINE__);
 		return -EFAULT;
 	}
+
+#ifdef CONFIG_MTK_GMO_RAM_OPTIMIZE
+	if (config.type == DISP_SESSION_MEMORY) {
+		deinit_ext_decouple_buffers();
+		DISPMSG("free dc buffer\n");
+	}
+#endif
 
 	if (disp_destroy_session(&config) != 0)
 		ret = -EFAULT;
@@ -1185,6 +1213,8 @@ static int set_memory_buffer(disp_session_input_config *input)
 
 #if !defined(OVL_TIME_SHARING)
 	ovl2mem_input_config((ovl2mem_in_config *)&input_params);
+#else
+	captured_session_input[DISP_SESSION_MEMORY - 1].session_id = input->session_id;
 #endif
 
 	return 0;
@@ -1431,6 +1461,9 @@ static int set_primary_buffer(disp_session_input_config *input)
 			dprec_submit(&session_info->event_setinput, input->config[i].next_buff_idx,
 				     dst_mva);
 	}
+#ifdef CONFIG_ALL_IN_TRIGGER_STAGE
+	captured_session_input[DISP_SESSION_PRIMARY - 1].session_id = input->session_id;
+#endif
 	DISPPR_FENCE("%s\n", fence_msg_buf);
 	mutex_unlock(&session_config_mutex);
 #ifndef CONFIG_ALL_IN_TRIGGER_STAGE
@@ -1826,19 +1859,6 @@ int _ioctl_insert_session_buffers(unsigned long arg)
 	return ret;
 }
 
-#ifdef CONFIG_MTK_GMO_RAM_OPTIMIZE
-/*
-Decoule mode has not be supported due to no dc buffers.
-*/
-static bool sesssion_mode_is_valid(DISP_MODE session_mode)
-{
-	if (session_mode == DISP_SESSION_DECOUPLE_MODE
-	    || session_mode == DISP_SESSION_DECOUPLE_MIRROR_MODE)
-		return false;
-
-	return true;
-}
-#endif
 static DISP_MODE select_session_mode(disp_session_config *session_info)
 {
 	static DISP_MODE final_mode = DISP_SESSION_DIRECT_LINK_MODE;
@@ -1904,13 +1924,6 @@ int set_session_mode(disp_session_config *config_info, int force)
 	int ret = 0;
 
 	config_info->mode = select_session_mode(config_info);
-
-#if defined(CONFIG_MTK_GMO_RAM_OPTIMIZE) && !defined(CONFIG_MTK_WFD_SUPPORT)
-	if (!sesssion_mode_is_valid(config_info->mode)) {
-		DISPMSG("[FB]: session mode is invalid, session_mode:%d\n", config_info->mode);
-		return -EINVAL;
-	}
-#endif
 
 	primary_display_switch_mode(config_info->mode, config_info->session_id, force);
 #if defined(CONFIG_MTK_HDMI_SUPPORT) || defined(CONFIG_MTK_EPD_SUPPORT)
@@ -2222,8 +2235,84 @@ static struct platform_device mtk_disp_mgr_device = {
 	.num_resources = 0,
 };
 
+#ifdef CONFIG_MTK_VIDEOX_CYNGN_LIVEDISPLAY
+#define MAX_LUT_SCALE 2000
+#define PROGRESSION_SCALE 1000
+static u32 mtk_disp_ld_r = MAX_LUT_SCALE;
+static u32 mtk_disp_ld_g = MAX_LUT_SCALE;
+static u32 mtk_disp_ld_b = MAX_LUT_SCALE;
+
+static ssize_t mtk_disp_ld_get_rgb(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	return scnprintf(buf, PAGE_SIZE, "%d %d %d\n", mtk_disp_ld_r, mtk_disp_ld_g, mtk_disp_ld_b);
+}
+
+/**
+ * The default gamma array is an arithmetic progression with alpha=2 and n0=0 and
+ * n = 512.
+ *
+ * We scale it linearly with the color passed to this RGB interface. The display
+ * subsystem has a color precision of 10 bits which means that values from [0-1024[
+ * are acceptable.
+ *
+ * In order to avoid floating point computations in kernel space we scale the alpha
+ * value by 1000 and then scale back the result using integer division.
+ */
+static ssize_t mtk_disp_ld_set_rgb(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	int r = MAX_LUT_SCALE, g = MAX_LUT_SCALE, b = MAX_LUT_SCALE;
+
+	if (count > 19)
+		return -EINVAL;
+
+	sscanf(buf, "%d %d %d", &r, &g, &b);
+
+	if (r < 0 || r > MAX_LUT_SCALE) return -EINVAL;
+	if (g < 0 || g > MAX_LUT_SCALE) return -EINVAL;
+	if (b < 0 || b > MAX_LUT_SCALE) return -EINVAL;
+
+	cancel_work_sync(&mtk_rgb_work_queue.work);
+	mtk_disp_ld_r = r;
+	mtk_disp_ld_g = g;
+	mtk_disp_ld_b = b;
+	schedule_work(&mtk_rgb_work_queue.work);
+
+	return count;
+}
+
+static DEVICE_ATTR(rgb, S_IRUGO | S_IWUSR | S_IWGRP, mtk_disp_ld_get_rgb, mtk_disp_ld_set_rgb);
+
+static void mtk_disp_rgb_work(struct work_struct *work) {
+        struct mtk_rgb_work_queue *rgb_wq = container_of(work, struct mtk_rgb_work_queue, work);
+	int r = mtk_disp_ld_r, g = mtk_disp_ld_g, b = mtk_disp_ld_b;
+	int i, gammutR, gammutG, gammutB, ret;
+	DISP_GAMMA_LUT_T *gamma;
+
+	mutex_lock(&rgb_wq->lock);
+
+	gamma = kzalloc(sizeof(DISP_GAMMA_LUT_T), GFP_KERNEL);
+	gamma->hw_id = 0;
+	for (i = 0; i < 512; i++) {
+		gammutR = i * r / PROGRESSION_SCALE;
+		gammutG = i * g / PROGRESSION_SCALE;
+		gammutB = i * b / PROGRESSION_SCALE;
+
+		gamma->lut[i] = GAMMA_ENTRY(gammutR, gammutG, gammutB);
+	}
+
+	ret = primary_display_user_cmd(DISP_IOCTL_SET_GAMMALUT, (unsigned long)gamma);
+
+	kfree(gamma);
+	mutex_unlock(&rgb_wq->lock);
+}
+#endif
+
 static int __init mtk_disp_mgr_init(void)
 {
+	int rc = 0;
+
 	if (platform_device_register(&mtk_disp_mgr_device))
 		return -ENODEV;
 
@@ -2232,12 +2321,22 @@ static int __init mtk_disp_mgr_init(void)
 		return -ENODEV;
 	}
 
+#ifdef CONFIG_MTK_VIDEOX_CYNGN_LIVEDISPLAY
+	rc = sysfs_create_file(&(mtk_disp_mgr_device.dev.kobj), &dev_attr_rgb.attr);
+	mutex_init(&mtk_rgb_work_queue.lock);
+	INIT_WORK(&mtk_rgb_work_queue.work, mtk_disp_rgb_work);
+#endif
 
-	return 0;
+	return rc;
 }
 
 static void __exit mtk_disp_mgr_exit(void)
 {
+#ifdef CONFIG_MTK_VIDEOX_CYNGN_LIVEDISPLAY
+	mutex_destroy(&mtk_rgb_work_queue.lock);
+	sysfs_remove_file(&(mtk_disp_mgr_device.dev.kobj), &dev_attr_rgb.attr);
+#endif
+
 	cdev_del(mtk_disp_mgr_cdev);
 	unregister_chrdev_region(mtk_disp_mgr_devno, 1);
 
