@@ -633,7 +633,7 @@ static s32 _DrvFwCtrlSelfParsePacket(u8 *pPacket, u16 nLength, SelfTouchInfo_t *
 #ifdef CONFIG_ENABLE_COUNT_REPORT_RATE
     if (g_IsEnableReportRate == 1)
     {
-        if (g_InterruptCount == 4294967295)
+        if (g_InterruptCount == 4294967295u)
         {
             g_InterruptCount = 0; // Reset count if overflow
             DBG(&g_I2cClient->dev, "g_InterruptCount reset to 0\n");
@@ -2245,7 +2245,7 @@ static s32 _DrvFwCtrlMutualParsePacket(u8 *pPacket, u16 nLength, MutualTouchInfo
 #ifdef CONFIG_ENABLE_COUNT_REPORT_RATE
     if (g_IsEnableReportRate == 1)
     {
-        if (g_InterruptCount == 4294967295)
+        if (g_InterruptCount == 4294967295u)
         {
             g_InterruptCount = 0; // Reset count if overflow
             DBG(&g_I2cClient->dev, "g_InterruptCount reset to 0\n");
@@ -12115,7 +12115,7 @@ void _DrvFwCtrlSelfHandleFingerTouch(void) // for MSG21xxA/MSG22xx
 #ifdef CONFIG_ENABLE_COUNT_REPORT_RATE
         if (g_IsEnableReportRate == 1)
         {
-            if (g_ValidTouchCount == 4294967295)
+            if (g_ValidTouchCount == 4294967295u)
             {
                 g_ValidTouchCount = 0; // Reset count if overflow
                 DBG(&g_I2cClient->dev, "g_ValidTouchCount reset to 0\n");
@@ -12467,7 +12467,7 @@ void _DrvFwCtrlMutualHandleFingerTouch(void) // for MSG26xxM/MSG28xx
 #ifdef CONFIG_ENABLE_COUNT_REPORT_RATE
         if (g_IsEnableReportRate == 1)
         {
-            if (g_ValidTouchCount == 4294967295)
+            if (g_ValidTouchCount == 4294967295u)
             {
                 g_ValidTouchCount = 0; // Reset count if overflow
                 DBG(&g_I2cClient->dev, "g_ValidTouchCount reset to 0\n");
