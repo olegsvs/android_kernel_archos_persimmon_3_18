@@ -986,7 +986,7 @@ void hps_algo_smp(void)
 	 * algo - end
 	 */
 ALGO_END_WITH_ACTION:
-	hps_warn(
+/*	hps_warn(
 		"(%04lx)(%u)action end(%u)(%u)(%u)(%u) (%u)(%u)(%u)(%u)(%u) (%u)(%u)(%u) (%u)(%u)(%u) (%u)(%u)(%u)(%u)(%u)\n",
 		hps_ctxt.action, little_num_online,
 		hps_ctxt.cur_loads, hps_ctxt.cur_tlp, hps_ctxt.cur_iowait,
@@ -1001,7 +1001,7 @@ ALGO_END_WITH_ACTION:
 		hps_ctxt.down_loads_sum, hps_ctxt.down_loads_count,
 		hps_ctxt.down_loads_history_index,
 		hps_ctxt.rush_count, hps_ctxt.tlp_sum, hps_ctxt.tlp_count,
-		hps_ctxt.tlp_history_index, hps_ctxt.tlp_avg);
+		hps_ctxt.tlp_history_index, hps_ctxt.tlp_avg);*/
 	hps_ctxt_reset_stas_nolock();
 ALGO_END_WO_ACTION:
 	mutex_unlock(&hps_ctxt.lock);
