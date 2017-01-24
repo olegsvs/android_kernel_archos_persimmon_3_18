@@ -2,7 +2,7 @@
 # Compile Options
 # ---------------------------------------------------
 ccflags-y += -DLINUX -DMT6628
-
+ccflags-y += -DCFG_FORCE_5G_SUPPORT
 ccflags-y += -DCFG_SUPPORT_AGPS_ASSIST=1
 ccflags-y += -DCFG_SUPPORT_TSF_USING_BOOTTIME=1
 ccflags-y += -DCFG_P2P_LEGACY_COEX_REVISE=1
