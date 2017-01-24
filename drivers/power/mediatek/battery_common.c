@@ -278,6 +278,8 @@ struct battery_data {
 	int capacity_smb;
 	int present_smb;
 	int adjust_power;
+	int charge_full_design;
+	int charge_full;
 };
 
 static enum power_supply_property wireless_props[] = {
@@ -315,6 +317,8 @@ static enum power_supply_property battery_props[] = {
 	POWER_SUPPLY_PROP_present_smb,
 	/* ADB CMD Discharging */
 	POWER_SUPPLY_PROP_adjust_power,
+	POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN,
+	POWER_SUPPLY_PROP_CHARGE_FULL,
 };
 
 /*void check_battery_exist(void);*/
@@ -646,7 +650,12 @@ static int battery_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_adjust_power:
 		val->intval = data->adjust_power;
 		break;
-
+	case POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN:
+		val->intval = data->charge_full_design;
+		break;
+	case POWER_SUPPLY_PROP_CHARGE_FULL:
+		val->intval = data->charge_full;
+		break;
 	default:
 		ret = -EINVAL;
 		break;
@@ -1889,6 +1898,8 @@ static void battery_update(struct battery_data *bat_data)
 	bat_data->BAT_batt_vol = BMT_status.bat_vol;
 	bat_data->BAT_batt_temp = BMT_status.temperature * 10;
 	bat_data->BAT_PRESENT = BMT_status.bat_exist;
+	bat_data->charge_full_design = 2000 * 1000;
+	bat_data->charge_full = 2000 * 1000;
 
 	if ((BMT_status.charger_exist == KAL_TRUE) && (BMT_status.bat_charging_state != CHR_ERROR)) {
 		if (BMT_status.bat_exist) {	/* charging */
